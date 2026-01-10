@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Discord Community
+    url: https://discord.gg/your-server
+    about: Tham gia Discord server để thảo luận và nhận hỗ trợ
+  - name: 📚 Documentation
+    url: https://github.com/mpc-ou/discord-bot/wiki
+    about: Xem tài liệu hướng dẫn chi tiết

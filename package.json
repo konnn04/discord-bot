@@ -1,0 +1,39 @@
+{
+  "name": "discord-bot",
+  "version": "0.0.1",
+  "description": "",
+  "homepage": "https://github.com/mpc-ou/discord-bot#readme",
+  "bugs": {
+    "url": "https://github.com/mpc-ou/discord-bot/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mpc-ou/discord-bot.git"
+  },
+  "license": "GPL-2.0",
+  "author": "MPC",
+  "type": "module",
+  "main": "server.ts",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "deploy-commands": "tsx src/bot/commands/deploy.ts"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.0.2",
+    "@fastify/cors": "^11.2.0",
+    "@fastify/jwt": "^10.0.0",
+    "@fastify/static": "^9.0.0",
+    "discord.js": "^14.25.1",
+    "dotenv": "^17.2.3",
+    "fastify": "^5.6.2",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.3",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1"
+  }
+}
