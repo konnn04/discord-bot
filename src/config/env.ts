@@ -35,15 +35,13 @@ export const config = {
     url: process.env.DATABASE_URL!,
   },
   developerId: (() => {
-    const val = process.env.DEVELOPER_ID || '[]';
-    try {
-        return JSON.parse(val) as string[];
-    } catch {
-        try {
-            return JSON.parse(val.replace(/'/g, '"')) as string[];
-        } catch {
-            return [];
-        }
-    }
+    const val = process.env.DEVELOPER_ID || '';
+    if (!val) return [];
+    const cleanVal = val.trim().replace(/^\[|\]$/g, '');
+    if (!cleanVal) return [];
+    
+    return cleanVal.split(',').map(id => {
+        return id.trim().replace(/^["']|["']$/g, '');
+    }).filter(id => id.length > 0);
   })(),
 };

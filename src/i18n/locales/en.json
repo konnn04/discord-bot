@@ -68,7 +68,16 @@
         "cookieUpdateSuccess": "✅ **Cookies Updated:**\n{files}",
         "cookieUpdateError": "❌ **Error:** Failed to update cookies. Check logs.",
         "cookieUploadRequired": "⚠️ Please upload at least one file (yt_cookie or yt_music_cookie).",
-        "cookieUpdatedFile": "- `{file}` updated.\n"
+        "cookieUpdatedFile": "- `{file}` updated.\n",
+        "fields": {
+            "duration": "Duration",
+            "position": "Position in Queue",
+            "platform": "Platform",
+            "requestedBy": "Requested By"
+        },
+        "buttons": {
+            "dashboardControl": "Dashboard Control"
+        }
     },
     "leveling": {
         "levelUp": "🎉 **{user}** has leveled up to Level **{level}**!"
@@ -134,5 +143,108 @@
         "voiceLogSet": "✅ Voice logging set to **{value}**.",
         "unsupported": "❌ Unsupported language. Supported: {supported}",
         "unknown": "❌ Unknown setting."
+    },
+    "actions": {
+        "bite": {
+            "self": "🤔 Biting yourself? That's... interesting!",
+            "messages": [
+                "{user} **bit** {target}! *chomp* 🦷",
+                "{target} got bitten by {user}! 😬",
+                "{user} took a bite out of {target}! *nom nom* 🍴"
+            ],
+            "fail": "❌ Failed to fetch bite GIF. Try again later!",
+            "noUser": "❌ Please mention a user to bite!"
+        },
+        "bonk": {
+            "noUser": "❌ Please mention a user to bonk!",
+            "messages": [
+                "{user} **bonked** {target}! Go to horny jail! 🔨",
+                "{target} got **bonked** by {user}! *BONK* 🔨",
+                "{user} sent {target} to horny jail! 🔨⚡"
+            ],
+            "fail": "❌ Failed to fetch GIF. Try again later!"
+        },
+        "cry": {
+            "withReason": "{user} is crying because:\n*{reason}* 😢💧",
+            "default": "{user} is crying! 😢💧",
+            "fail": "❌ Failed to fetch GIF. Try again later!"
+        },
+        "dance": {
+            "withUser": "{user} is dancing with {target}! 💃🕺✨",
+            "default": "{user} is dancing! 💃✨",
+            "fail": "❌ Failed to fetch GIF. Try again later!"
+        },
+        "f": {
+            "withReason": "**{user}** has paid respects for:\n\n*{reason}*\n\n```\nF```",
+            "default": "**{user}** has paid respects.\n\n```\nF```",
+            "footer": "F to pay respects"
+        },
+        "hug": {
+            "noUser": "❌ Please mention a user to hug!",
+            "messages": [
+                "{user} **hugged** {target}! 🤗💕",
+                "{target} received a warm hug from {user}! 🫂",
+                "{user} gave {target} a big hug! 🤗✨"
+            ],
+            "fail": "❌ Failed to fetch GIF. Try again later!"
+        },
+        "kiss": {
+            "noUser": "❌ Please mention a user to kiss!",
+            "self": "😳 Kissing yourself? That's... creative!",
+            "messages": [
+                "{user} **kissed** {target}! 💋💕",
+                "{target} got a kiss from {user}! 😘",
+                "{user} gave {target} a sweet kiss! 💋✨"
+            ],
+            "fail": "❌ Failed to fetch GIF. Try again later!"
+        },
+        "lick": {
+            "noUser": "❌ Please mention a user to lick!",
+            "self": "🤨 You can't lick yourself... that's weird!",
+            "message": "{user} **licked** {target}! 👅💕",
+            "fail": "❌ Failed to fetch GIF. Try again later!"
+        },
+        "meme": {
+            "title": "Random Meme",
+            "fail": "❌ Failed to fetch meme. Try again later!"
+        },
+        "pat": {
+            "noUser": "❌ Please mention a user to pat!",
+            "messages": [
+                "{user} **patted** {target}'s head! *pat pat* 🤚",
+                "{target} received headpats from {user}! 🥰",
+                "{user} gently pats {target}! *pat pat pat* ✨"
+            ],
+            "fail": "❌ Failed to fetch GIF. Try again later!"
+        },
+        "poke": {
+            "noUser": "❌ Please mention a user to poke!",
+            "messages": [
+                "{user} **poked** {target}! *poke* 👉",
+                "{target} got poked by {user}! 😮",
+                "{user} is poking {target}! *poke poke* 👈👉"
+            ],
+            "fail": "❌ Failed to fetch GIF. Try again later!"
+        },
+        "punch": {
+            "noUser": "❌ Please mention a user to punch!",
+            "self": "😵 Why would you punch yourself?!",
+            "messages": [
+                "{user} **punched** {target}! 👊💥",
+                "{target} got punched by {user}! *POW!* 👊",
+                "{user} threw a punch at {target}! 💢"
+            ],
+            "fail": "❌ Failed to fetch GIF. Try again later!"
+        },
+        "slap": {
+            "noUser": "❌ Please mention a user to slap!",
+            "self": "🤨 Slapping yourself? Are you okay?",
+            "messages": [
+                "{user} **slapped** {target}! 👋💥",
+                "{target} got slapped by {user}! *SLAP!* 🖐️",
+                "{user} gave {target} a hard slap! 💢"
+            ],
+            "fail": "❌ Failed to fetch GIF. Try again later!"
+        }
     }
 }

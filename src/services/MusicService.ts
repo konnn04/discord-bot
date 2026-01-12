@@ -11,7 +11,7 @@ import {
 } from '@discordjs/voice';
 import { Readable } from 'stream';
 import RiknClient from 'rikn-music-fetcher';
-import { Guild, VoiceBasedChannel, TextChannel, EmbedBuilder } from 'discord.js';
+import { Guild, VoiceBasedChannel, TextChannel, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { db } from '../database/client';
 import { musicQueue } from '../database/schema/musicQueue';
 import { guildSettings } from '../database/schema/guildSettings';
@@ -33,6 +33,13 @@ interface MusicQueue {
   currentResource: any;
   history: any[];
 }
+
+const convertToTime = (duration: any) => {
+    // If it's already formatted "mm:ss", return it
+    if (typeof duration === 'string' && duration.includes(':')) return duration;
+    // Otherwise treat as seconds
+    return formatDuration(duration);
+};
 
 export class MusicService {
   private static queues: Map<string, MusicQueue> = new Map();
@@ -62,12 +69,38 @@ export class MusicService {
   // --- Socket Helpers ---
   private static emitUpdate(guildId: string, event: string, payload: any = {}) {
       const queue = this.queues.get(guildId);
+      
+      const formatSong = (song: any) => {
+          if (!song) return null;
+          let duration = 0;
+          if (typeof song.duration === 'string') {
+              if (song.duration.includes(':')) {
+                   // Parse "mm:ss" to seconds for frontend logic
+                   const parts = song.duration.split(':').map(Number);
+                   if (parts.length === 3) duration = parts[0] * 3600 + parts[1] * 60 + parts[2];
+                   else if (parts.length === 2) duration = parts[0] * 60 + parts[1];
+              } else {
+                  duration = parseInt(song.duration, 10);
+              }
+          } else {
+              duration = song.duration;
+          }
+
+          return {
+              ...song,
+              duration: duration, // Ensure valid number for frontend
+              thumbnail: song.thumbnail || (song.images && song.images.length > 0 ? song.images[0].url : null),
+              durationFormatted: convertToTime(song.duration)
+          };
+      };
+
       const state = queue ? {
           playing: queue.playing,
-          currentSong: queue.songs[0] || null,
-          queue: queue.songs,
+          currentSong: formatSong(queue.songs[0]),
+          queue: queue.songs.map(formatSong),
           volume: queue.volume,
-          loop: queue.loop
+          loop: queue.loop,
+          position: queue.currentResource?.playbackDuration || 0
       } : null;
 
       SocketService.emitToGuild(guildId, event, { ...payload, state });
@@ -198,13 +231,21 @@ export class MusicService {
         if (isUrl) {
              if (query.includes('list=') || query.includes('/playlist/')) {
                  songsToAdd = await this.client.getSongsByPlaylist(query);
+                 songsToAdd.forEach((s: any) => s.thumbnail = s.images && s.images.length > 0 ? s.images[0].url : null);
              } else {
                  const song = await this.client.getSongByUrl(query);
-                 if (song) songsToAdd.push(song);
+                 if (song) {
+                    (song as any).thumbnail = song.images && song.images.length > 0 ? song.images[0].url : null;
+                    songsToAdd.push(song);
+                 }
              }
         } else {
              const song = await this.client.searchFirstAndStream(query);
-             if (song) songsToAdd.push(song);
+             // Ensure thumbnail is available on the song object immediately if possible
+             if (song) {
+                 (song as any).thumbnail = song.images && song.images.length > 0 ? song.images[0].url : null;
+                 songsToAdd.push(song);
+             }
         }
 
         if (songsToAdd.length === 0) {
@@ -239,15 +280,23 @@ export class MusicService {
                 embed.setDescription(`[${song.title}](${song.url})\n**Artist:** ${song.artist}`);
                 if (song.thumbnail) embed.setThumbnail(song.thumbnail);
                 embed.addFields([
-                    { name: 'Duration', value: formatDuration(song.duration), inline: true },
-                    { name: 'Position in Queue', value: String(queue.songs.length), inline: true },
-                    { name: 'Platform', value: song.source ? song.source.charAt(0).toUpperCase() + song.source.slice(1) : 'Unknown', inline: true }
+                    { name: await I18nService.t(guild.id, 'music.fields.duration'), value: formatDuration(song.duration), inline: true },
+                    { name: await I18nService.t(guild.id, 'music.fields.position'), value: String(queue.songs.length), inline: true },
+                    { name: await I18nService.t(guild.id, 'music.fields.platform'), value: song.source ? song.source.charAt(0).toUpperCase() + song.source.slice(1) : 'Unknown', inline: true }
                 ]);
                 const footerText = await I18nService.t(guild.id, 'music.footer', { user: requesterName });
                 embed.setFooter({ text: footerText, iconURL: requester.displayAvatarURL() });
             }
 
-            textChannel.send({ embeds: [embed] });
+            const row = new ActionRowBuilder<ButtonBuilder>()
+                .addComponents(
+                    new ButtonBuilder()
+                        .setLabel(await I18nService.t(guild.id, 'music.buttons.dashboardControl'))
+                        .setStyle(ButtonStyle.Link)
+                        .setURL(`${config.server.appUrl}/dashboard/music/${guild.id}`)
+                );
+
+            textChannel.send({ embeds: [embed], components: [row] });
 
             // Ensure playback starts if idle
             if (queue.player.state.status === AudioPlayerStatus.Idle) {
@@ -299,12 +348,27 @@ export class MusicService {
             .setColor('#3498db')
             .setThumbnail(song.thumbnail || null)
             .addFields([
-                { name: 'Duration', value: formatDuration(song.duration), inline: true },
-                { name: 'Requested By', value: song.requester ? `<@${song.requester.id}>` : 'Unknown', inline: true },
-                { name: 'Platform', value: song.source ? song.source.charAt(0).toUpperCase() + song.source.slice(1) : 'Unknown', inline: true }
-            ]);
+                { name: await I18nService.t(guildId, 'music.fields.duration'), value: convertToTime(song.duration), inline: true },
+                { name: await I18nService.t(guildId, 'music.fields.requestedBy'), value: song.requester ? `<@${song.requester.id}>` : 'Unknown', inline: true },
+                { name: await I18nService.t(guildId, 'music.fields.platform'), value: song.source ? song.source.charAt(0).toUpperCase() + song.source.slice(1) : 'Unknown', inline: true }
+            ])
+            .setFooter({ text: (await I18nService.t(guildId, 'music.footer', { user: song.requester ? (song.requester.globalName || song.requester.username) : 'User' })), iconURL: song.thumbnail || undefined });
 
-          queue.textChannel?.send({ embeds: [embed] });
+          const row = new ActionRowBuilder<ButtonBuilder>()
+              .addComponents(
+                  new ButtonBuilder()
+                      .setLabel(await I18nService.t(guildId, 'music.buttons.dashboardControl'))
+                      .setStyle(ButtonStyle.Link)
+                      .setURL(`${config.server.appUrl}/dashboard/music/${guildId}`)
+              );
+
+          if (queue.textChannel) {
+              queue.textChannel.send({ embeds: [embed], components: [row] }).catch(err => {
+                  console.error(`[Music] Failed to send Now Playing embed to ${queue.textChannel?.id}:`, err);
+              });
+          } else {
+              console.warn('[Music] No text channel available to send notification');
+          }
 
           this.saveQueueToDB(guildId);
           this.emitUpdate(guildId, 'music:track_start', { song });
@@ -454,7 +518,12 @@ export class MusicService {
 
   static async search(query: string) {
       try {
-          return await this.client.searchSong(query);
+          const results = await this.client.searchSong(query);
+          return results.map((track: any) => ({
+              ...track,
+              thumbnail: track.images && track.images.length > 0 ? track.images[0].url : null,
+              durationFormatted: formatDuration(track.duration)
+          }));
       } catch (e) {
           console.error(e);
           return [];

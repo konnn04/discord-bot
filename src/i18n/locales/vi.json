@@ -79,7 +79,16 @@
         "cookieUpdateSuccess": "✅ **Đã cập nhật Cookie:**\n{files}",
         "cookieUpdateError": "❌ **Lỗi:** Cập nhật cookie thất bại. Kiểm tra log.",
         "cookieUploadRequired": "⚠️ Vui lòng tải lên ít nhất một file (yt_cookie hoặc yt_music_cookie).",
-        "cookieUpdatedFile": "- `{file}` đã cập nhật.\n"
+        "cookieUpdatedFile": "- `{file}` đã cập nhật.\n",
+        "fields": {
+            "duration": "Thời lượng",
+            "position": "Vị trí trong hàng chờ",
+            "platform": "Nền tảng",
+            "requestedBy": "Yêu cầu bởi"
+        },
+        "buttons": {
+            "dashboardControl": "Điều khiển Dashboard"
+        }
     },
     "leveling": {
         "levelUp": "🎉 **{user}** đã lên Level **{level}**!"
@@ -145,5 +154,108 @@
         "voiceLogSet": "✅ Nhật ký voice đã được thiết lập thành **{value}**.",
         "unsupported": "❌ Ngôn ngữ không được hỗ trợ. Các ngôn ngữ hỗ trợ: {supported}",
         "unknown": "❌ Cài đặt không xác định."
+    },
+    "actions": {
+        "bite": {
+            "self": "🤔 Tự cắn mình à? Thật... thú vị!",
+            "messages": [
+                "{user} **đã cắn** {target}! *phập* 🦷",
+                "{target} bị {user} cắn! 😬",
+                "{user} đã ngoạm một miếng {target}! *măm măm* 🍴"
+            ],
+            "fail": "❌ Không thể lấy GIF cắn. Thử lại sau nhé!",
+            "noUser": "❌ Vui lòng nhắc đến người bạn muốn cắn!"
+        },
+        "bonk": {
+            "noUser": "❌ Vui lòng nhắc đến người bạn muốn gõ đầu!",
+            "messages": [
+                "{user} **gõ đầu** {target}! Vào tù horny ngay! 🔨",
+                "{target} bị **gõ** bởi {user}! *BONK* 🔨",
+                "{user} đã tống {target} vào tù horny! 🔨⚡"
+            ],
+            "fail": "❌ Không thể lấy GIF. Thử lại sau nhé!"
+        },
+        "cry": {
+            "withReason": "{user} đang khóc vì:\n*{reason}* 😢💧",
+            "default": "{user} đang khóc! 😢💧",
+            "fail": "❌ Không thể lấy GIF. Thử lại sau nhé!"
+        },
+        "dance": {
+            "withUser": "{user} đang nhảy cùng {target}! 💃🕺✨",
+            "default": "{user} đang nhảy! 💃✨",
+            "fail": "❌ Không thể lấy GIF. Thử lại sau nhé!"
+        },
+        "f": {
+            "withReason": "**{user}** đã bày tỏ lòng thành kính vì:\n\n*{reason}*\n\n```\nF```",
+            "default": "**{user}** đã bày tỏ lòng thành kính.\n\n```\nF```",
+            "footer": "F để bày tỏ lòng thành kính"
+        },
+        "hug": {
+            "noUser": "❌ Vui lòng nhắc đến người bạn muốn ôm!",
+            "messages": [
+                "{user} **đã ôm** {target}! 🤗💕",
+                "{target} nhận được cái ôm ấm áp từ {user}! 🫂",
+                "{user} đã ôm {target} thật chặt! 🤗✨"
+            ],
+            "fail": "❌ Không thể lấy GIF. Thử lại sau nhé!"
+        },
+        "kiss": {
+            "noUser": "❌ Vui lòng nhắc đến người bạn muốn hôn!",
+            "self": "😳 Tự hôn mình á? Sáng tạo đấy!",
+            "messages": [
+                "{user} **đã hôn** {target}! 💋💕",
+                "{target} nhận được nụ hôn từ {user}! 😘",
+                "{user} đã trao cho {target} nụ hôn ngọt ngào! 💋✨"
+            ],
+            "fail": "❌ Không thể lấy GIF. Thử lại sau nhé!"
+        },
+        "lick": {
+            "noUser": "❌ Vui lòng nhắc đến người bạn muốn liếm!",
+            "self": "🤨 Bạn không thể tự liếm mình... kì cục quá!",
+            "message": "{user} **đã liếm** {target}! 👅💕",
+            "fail": "❌ Không thể lấy GIF. Thử lại sau nhé!"
+        },
+        "meme": {
+            "title": "Meme ngẫu nhiên",
+            "fail": "❌ Không thể lấy meme. Thử lại sau nhé!"
+        },
+        "pat": {
+            "noUser": "❌ Vui lòng nhắc đến người bạn muốn xoa đầu!",
+            "messages": [
+                "{user} **xoa đầu** {target}! *pat pat* 🤚",
+                "{target} được {user} xoa đầu! 🥰",
+                "{user} nhẹ nhàng xoa đầu {target}! *pat pat pat* ✨"
+            ],
+            "fail": "❌ Không thể lấy GIF. Thử lại sau nhé!"
+        },
+        "poke": {
+            "noUser": "❌ Vui lòng nhắc đến người bạn muốn chọc!",
+            "messages": [
+                "{user} **chọc** {target}! *poke* 👉",
+                "{target} bị {user} chọc! 😮",
+                "{user} đang chọc {target}! *chọc chọc* 👈👉"
+            ],
+            "fail": "❌ Không thể lấy GIF. Thử lại sau nhé!"
+        },
+        "punch": {
+            "noUser": "❌ Vui lòng nhắc đến người bạn muốn đấm!",
+            "self": "😵 Tại sao bạn lại tự đấm mình?!",
+            "messages": [
+                "{user} **đã đấm** {target}! 👊💥",
+                "{target} bị {user} đấm! *BỐP!* 👊",
+                "{user} tung cú đấm vào {target}! 💢"
+            ],
+            "fail": "❌ Không thể lấy GIF. Thử lại sau nhé!"
+        },
+        "slap": {
+            "noUser": "❌ Vui lòng nhắc đến người bạn muốn tát!",
+            "self": "🤨 Tự tát mình à? Bạn ổn không?",
+            "messages": [
+                "{user} **đã tát** {target}! 👋💥",
+                "{target} bị {user} tát! *CHÁT!* 🖐️",
+                "{user} đã tát {target} một cú trời giáng! 💢"
+            ],
+            "fail": "❌ Không thể lấy GIF. Thử lại sau nhé!"
+        }
     }
 }

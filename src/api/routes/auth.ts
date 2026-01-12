@@ -2,6 +2,7 @@ import { FastifyInstance, FastifyPluginAsync } from 'fastify';
 import { config } from '../../config/env';
 import { BotClient } from '../../bot/types/bot.types';
 import { authenticate } from '@api/middleware/auth';
+import { User } from '../../shared/types/api.types';
 
 const DISCORD_API_URL = 'https://discord.com/api/v10';
 const HOST = config.server.host === '0.0.0.0' ? 'localhost' : config.server.host;
@@ -78,7 +79,7 @@ export const authRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
         accessToken,
       });
 
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const frontendUrl = process.env.APP_URL || 'http://localhost:3000';
       return reply.redirect(`${frontendUrl}/auth/callback?token=${token}`);
 
     } catch (error) {
@@ -91,6 +92,8 @@ export const authRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
   app.get('/me', {
     onRequest: [authenticate]
   }, async (req, reply) => {
-    return req.user;
+    const user = req.user as User;
+    const isDeveloper = config.developerId.includes(user.id);
+    return { ...user, isDeveloper };
   });
 };

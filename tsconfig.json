@@ -20,8 +20,7 @@
       "@bot/*": ["./src/bot/*"],
       "@shared/*": ["./src/shared/*"],
       "@config/*": ["./src/config/*"],
-      "@web/*": ["./src/web/*"],
-      "@services/*": ["./src/services/*"]
+      "@services/*": ["./src/services/*"],
     }
 
   },

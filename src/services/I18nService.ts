@@ -59,34 +59,50 @@ export class I18nService {
       this.cache.delete(guildId);
   }
 
-  public static async t(guildId: string | undefined | null, key: string, args?: Record<string, any>): Promise<string> {
-    const lang = await this.getLocale(guildId);
-    return this.translate(lang, key, args);
-  }
+    public static format(text: string, args?: Record<string, any>): string {
+        if (!text) return "";
+        if (!args) return text;
+        
+        let value = text;
+        for (const [k, v] of Object.entries(args)) {
+            value = value.replace(new RegExp(`{${k}}`, 'g'), String(v));
+        }
+        return value;
+    }
+
+    public static async getArray(guildId: string | undefined | null, key: string): Promise<string[]> {
+        const lang = await this.getLocale(guildId);
+        let value = this.getRawValue(lang, key);
+
+        if ((!value || !Array.isArray(value)) && lang !== this.defaultLang) {
+            value = this.getRawValue(this.defaultLang, key);
+        }
+
+        return Array.isArray(value) ? value : [];
+    }
+
+    public static async t(guildId: string | undefined | null, key: string, args?: Record<string, any>): Promise<string> {
+        const lang = await this.getLocale(guildId);
+        return this.translate(lang, key, args);
+    }
 
     static tSync(lang: string, key: string, args?: Record<string, any>): string {
         return this.translate(lang, key, args);
     }
 
     private static translate(lang: string, key: string, args?: Record<string, any>): string {
-        let value = this.getValue(lang, key);
+        let value = this.getRawValue(lang, key);
         
         if (!value && lang !== this.defaultLang) {
-            value = this.getValue(this.defaultLang, key);
+            value = this.getRawValue(this.defaultLang, key);
         }
 
-        if (!value) return key;
+        if (typeof value !== 'string') return key;
 
-        if (args) {
-            for (const [k, v] of Object.entries(args)) {
-                value = value.replace(new RegExp(`{${k}}`, 'g'), String(v));
-            }
-        }
-
-        return value;
+        return this.format(value, args);
     }
 
-    private static getValue(lang: string, key: string): string | null {
+    private static getRawValue(lang: string, key: string): any {
         const data = this.locales[lang];
         if (!data) return null;
 
@@ -98,6 +114,6 @@ export class I18nService {
             current = current[part];
         }
 
-        return typeof current === 'string' ? current : null;
+        return current;
     }
 }

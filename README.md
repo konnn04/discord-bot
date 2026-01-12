@@ -1,133 +1,126 @@
-# 🦊 MPC Discord Bot
+# 🤖 Discord Music & Management Bot
 
-![Version](https://img.shields.io/github/package-json/v/mpc-ou/discord-bot?style=for-the-badge)
-![License](https://img.shields.io/github/license/mpc-ou/discord-bot?style=for-the-badge)
-![Discord.js](https://img.shields.io/badge/discord.js-v14-blue?style=for-the-badge)
 ![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-43853D?style=for-the-badge&logo=node.js&logoColor=white)
+![Discord.js](https://img.shields.io/badge/Discord.js-5865F2?style=for-the-badge&logo=discord&logoColor=white)
+![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
+![Fastify](https://img.shields.io/badge/Fastify-000000?style=for-the-badge&logo=fastify&logoColor=white)
 
-[Tiếng Việt](./README.vi.md)
+A powerful, full-featured Discord bot with a modern web dashboard. Built for stability, performance, and ease of use.
 
-## 📖 Introduction
+## ✨ Features
 
-A powerful and feature-rich Discord Bot built with **TypeScript**, **Discord.js v14**, and **Fastify**. Designed for community management, music playback, meeting tracking, and more.
+- 🎵 **Advanced Music System**
+  - High-quality playback from various sources
+  - DJ roles and access management
+  - Queue management, loop, shuffle, and lyrics
 
-### ✨ Key Features
+- 🛡️ **Moderation & Management**
+  - Kick, Ban, Timeout, and Warn users
+  - Role management (Auto-role, Reaction roles)
+  - Detailed Audit Logs
 
-- **🎵 Music System**: High-quality music playback from YouTube, Spotify, and YouTube Music.
-- **📊 Meeting Tracker**: Track voice channel attendance, generate reports, and manage meeting sessions.
-- **✅ Attendance**: Event attendance management with optional Q&A verification.
-- **📈 Leveling**: XP system for text and voice activity.
-- **🔊 Voice Logging**: Notify when users join, leave, or move between voice channels.
-- **🌐 Web Dashboard**: Fastify-powered API and dashboard for management.
-- **🌍 Internationalization (i18n)**: Fully supported English (en) and Vietnamese (vi).
-- **🔧 Slash Commands**: Modern Discord slash commands interaction.
+- 📊 **Web Dashboard**
+  - Real-time statistics and control
+  - Managing settings per guild
+  - Mobile-responsive design
 
----
+- 📈 **Leveling & XP**
+  - Customizable XP rates
+  - Level-up announcements and roles
+  - Leaderboard
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 
-- **Node.js**: v18 or higher.
-- **PostgreSQL**: Required for database (or use SQLite if configured).
-- **FFmpeg**: Required for music playback.
-- **Discord Bot Token**: Get it from [Discord Developer Portal](https://discord.com/developers/applications).
+- Node.js v18+
+- PostgreSQL
+- Discord Application (Bot Token + Client ID)
 
-### 🛠️ Installation
+### Installation
 
-1.  **Clone the repository**
-    ```bash
-    git clone https://github.com/mpc-ou/discord-bot.git
-    cd discord-bot
-    ```
+1. **Clone the repository**
 
-2.  **Install dependencies**
-    ```bash
-    npm install
-    ```
+   ```bash
+   git clone https://github.com/yourusername/discord-bot.git
+   cd discord-bot
+   ```
 
-3.  **Environment Configuration**
-    Copy `.env.example` to `.env` and fill in your details:
-    ```bash
-    cp .env.example .env
-    ```
-    See `.env.example` for details on required variables.
+2. **Install dependencies**
 
-4.  **Database Setup**
-    Ensure your PostgreSQL server is running and the database exists. Then run migrations:
-    ```bash
-    npm run db:generate
-    npm run db:migrate
-    # Or use push for quick prototyping
-    npm run db:push
-    ```
+   ```bash
+   # Root dependencies
+   npm install
 
-5.  **Deploy Commands**
-    Register Slash Commands with Discord:
-    ```bash
-    npm run deploy-commands
-    ```
+   # Web dashboard dependencies
+   cd web
+   npm install
+   cd ..
+   ```
 
----
+3. **Environment Setup**
 
-## 🏃‍♂️ Running the Bot
+   Create a `.env` file based on `.env.example`:
 
-### Development Mode
-Runs the bot with hot-reloading using `tsx watch`.
-```bash
-npm run dev
-```
+   ```env
+   # Discord
+   DISCORD_TOKEN=your_token_here
+   DISCORD_CLIENT_ID=your_client_id_here
+   DEVELOPER_ID=["your_id_here"]
 
-### Production Mode
-Build the TypeScript code and start the compiled bot.
-```bash
-npm run build
-npm start
-```
+   # Database
+   DATABASE_URL=postgresql://user:password@localhost:5432/dbname
 
----
+   # Web Dashboard
+   VITE_API_URL=http://localhost:3000
+   ```
 
-## 💻 Developer Guide
+4. **Database Migration**
 
-### Project Structure
-```text
-src/
-├── bot/
-│   ├── commands/
-│   │   └── actions/     # Command implementations
-│   ├── events/          # Event handlers
-├── services/            # Business logic (Music, I18n, etc.)
-├── database/            # Drizzle ORM schema & migrations
-├── api/                 # Fastify API routes
-├── config/              # Environment config
-└── i18n/                # Locale JSON files
-```
+   ```bash
+   npm run db:push
+   ```
 
-### Creating a New Action Command
-1.  Create a new file in `src/bot/commands/actions/<category>/<command_name>.action.ts`.
-2.  Implement the `ActionCommand` interface:
-    ```typescript
-    import { ActionCommand } from '@src/shared/types/bot.types';
-    import { I18nService } from '@services/I18nService';
+5. **Run the Bot**
 
-    export const myCommand: ActionCommand = {
-        name: 'mycommand',
-        description: 'Description of command',
-        async execute(ctx) {
-            await ctx.reply('Hello World!');
-        }
-    };
-    export default myCommand;
-    ```
-3.  The command loader will automatically register it (restart required).
-4.  Run `npm run deploy-commands` if you changed arguments.
+   ```bash
+   # Development Mode (Bot + Dashboard)
+   npm run dev
 
----
+   # Production Build
+   npm run build
+   npm start
+   ```
+
+## 🐳 Docker Deployment
+
+A `Dockerfile` is included for easy deployment.
+
+1. **Build the image**
+
+   ```bash
+   docker build -t discord-bot .
+   ```
+
+2. **Run the container**
+
+   ```bash
+   docker run -d --env-file .env -p 3000:3000 discord-bot
+   ```
+
+## 🛠️ Project Structure
+
+- `src/bot`: Discord.js bot client and commands
+- `src/api`: Fastify API server
+- `src/shared`: Shared types and utilities
+- `web`: React + Vite dashboard
+- `src/database`: Drizzle ORM schemas and migrations
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please open an issue or submit a pull request.
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## 📄 License
 
-This project is licensed under the **GPL-2.0** License.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

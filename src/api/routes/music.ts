@@ -76,6 +76,32 @@ export const musicRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
       };
   });
 
+  const getWritableChannel = (guild: any, voiceChannel?: any) => {
+      // 1. Prioritize Voice Channel Chat if available and writable
+      if (voiceChannel && voiceChannel.send && voiceChannel.permissionsFor(guild.members.me).has('SendMessages')) {
+          return voiceChannel;
+      }
+
+      // 2. Try to find a channel named "music" or "bot"
+      const preferred = guild.channels.cache.find((c: any) => 
+          c.isTextBased() && 
+          ['music', 'music-bot', 'bot', 'commands'].some((name: string) => c.name.includes(name)) &&
+          c.permissionsFor(guild.members.me).has(['ViewChannel', 'SendMessages'])
+      );
+      if (preferred) return preferred;
+
+      // 3. System channel check
+      if (guild.systemChannel && guild.systemChannel.permissionsFor(guild.members.me).has('SendMessages')) {
+          return guild.systemChannel;
+      }
+      
+      // 4. Fallback to any writable text channel
+      return guild.channels.cache.find((c: any) => 
+          c.isTextBased() && 
+          c.permissionsFor(guild.members.me).has(['ViewChannel', 'SendMessages'])
+      );
+  };
+
   app.post('/:guildId/control', {
       onRequest: [authenticate]
   }, async (req, reply) => {
@@ -87,12 +113,21 @@ export const musicRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
 
       const guild = client.guilds.cache.get(guildId);
       if (!guild) return reply.code(404).send({ error: 'Guild not found' });
+      const member = await guild.members.fetch((req.user as any).id);
+
+      // Helper to send feedback to channel
+      const sendFeedback = (message: string) => {
+           const channel = getWritableChannel(guild) as any;
+           if (channel) channel.send(`[Web] **${member.user.username}**: ${message}`);
+      };
 
       // If action is JOIN, special handling
       if (body.action === 'join') {
            const member = await guild.members.fetch((req.user as any).id);
            if (member.voice.channel) {
-               await MusicService.join(guild, member.voice.channel, member.voice.channel as any); // Sending to voice text channel? need text channel
+               const textChannel = getWritableChannel(guild, member.voice.channel) as any;
+               await MusicService.join(guild, member.voice.channel, textChannel); 
+               sendFeedback('Joined voice channel.');
                return { success: true };
            }
       }
@@ -100,39 +135,68 @@ export const musicRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
       // Standard Controls
       switch (body.action) {
           case 'play':
-              // Play requires a query, handled via separate endpoint or overload?
-              // If resuming:
               MusicService.resume(guildId);
+              sendFeedback('Resumed playback.');
               break;
           case 'pause':
               MusicService.pause(guildId);
+              sendFeedback('Paused playback.');
               break;
           case 'skip':
               MusicService.skip(guildId);
+              sendFeedback('Skipped track.');
               break;
           case 'stop':
               MusicService.stop(guildId);
+              sendFeedback('Stopped playback.');
               break;
           case 'volume':
-              if (typeof body.value === 'number') MusicService.setVolume(guildId, body.value);
+              if (typeof body.value === 'number') {
+                  MusicService.setVolume(guildId, body.value);
+                  sendFeedback(`Set volume to ${body.value}%`);
+              }
               break;
           case 'loop':
-              MusicService.toggleLoop(guildId);
+              const isLoop = MusicService.toggleLoop(guildId);
+              sendFeedback(isLoop ? 'Enabled loop.' : 'Disabled loop.');
               break;
           case 'shuffle':
               MusicService.shuffle(guildId);
+              sendFeedback('Shuffled queue.');
               break;
           case 'previous':
               MusicService.previous(guildId);
+              sendFeedback('Played previous track.');
               break;
           case 'remove':
-              if (typeof body.value === 'number') MusicService.removeSong(guildId, body.value);
+              if (typeof body.value === 'number') {
+                  const song = MusicService.removeSong(guildId, body.value);
+                  if (song) sendFeedback(`Removed ${song} from queue.`);
+              }
               break;
           default:
               return reply.code(400).send({ error: 'Invalid action' });
       }
 
       return { success: true };
+  });
+
+  app.get('/search', {
+      onRequest: [authenticate]
+  }, async (req, reply) => {
+      const { q } = req.query as { q: string };
+      if (!q) return reply.code(400).send({ error: 'Query is required' });
+      
+      const results = await MusicService.search(q);
+      return results;
+  });
+  
+  app.get('/:guildId/lyrics', {
+      onRequest: [authenticate]
+  }, async (req, reply) => {
+       const { guildId } = req.params as { guildId: string };
+       const lyrics = await MusicService.getLyrics(guildId);
+       return { lyrics: lyrics ? lyrics.syncedLyrics || lyrics.plainLyrics : null };
   });
 
   app.post('/:guildId/play', {
@@ -147,17 +211,11 @@ export const musicRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
      const guild = client.guilds.cache.get(guildId);
      const member = await guild!.members.fetch((req.user as any).id);
      
-     // Need a text channel to send feedback. Ideally user provides it or we pick logic.
-     // For now, pick system channel or first available?
-     // Or just return result via API and assume UI handles it.
-     // But MusicService requires a TextChannel.
-     
-     // Hack: Use the first TextChannel found or one defined in settings
-     const textChannel = guild!.systemChannel || guild!.channels.cache.find(c => c.isTextBased()) as any;
+     const textChannel = getWritableChannel(guild, member.voice.channel) as any;
 
      if (member.voice.channel && textChannel) {
-        // We don't await this fully if it takes long, or we do?
-        // Let's await to return error if valid
+        // Notification
+        textChannel.send(`[Web] **${member.user.username}** added a song via dashboard.`);
         await MusicService.play(guild!, member.voice.channel, textChannel, query, member.user);
         return { success: true };
      } else {

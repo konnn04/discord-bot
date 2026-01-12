@@ -20,16 +20,16 @@ export async function createApp(botClient: BotClient, db: any) {
   app.decorate('discordBot', botClient);
   app.decorate('db', db);
 
-  await app.register(import('@fastify/static'), {
-    root: path.join(__dirname, '../../dist/web'),
-    prefix: '/',
-  });
-
   await app.register(import('fastify-socket.io'), {
     cors: {
       origin: "*", 
       methods: ["GET", "POST"]
     }
+  });
+
+  await app.register(import('@fastify/static'), {
+    root: path.join(__dirname, '../../web/dist'),
+    prefix: '/',
   });
 
   await registerRoutes(app);
