@@ -64,7 +64,11 @@
         "footer": "Requested by {user}",
         "fetchError": "❌ Error fetching music.",
         "playError": "❌ Failed to play **{song}**. Skipping...",
-        "idleDisconnect": "💤 Queue finished. Disconnecting..."
+        "idleDisconnect": "💤 Queue finished. Disconnecting...",
+        "cookieUpdateSuccess": "✅ **Cookies Updated:**\n{files}",
+        "cookieUpdateError": "❌ **Error:** Failed to update cookies. Check logs.",
+        "cookieUploadRequired": "⚠️ Please upload at least one file (yt_cookie or yt_music_cookie).",
+        "cookieUpdatedFile": "- `{file}` updated.\n"
     },
     "leveling": {
         "levelUp": "🎉 **{user}** has leveled up to Level **{level}**!"

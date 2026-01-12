@@ -15,10 +15,11 @@ import {
     BaseMessageOptions,
     InteractionResponse,
     Channel,
+    Attachment,
 } from 'discord.js';
 
 export type InteractionSource = ChatInputCommandInteraction | ButtonInteraction | StringSelectMenuInteraction;
-export type OptionType = 'string' | 'integer' | 'boolean' | 'user' | 'channel';
+export type OptionType = 'string' | 'integer' | 'boolean' | 'user' | 'channel' | 'attachment';
 
 export abstract class BaseContext {
     public readonly client: Client;
@@ -40,7 +41,7 @@ export abstract class BaseContext {
     abstract get voiceChannelId(): string | null | undefined;
     abstract get author(): User;
 
-    abstract getOption(name: string, type?: OptionType): string | number | boolean | User | Channel | null;
+    abstract getOption(name: string, type?: OptionType): string | number | boolean | User | Channel | Attachment | null;
     abstract reply(content: string | InteractionReplyOptions | MessagePayload): Promise<Message | InteractionResponse>;
     abstract defer(ephemeral?: boolean): Promise<Message | InteractionResponse>;
     abstract editReply(content: string | InteractionEditReplyOptions | MessagePayload | BaseMessageOptions): Promise<Message>;
@@ -96,7 +97,7 @@ export class InteractionContext extends BaseContext {
         return this.user;
     }
 
-    getOption(name: string, type: OptionType = 'string'): string | number | boolean | User | Channel | null {
+    getOption(name: string, type: OptionType = 'string'): string | number | boolean | User | Channel | Attachment | null {
         if (!this.options) return null;
 
         switch (type) {
@@ -105,6 +106,7 @@ export class InteractionContext extends BaseContext {
             case 'boolean': return this.options.getBoolean(name);
             case 'user': return this.options.getUser(name);
             case 'channel': return this.options.getChannel(name) as Channel | null;
+            case 'attachment': return this.options.getAttachment(name);
             default: return this.options.get(name)?.value ?? null;
         }
     }
@@ -205,9 +207,13 @@ export class MessageContext extends BaseContext {
         return this.user;
     }
 
-    getOption(name: string, type: OptionType = 'string'): string | number | boolean | User | Channel | null {
+    getOption(name: string, type: OptionType = 'string'): string | number | boolean | User | Channel | Attachment | null {
         const optionValue = this.parsedOptions?.get(name.toLowerCase());
         
+        // Message context doesn't support generic file attachments via key:value
+        // We could implement looking at message.attachments if needed
+        if (type === 'attachment') return null;
+
         if (optionValue !== undefined) {
             return this._convertOptionValue(optionValue, type);
         }

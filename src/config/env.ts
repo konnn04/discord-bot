@@ -34,4 +34,16 @@ export const config = {
   database: {
     url: process.env.DATABASE_URL!,
   },
+  developerId: (() => {
+    const val = process.env.DEVELOPER_ID || '[]';
+    try {
+        return JSON.parse(val) as string[];
+    } catch {
+        try {
+            return JSON.parse(val.replace(/'/g, '"')) as string[];
+        } catch {
+            return [];
+        }
+    }
+  })(),
 };
