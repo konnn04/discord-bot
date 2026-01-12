@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Gamepad2, Github, Globe, Facebook } from "lucide-react";
+import { Github, Globe, Facebook } from "lucide-react";
 
 const Login = () => {
   const handleLogin = () => {

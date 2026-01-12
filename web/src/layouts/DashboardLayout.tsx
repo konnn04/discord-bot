@@ -7,7 +7,6 @@ import {
   Users,
   LogOut,
   Menu,
-  Bot,
   Terminal,
   ShieldAlert
 } from "lucide-react";

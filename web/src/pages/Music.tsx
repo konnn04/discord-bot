@@ -37,7 +37,7 @@ const SearchDialog = ({ guildId }: { guildId: string }) => {
             setResults(data)
         } catch (e) {
             console.error(e);
-            toast.error(e.error || "Failed to search for song.");
+            toast.error((e as any).error || "Failed to search for song.");
         } finally {
             setSearching(false);
         }
@@ -54,7 +54,7 @@ const SearchDialog = ({ guildId }: { guildId: string }) => {
                 setResults([]);
             }).catch((e) => {
                 console.error(e)
-                toast.error(e.error || "Failed to add song to queue.");
+                toast.error((e as any).error || "Failed to add song to queue.");
             });
         } catch (e) {
             console.error(e);
