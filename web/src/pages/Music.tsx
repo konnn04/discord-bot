@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Play, Pause, SkipForward, Square, Repeat, Volume2, ListMusic, Loader2, Search, Plus, Mic2, Disc } from "lucide-react";
+import { Play, Pause, SkipForward, Square, Repeat, Volume2, ListMusic, Loader2, Search, Plus, Mic2, Disc, ArrowDown } from "lucide-react";
 import type { MusicState, Guild } from "@shared/types/api.types";
 import { toast } from "sonner";
 // --- Utility ---
@@ -177,6 +177,7 @@ const SearchDialog = ({ guildId }: { guildId: string }) => {
 };
 
 const LyricsTab = ({ guildId, currentSong, position }: { guildId: string, currentSong: any, position: number }) => {
+    const [isAutoScroll, setIsAutoScroll] = useState(true);
     const [lyrics, setLyrics] = useState<any>(null);
     const [loading, setLoading] = useState(false);
     const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -194,6 +195,7 @@ const LyricsTab = ({ guildId, currentSong, position }: { guildId: string, curren
             try {
                 const data = await api.fetch<{ lyrics: any }>(`/music/${guildId}/lyrics`);
                 setLyrics(data.lyrics || "No lyrics found.");
+                setIsAutoScroll(true); // Reset auto-scroll on new song
             } catch {
                 setLyrics("Failed to load lyrics.");
             } finally {
@@ -201,14 +203,18 @@ const LyricsTab = ({ guildId, currentSong, position }: { guildId: string, curren
             }
         };
         fetchLyrics();
-    }, [guildId, currentSong?.title]);
+    }, [guildId, currentSong]);
 
     // Auto-scroll
     useEffect(() => {
-        if (activeLineRef.current && scrollAreaRef.current) {
+        if (isAutoScroll && activeLineRef.current && scrollAreaRef.current) {
             activeLineRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
         }
-    }, [position, lyrics]);
+    }, [position, lyrics, isAutoScroll]);
+
+    const handleUserInteraction = () => {
+        if (isAutoScroll) setIsAutoScroll(false);
+    };
 
     if (loading) return <div className="flex h-full items-center justify-center p-8"><Loader2 className="animate-spin text-muted-foreground" /></div>;
     
@@ -222,34 +228,62 @@ const LyricsTab = ({ guildId, currentSong, position }: { guildId: string, curren
     }
 
     if (Array.isArray(lyrics)) {
-        return (
-            <ScrollArea className="max-h-[75vh] h-full w-full px-8" ref={scrollAreaRef}>
-                <div className="space-y-6 py-8 text-center">
-                    {lyrics.map((line: any, i: number) => {
-   
-                        
-                        let lineTime = line.seconds !== undefined ? line.seconds : line.time;
-                        
-                        if (lineTime > 1000 && !line.seconds) lineTime = lineTime / 1000;
-                        
-                        const nextLineTime = lyrics[i+1] ? (lyrics[i+1].seconds !== undefined ? lyrics[i+1].seconds : (lyrics[i+1].time > 1000 ? lyrics[i+1].time / 1000 : lyrics[i+1].time)) : Infinity;
-
-                        const isActive = lineTime <= position && nextLineTime > position;
-                         
-                         return (
-                            <div 
-                                key={i} 
-                                ref={isActive ? activeLineRef : null}
-                                className={`transition-all duration-300 py-2 cursor-pointer ${isActive ? "scale-105 text-primary font-bold opacity-100" : "text-muted-foreground opacity-50 hover:opacity-80 scale-100"}`}
-                                onClick={() => {
-                                }}
-                            >
-                                <p className="text-xl sm:text-2xl leading-relaxed">{line.text}</p>
-                            </div>
-                         );
-                    })}
+        if (lyrics.length === 0) {
+             return (
+                <div className="flex h-full items-center justify-center p-8 text-center text-muted-foreground whitespace-pre-wrap leading-loose">
+                   No lyrics found.
                 </div>
-            </ScrollArea>
+            );
+        }
+
+        return (
+            <div className="relative h-full group/lyrics">
+                {!isAutoScroll && (
+                    <Button 
+                        size="sm" 
+                        variant="secondary" 
+                        className="absolute bottom-4 right-8 z-10 shadow-lg opacity-90 hover:opacity-100"
+                        onClick={() => setIsAutoScroll(true)}
+                    >
+                        <ArrowDown className="mr-2 h-4 w-4" /> Resume Sync
+                    </Button>
+                )}
+                <ScrollArea 
+                    className="max-h-[75vh] h-full w-full px-8" 
+                    ref={scrollAreaRef}
+                    onWheel={handleUserInteraction}
+                    onTouchMove={handleUserInteraction}
+                >
+                    <div className="space-y-6 py-8 text-center">
+                        {lyrics.map((line: any, i: number) => {
+       
+                            
+                            let lineTime = line.seconds !== undefined ? line.seconds : line.time;
+                            
+                            if (lineTime > 1000 && !line.seconds) lineTime = lineTime / 1000;
+                            
+                            const nextLineTime = lyrics[i+1] ? (lyrics[i+1].seconds !== undefined ? lyrics[i+1].seconds : (lyrics[i+1].time > 1000 ? lyrics[i+1].time / 1000 : lyrics[i+1].time)) : Infinity;
+
+                            const isActive = lineTime <= position && nextLineTime > position;
+                             
+                             return (
+                                <div 
+                                    key={i} 
+                                    ref={isActive ? activeLineRef : null}
+                                    className={`transition-all duration-300 py-2 cursor-pointer ${isActive ? "scale-105 text-primary font-bold opacity-100" : "text-muted-foreground opacity-50 hover:opacity-80 scale-100"}`}
+                                    onClick={() => {
+                                        // Optional: Seek to this line? 
+                                        // For now just allow click without doing anything or maybe set auto scroll back?
+                                        // Let's keep it simple.
+                                    }}
+                                >
+                                    <p className="text-xl sm:text-2xl leading-relaxed">{line.text}</p>
+                                </div>
+                             );
+                        })}
+                    </div>
+                </ScrollArea>
+           </div>
         );
     }
 
@@ -270,7 +304,15 @@ const QueueTab = ({ queue, onRemove }: { queue: any[], onRemove: (index: number)
                         </div>
                         <div className="flex-1 min-w-0">
                             <div className="font-medium truncate text-sm">{song.title}</div>
-                            <div className="text-xs text-muted-foreground truncate">{song.author}</div>
+                            <div className="text-xs text-muted-foreground truncate flex items-center gap-1">
+                                <span>{song.artist || song.author || "Unknown Artist"}</span>
+                                {song.requester && (
+                                    <>
+                                        <span>•</span>
+                                        <span className="text-muted-foreground/80">Added by {song.requester.globalName || song.requester.username}</span>
+                                    </>
+                                )}
+                            </div>
                         </div>
                         <div className="text-xs text-muted-foreground font-mono">{song.durationFormatted}</div>
                         <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive" onClick={() => onRemove(i + 1)}>

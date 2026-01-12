@@ -2,26 +2,16 @@ import { FastifyInstance, FastifyPluginAsync } from 'fastify';
 import { BotClient } from '../../bot/types/bot.types';
 import { MusicService } from '../../services/MusicService';
 import { authenticate } from '@api/middleware/auth';
-import { config } from '@config/env';
 import { I18nService } from '@src/services/I18nService';
 
 export const musicRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
   const client = app.discordBot as BotClient;
 
-  // Middleware to check permissions
-  // 1. Dev (Bot Owner) -> Full Access
-  // 2. Member in SAME voice channel -> Full Access
-  // 3. Others -> Read Only (Get State) - actually control endpoints should block them.
   const checkMusicPermission = async (req: any, reply: any, guildId: string): Promise<boolean> => {
       const user = req.user;
       if (!user) return false;
 
-      // Check Dev
-      // You might store dev ID in env or DB. Assuming config.bot.ownerId exists or similar, or hardcoded for now.
-      // For now, let's assume we trust the user if they are the guild owner or admin?
-      // User requested "Dev of Bot" specifically.
       
-      // Let's implement Voice Channel check first
       const guild = client.guilds.cache.get(guildId);
       if (!guild) {
           reply.code(404).send({ error: 'Guild not found' });
@@ -34,15 +24,9 @@ export const musicRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
           return false;
       }
 
-      // Check if Dev (Implementation depends on how you store owner ID)
-      // const isDev = user.id === config.bot.ownerId; 
-      // if (isDev) return true;
 
-      // Check Voice Channel
       const botVoiceChannel = guild.members.me?.voice.channelId;
       if (!botVoiceChannel) {
-           // Bot not in voice, maybe allow controlling to Join? 
-           // For now, allow if member is in ANY voice channel so they can summon
            if (member.voice.channelId) return true;
            
            reply.code(403).send({ error: 'You must be in a voice channel' });
@@ -78,28 +62,27 @@ export const musicRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
   });
 
   const getWritableChannel = (guild: any, voiceChannel?: any) => {
-      // 1. Prioritize Voice Channel Chat if available and writable
-      if (voiceChannel && voiceChannel.send && voiceChannel.permissionsFor(guild.members.me).has('SendMessages')) {
+      const me = guild.members.me;
+      if (!me) return null;
+
+      if (voiceChannel && voiceChannel.send && voiceChannel.permissionsFor(me).has('SendMessages')) {
           return voiceChannel;
       }
 
-      // 2. Try to find a channel named "music" or "bot"
       const preferred = guild.channels.cache.find((c: any) => 
           c.isTextBased() && 
           ['music', 'music-bot', 'bot', 'commands'].some((name: string) => c.name.includes(name)) &&
-          c.permissionsFor(guild.members.me).has(['ViewChannel', 'SendMessages'])
+          c.permissionsFor(me).has(['ViewChannel', 'SendMessages'])
       );
       if (preferred) return preferred;
 
-      // 3. System channel check
-      if (guild.systemChannel && guild.systemChannel.permissionsFor(guild.members.me).has('SendMessages')) {
+      if (guild.systemChannel && guild.systemChannel.permissionsFor(me).has('SendMessages')) {
           return guild.systemChannel;
       }
       
-      // 4. Fallback to any writable text channel
       return guild.channels.cache.find((c: any) => 
           c.isTextBased() && 
-          c.permissionsFor(guild.members.me).has(['ViewChannel', 'SendMessages'])
+          c.permissionsFor(me).has(['ViewChannel', 'SendMessages'])
       );
   };
 
@@ -116,20 +99,18 @@ export const musicRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
       if (!guild) return reply.code(404).send({ error: 'Guild not found' });
       const member = await guild.members.fetch((req.user as any).id);
 
-      // Helper to send feedback to channel
       const sendFeedback = (message: string) => {
            const queue = MusicService.getQueue(guildId);
            let channel = queue?.textChannel;
 
-           // If no queue channel (or it's gone), try bot's current voice channel
            if (!channel) {
-               const botVoice = guild.members.me?.voice.channel;
-               if (botVoice && (botVoice as any).send && botVoice.permissionsFor(guild.members.me).has('SendMessages')) {
+               const me = guild.members.me;
+               const botVoice = me?.voice.channel;
+               if (botVoice && (botVoice as any).send && me && botVoice.permissionsFor(me).has('SendMessages')) {
                    channel = botVoice as any;
                }
            }
            
-           // Fallback only if absolutely necessary, but try to use the most relevant one
            if (!channel) {
                 channel = getWritableChannel(guild) as any;
            }
@@ -137,7 +118,6 @@ export const musicRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
            if (channel) channel.send(`[Web] **${member.user.username}**: ${message}`);
       };
 
-      // If action is JOIN, special handling
       if (body.action === 'join') {
            const member = await guild.members.fetch((req.user as any).id);
            if (member.voice.channel) {
@@ -148,7 +128,6 @@ export const musicRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
            }
       }
 
-      // Standard Controls
       switch (body.action) {
           case 'play':
               MusicService.resume(guildId);
@@ -169,7 +148,7 @@ export const musicRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
           case 'volume':
               if (typeof body.value === 'number') {
                   MusicService.setVolume(guildId, body.value);
-                  sendFeedback(await I18nService.t(guildId, 'music.volumeSet', { volume: body.value }));
+                  sendFeedback(await I18nService.t(guildId, 'music.volumeSet', { level: body.value }));
               }
               break;
           case 'loop': {
@@ -213,7 +192,17 @@ export const musicRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
   }, async (req, reply) => {
        const { guildId } = req.params as { guildId: string };
        const lyrics = await MusicService.getLyrics(guildId);
-       return { lyrics: lyrics ? lyrics.syncedLyrics || lyrics.plainLyrics : null };
+       
+       let finalLyrics = null;
+       if (lyrics) {
+           if (Array.isArray(lyrics.syncedLyrics) && lyrics.syncedLyrics.length > 0) {
+               finalLyrics = lyrics.syncedLyrics;
+           } else {
+               finalLyrics = lyrics.plainLyrics;
+           }
+       }
+       
+       return { lyrics: finalLyrics };
   });
 
   app.post('/:guildId/play', {
@@ -231,7 +220,6 @@ export const musicRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
      const textChannel = getWritableChannel(guild, member.voice.channel) as any;
 
      if (member.voice.channel && textChannel) {
-        // Notification
         const safeUser = member.user.username.replace(/([*_`~])/g, '\\$1');
         textChannel.send(await I18nService.t(guildId, 'music.addedByDashboard', { user: safeUser }));
         await MusicService.play(guild!, member.voice.channel, textChannel, query, member.user, { forceSingle });

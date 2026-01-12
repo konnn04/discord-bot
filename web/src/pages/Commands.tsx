@@ -34,7 +34,7 @@ export default function Commands() {
     
     // Pagination
     const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 10;
+    const itemsPerPage = 25;
 
     useEffect(() => {
         const fetchCommands = async () => {
