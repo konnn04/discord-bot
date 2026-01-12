@@ -13,6 +13,7 @@ export const guildSettings = pgTable('guild_settings', {
   // Music Settings
   musicDefaultVolume: integer('music_default_volume').default(50),
   musicMaxQueueSize: integer('music_max_queue_size').default(100),
+  musicIdleTimeout: integer('music_idle_timeout').default(180), 
   musicDjRoleId: varchar('music_dj_role_id', { length: 20 }),
   
   // Moderation Settings

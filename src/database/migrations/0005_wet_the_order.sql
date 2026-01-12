@@ -1,0 +1,1 @@
+ALTER TABLE "guild_settings" ADD COLUMN "music_idle_timeout" integer DEFAULT 180;

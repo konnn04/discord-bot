@@ -27,20 +27,29 @@
     "db:seed": "tsx src/database/seed.ts"
   },
   "dependencies": {
+    "@discordjs/opus": "^0.10.0",
+    "@discordjs/voice": "^0.19.0",
     "@fastify/cookie": "^11.0.2",
     "@fastify/cors": "^11.2.0",
     "@fastify/jwt": "^10.0.0",
     "@fastify/oauth2": "^8.1.2",
     "@fastify/static": "^9.0.0",
+    "@snazzah/davey": "^0.1.9",
     "axios": "^1.13.2",
     "discord.js": "^14.25.1",
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.45.1",
     "fastify": "^5.6.2",
+    "fastify-socket.io": "^5.1.0",
+    "ffmpeg-static": "^5.3.0",
+    "libsodium-wrappers": "^0.8.0",
     "pg": "^8.16.3",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
-    "react-router-dom": "^7.12.0"
+    "react-router-dom": "^7.12.0",
+    "rikn-music-fetcher": "^1.0.5",
+    "socket.io": "^4.8.3",
+    "sodium-native": "^5.0.10"
   },
   "devDependencies": {
     "@types/node": "^25.0.3",

@@ -29,6 +29,20 @@
       "when": 1768187681377,
       "tag": "0003_regular_groot",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1768191937300,
+      "tag": "0004_fuzzy_firebird",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1768194455624,
+      "tag": "0005_wet_the_order",
+      "breakpoints": true
     }
   ]
 }

@@ -25,6 +25,13 @@ export async function createApp(botClient: BotClient, db: any) {
     prefix: '/',
   });
 
+  await app.register(import('fastify-socket.io'), {
+    cors: {
+      origin: "*", 
+      methods: ["GET", "POST"]
+    }
+  });
+
   await registerRoutes(app);
 
   app.setNotFoundHandler(async (req, reply) => {
@@ -33,6 +40,12 @@ export async function createApp(botClient: BotClient, db: any) {
     }
     return reply.sendFile('index.html');
   });
+
+  await app.ready();
+  if (app.io) {
+    const { SocketService } = await import('../services/SocketService');
+    SocketService.init(app.io);
+  }
 
   return app;
 }
