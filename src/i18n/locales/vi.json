@@ -62,7 +62,6 @@
         "removedFromQueue": "Đã xóa {song} từ hàng đợi.",
         "resumedPlayback": "▶️ Đã tiếp tục.",
         "pausedPlayback": "⏸️ Đã tạm dừng.",
-        "skippedTrack": "⏭️ Đã bỏ qua.",
         "stoppedPlayback": "⏹️ Đã dừng.",
         "loopOn": "BẬT",
         "loopOff": "TẮT",

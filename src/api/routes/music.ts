@@ -1,13 +1,18 @@
-import { FastifyInstance, FastifyPluginAsync } from 'fastify';
+import { FastifyInstance, FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
 import { BotClient } from '../../bot/types/bot.types';
 import { MusicService } from '../../services/MusicService';
 import { authenticate } from '@api/middleware/auth';
 import { I18nService } from '@src/services/I18nService';
+import { User } from '@shared/types/api.types';
+
+interface AuthenticatedRequest extends FastifyRequest {
+    user: User;
+}
 
 export const musicRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
   const client = app.discordBot as BotClient;
 
-  const checkMusicPermission = async (req: any, reply: any, guildId: string): Promise<boolean> => {
+  const checkMusicPermission = async (req: AuthenticatedRequest, reply: FastifyReply, guildId: string): Promise<boolean> => {
       const user = req.user;
       if (!user) return false;
 
@@ -40,6 +45,22 @@ export const musicRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
 
       return true;
   };
+
+  app.post('/:guildId/next', {
+      onRequest: [authenticate]
+  }, async (req, reply) => {
+      const { guildId } = req.params as { guildId: string };
+      
+      if (!await checkMusicPermission(req as AuthenticatedRequest, reply, guildId)) return;
+      
+      const queue = MusicService.getQueue(guildId);
+      if (!queue) {
+          return { playing: false, queue: [] };
+      }
+
+      MusicService.skip(guildId);
+      return { success: true };
+  });
 
   app.get('/:guildId/state', {
       onRequest: [authenticate]
@@ -92,7 +113,7 @@ export const musicRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
       const { guildId } = req.params as { guildId: string };
       const body = req.body as { action: string, value?: any };
       
-      const allowed = await checkMusicPermission(req, reply, guildId);
+      const allowed = await checkMusicPermission(req as unknown as AuthenticatedRequest, reply, guildId);
       if (!allowed) return;
 
       const guild = client.guilds.cache.get(guildId);
@@ -139,7 +160,7 @@ export const musicRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
               break;
           case 'skip':
               MusicService.skip(guildId);
-              sendFeedback(await I18nService.t(guildId, 'music.skippedTrack'));
+              sendFeedback(await I18nService.t(guildId, 'music.skipped'));
               break;
           case 'stop':
               MusicService.stop(guildId);
@@ -211,7 +232,7 @@ export const musicRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
      const { guildId } = req.params as { guildId: string };
      const { query, forceSingle } = req.body as { query: string, forceSingle?: boolean };
 
-     const allowed = await checkMusicPermission(req, reply, guildId);
+     const allowed = await checkMusicPermission(req as unknown as AuthenticatedRequest, reply, guildId);
      if (!allowed) return;
 
      const guild = client.guilds.cache.get(guildId);

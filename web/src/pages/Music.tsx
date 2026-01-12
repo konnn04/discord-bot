@@ -10,9 +10,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Play, Pause, SkipForward, Square, Repeat, Volume2, ListMusic, Loader2, Search, Plus, Mic2, Disc, ArrowDown } from "lucide-react";
 import type { MusicState, Guild } from "@shared/types/api.types";
+import type { Song } from "@shared/types/music.types";
 import { toast } from "sonner";
+import React from "react";
 // --- Utility ---
 function formatTime(seconds: number) {
     if (!seconds || isNaN(seconds)) return "0:00";
@@ -40,7 +48,8 @@ const SearchDialog = ({ guildId }: { guildId: string }) => {
             setResults(data)
         } catch (e) {
             console.error(e);
-            toast.error((e as any).error || "Failed to search for song.");
+            const msg = e instanceof Error ? e.message : "Failed to search for song.";
+            toast.error(msg);
         } finally {
             setSearching(false);
         }
@@ -90,7 +99,7 @@ const SearchDialog = ({ guildId }: { guildId: string }) => {
             <DialogTrigger asChild>
                 <Button size="sm"><Plus className="mr-2 h-4 w-4" /> Add Song</Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[550px]">
+            <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle>Add Song to Queue</DialogTitle>
                 </DialogHeader>
@@ -113,17 +122,29 @@ const SearchDialog = ({ guildId }: { guildId: string }) => {
                                 {searching ? <Loader2 className="animate-spin" /> : <Search className="h-4 w-4" />}
                             </Button>
                         </div>
-                        <div className="max-h-[300px] overflow-y-auto space-y-2">
+                        <div className="max-h-[50vh] overflow-y-auto space-y-2 pr-2 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
                              {results.map((item, i) => (
-                                <div key={i} className="flex items-center gap-3 p-2 rounded hover:bg-muted cursor-pointer" onClick={() => handleAdd(item.url)}>
-                                    <div className="h-12 w-12 bg-muted flex-shrink-0 overflow-hidden rounded">
+                                <div key={i} className="flex items-center gap-3 p-2 rounded hover:bg-muted cursor-pointer group" onClick={() => handleAdd(item.url)}>
+                                    <div className="h-12 w-12 bg-muted flex-shrink-0 overflow-hidden rounded relative">
                                         {item.thumbnail && <img src={item.thumbnail} alt="" className="w-full h-full object-cover" />}
+                                        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                            <Plus className="h-6 w-6 text-white drop-shadow-md" />
+                                        </div>
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <div className="font-medium truncate">{item.title}</div>
-                                        <div className="text-xs text-muted-foreground">{item.artist || item.author} • {item.durationFormatted}</div>
+                                        <TooltipProvider>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <div className="font-medium truncate text-sm">{item.title}</div>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                    <p>{item.title}</p>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
+                                        <div className="text-xs text-muted-foreground truncate">{item.artist || item.author} • {item.durationFormatted}</div>
                                     </div>
-                                    <Button size="sm" variant="ghost"><Plus className="h-4 w-4" /></Button>
+                                    <Button size="sm" variant="ghost" className="opacity-0 group-hover:opacity-100 transition-opacity"><Plus className="h-4 w-4" /></Button>
                                 </div>
                             ))}
                              {results.length === 0 && !searching && query && (
@@ -176,7 +197,7 @@ const SearchDialog = ({ guildId }: { guildId: string }) => {
     );
 };
 
-const LyricsTab = ({ guildId, currentSong, position }: { guildId: string, currentSong: any, position: number }) => {
+const LyricsTab = ({ guildId, currentSong, position }: { guildId: string, currentSong: Song | null, position: number }) => {
     const [isAutoScroll, setIsAutoScroll] = useState(true);
     const [lyrics, setLyrics] = useState<any>(null);
     const [loading, setLoading] = useState(false);
@@ -206,11 +227,49 @@ const LyricsTab = ({ guildId, currentSong, position }: { guildId: string, curren
     }, [guildId, currentSong]);
 
     // Auto-scroll
+    const [activeIndex, setActiveIndex] = useState(-1);
+
     useEffect(() => {
-        if (isAutoScroll && activeLineRef.current && scrollAreaRef.current) {
-            activeLineRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+        if (!lyrics || !Array.isArray(lyrics) || typeof lyrics === 'string') return;
+        
+        const posSec = position / 1000;
+        const newIndex = lyrics.findIndex((line: any, i: number) => {
+            let lineTime = line.seconds !== undefined ? Number(line.seconds) : (Number(line.time) / 1000);
+            if (isNaN(lineTime)) lineTime = 0;
+            
+            let nextLineTime = Infinity;
+            if (lyrics[i + 1]) {
+                const nextLine = lyrics[i + 1];
+                const nextTime = nextLine.seconds !== undefined ? Number(nextLine.seconds) : (Number(nextLine.time) / 1000);
+                if (!isNaN(nextTime)) nextLineTime = nextTime;
+            }
+            
+            // Adjust for sync (optional small offset if needed)
+            return lineTime <= posSec && nextLineTime > posSec;
+        });
+
+        if (newIndex !== -1) {
+            setActiveIndex(prev => prev !== newIndex ? newIndex : prev);
         }
-    }, [position, lyrics, isAutoScroll]);
+    }, [position, lyrics]);
+
+    useEffect(() => {
+        if (isAutoScroll && activeIndex !== -1 && activeLineRef.current && scrollAreaRef.current) {
+            const container = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement || scrollAreaRef.current;
+            const activeElement = container.querySelector(`[data-index="${activeIndex}"]`) as HTMLElement;
+
+            if (activeElement) {
+                const top = activeElement.offsetTop;
+                const containerHeight = container.clientHeight;
+                const elementHeight = activeElement.clientHeight;
+                
+                container.scrollTo({ 
+                    top: top - containerHeight / 2 + elementHeight / 2, 
+                    behavior: "smooth" 
+                });
+            }
+        }
+    }, [activeIndex, isAutoScroll]);
 
     const handleUserInteraction = () => {
         if (isAutoScroll) setIsAutoScroll(false);
@@ -249,7 +308,7 @@ const LyricsTab = ({ guildId, currentSong, position }: { guildId: string, curren
                     </Button>
                 )}
                 <ScrollArea 
-                    className="max-h-[75vh] h-full w-full px-8" 
+                    className="max-h-[60vh] h-full w-full px-8" 
                     ref={scrollAreaRef}
                     onWheel={handleUserInteraction}
                     onTouchMove={handleUserInteraction}
@@ -257,24 +316,33 @@ const LyricsTab = ({ guildId, currentSong, position }: { guildId: string, curren
                     <div className="space-y-6 py-8 text-center">
                         {lyrics.map((line: any, i: number) => {
        
+                            let lineTime = line.seconds !== undefined ? Number(line.seconds) : (Number(line.time) / 1000);
+                            if (isNaN(lineTime)) lineTime = 0;
                             
-                            let lineTime = line.seconds !== undefined ? line.seconds : line.time;
-                            
-                            if (lineTime > 1000 && !line.seconds) lineTime = lineTime / 1000;
-                            
-                            const nextLineTime = lyrics[i+1] ? (lyrics[i+1].seconds !== undefined ? lyrics[i+1].seconds : (lyrics[i+1].time > 1000 ? lyrics[i+1].time / 1000 : lyrics[i+1].time)) : Infinity;
+                            let nextLineTime = Infinity;
+                            if (lyrics[i + 1]) {
+                                const nextLine = lyrics[i + 1];
+                                const nextTime = nextLine.seconds !== undefined ? Number(nextLine.seconds) : (Number(nextLine.time) / 1000);
+                                if (!isNaN(nextTime)) nextLineTime = nextTime;
+                            }
 
-                            const isActive = lineTime <= position && nextLineTime > position;
+                            const posSec = position / 1000;
+
+                            let isActive = false;
+                            if (i === 0 && posSec < lineTime) {
+                                isActive = true;
+                            } else {
+                                isActive = lineTime <= posSec && nextLineTime > posSec;
+                            }
                              
                              return (
                                 <div 
                                     key={i} 
+                                    data-index={i}
                                     ref={isActive ? activeLineRef : null}
                                     className={`transition-all duration-300 py-2 cursor-pointer ${isActive ? "scale-105 text-primary font-bold opacity-100" : "text-muted-foreground opacity-50 hover:opacity-80 scale-100"}`}
                                     onClick={() => {
-                                        // Optional: Seek to this line? 
-                                        // For now just allow click without doing anything or maybe set auto scroll back?
-                                        // Let's keep it simple.
+                                        // For now just allow click.
                                     }}
                                 >
                                     <p className="text-xl sm:text-2xl leading-relaxed">{line.text}</p>
@@ -314,7 +382,7 @@ const QueueTab = ({ queue, onRemove }: { queue: any[], onRemove: (index: number)
                                 )}
                             </div>
                         </div>
-                        <div className="text-xs text-muted-foreground font-mono">{song.durationFormatted}</div>
+                        <div className="text-xs text-muted-foreground font-mono">{song.durationFormatted || formatTime(Number(song.duration))}</div>
                         <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive" onClick={() => onRemove(i + 1)}>
                             <Square className="h-3 w-3" />
                         </Button>
@@ -330,7 +398,7 @@ const QueueTab = ({ queue, onRemove }: { queue: any[], onRemove: (index: number)
 const MusicPlayer = ({ guildId }: { guildId: string }) => {
     const [state, setState] = useState<MusicState | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [position, setPosition] = useState(0); // In Milliseconds for interpolation
+    const [position, setPosition] = useState(0); 
     const positionRef = useRef(position);
 
     // Sync ref with state
@@ -362,11 +430,17 @@ const MusicPlayer = ({ guildId }: { guildId: string }) => {
                     const newState = data.state as MusicState;
                     
                     const eventType = (args[0] as any)?.type;
+                    
+                    // On track start, always reset position to 0 immediately
+                    if (eventType === 'music:track_start' || eventType === 'track_start') {
+                         setPosition(0);
+                         if (positionRef.current !== 0) positionRef.current = 0;
+                    } 
+                    
                     const currentPos = positionRef.current;
                     const shouldUpdatePosition = 
                         !prev?.playing ||
                         !newState.playing ||
-                        eventType === 'track_start' ||
                         (newState.position !== undefined && newState.position > currentPos);
                     
                     if (newState.position !== undefined && shouldUpdatePosition) {
@@ -377,6 +451,12 @@ const MusicPlayer = ({ guildId }: { guildId: string }) => {
                     return { ...prev, ...newState };
                 });
             } else {
+                // If it is track start but no state, we should still reset position while fetching
+                const eventType = (args[0] as any)?.type;
+                if (eventType === 'music:track_start' || eventType === 'track_start') {
+                     setPosition(0);
+                     positionRef.current = 0;
+                }
                 fetchState();
             }
         };
@@ -396,13 +476,17 @@ const MusicPlayer = ({ guildId }: { guildId: string }) => {
     // Timer Interpolation
     useEffect(() => {
         let interval: ReturnType<typeof setTimeout>;
-        if (state?.playing) {
+        if (state?.playing && !state?.paused) {
+            const start = Date.now();
+            const initialPos = position;
             interval = setInterval(() => {
-                setPosition(prev => prev + 200);
-            }, 200);
+                const delta = Date.now() - start;
+                setPosition(initialPos + delta);
+            }, 100);
         }
         return () => clearInterval(interval);
-    }, [state?.playing]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [state?.playing, state?.paused, state?.currentSong]); 
 
     const control = async (action: string, value?: number | boolean) => {
         try {
@@ -420,7 +504,7 @@ const MusicPlayer = ({ guildId }: { guildId: string }) => {
     if (isLoading && !state) return <div className="flex justify-center p-20"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
     if (!state) return <div className="text-center p-20 text-muted-foreground">Failed to load music state.</div>;
 
-    const currentDuration = state.currentSong?.duration || 1; // Seconds
+    const currentDuration = Number(state.currentSong?.duration || 0);
     const currentPositionSeconds = position / 1000;
     const progressPercent = Math.min((currentPositionSeconds / currentDuration) * 100, 100);
 
@@ -525,7 +609,7 @@ const MusicPlayer = ({ guildId }: { guildId: string }) => {
                              <div className="flex items-center justify-between mb-4">
                                  <h3 className="font-semibold text-lg flex items-center gap-2"><Mic2 className="h-5 w-5" /> Lyrics</h3>
                              </div>
-                             <LyricsTab guildId={guildId} currentSong={state.currentSong} position={currentPositionSeconds} />
+                             <LyricsTab guildId={guildId} currentSong={state.currentSong} position={position} />
                          </TabsContent>
                     </div>
                 </Tabs>
@@ -534,9 +618,49 @@ const MusicPlayer = ({ guildId }: { guildId: string }) => {
     );
 };
 
+// --- Error Boundary ---
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean, error: Error | null }> {
+    constructor(props: { children: React.ReactNode }) {
+        super(props);
+        this.state = { hasError: false, error: null };
+    }
+
+    static getDerivedStateFromError(error: Error) {
+        return { hasError: true, error };
+    }
+
+    componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+        console.error("MusicPage Error:", error, errorInfo);
+    }
+
+    render() {
+        if (this.state.hasError) {
+            return (
+                <div className="p-10 text-center">
+                    <h2 className="text-xl font-bold text-destructive mb-4">Something went wrong.</h2>
+                    <pre className="text-sm bg-muted p-4 rounded text-left overflow-auto max-w-lg mx-auto">
+                        {this.state.error?.toString()}
+                    </pre>
+                    <Button variant="outline" className="mt-4" onClick={() => window.location.reload()}>Reload</Button>
+                </div>
+            );
+        }
+
+        return this.props.children;
+    }
+}
+
 // --- Page Wrapper ---
 
-export default function MusicPage() {
+export default function MusicPageWithBoundary() {
+    return (
+        <ErrorBoundary>
+            <MusicPage />
+        </ErrorBoundary>
+    );
+}
+
+function MusicPage() {
     const { guildId } = useParams();
     const [guilds, setGuilds] = useState<Guild[]>([]);
     const [loading, setLoading] = useState(!guildId); 

@@ -55,11 +55,14 @@ export interface User {
     isDeveloper?: boolean;
 }
 
+import type { Song } from './music.types';
+
 export interface MusicState {
     playing: boolean;
-    currentSong: any | null; // Refine type later
-    queue: any[];
+    currentSong: Song | null;
+    queue: Song[];
     volume: number;
     loop: boolean;
     position: number;
+    paused?: boolean;
 }

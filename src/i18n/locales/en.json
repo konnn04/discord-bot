@@ -61,6 +61,7 @@
         "addedToQueue": "✅ Added **{count}** songs to the queue.",
         "songAdded": "Song Added to Queue",
         "playing": "🎶 Now Playing",
+        "skipped": "⏭️ Skipped.",
         "emptyQueue": "⚠️ Could not find any tracks.",
         "footer": "Requested by {user}",
         "fetchError": "❌ Error fetching music.",
@@ -74,7 +75,6 @@
         "removedFromQueue": "Removed {song} from queue.",
         "resumedPlayback": "Resumed playback.",
         "pausedPlayback": "Paused playback.",
-        "skippedTrack": "Skipped track.",
         "stoppedPlayback": "Stopped playback.",
         "fields": {
             "duration": "Duration",
