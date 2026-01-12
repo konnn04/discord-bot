@@ -40,6 +40,7 @@
         "songAdded": "Đã thêm bài hát vào hàng đợi",
         "playing": "🎶 Đang phát",
         "emptyQueue": "⚠️ Không tìm thấy bài hát nào.",
+        "noVoice": "❌ Bạn phải vào kênh voice trước!",
         "addedByDashboard": "**{user}** đã thêm bài hát thông qua dashboard.",
         "joinError": "❌ Lỗi khi tham gia: {error}",
         "loopEnabled": "🔁 Đã bật lặp lại.",

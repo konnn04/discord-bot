@@ -63,6 +63,7 @@
         "playing": "🎶 Now Playing",
         "skipped": "⏭️ Skipped.",
         "emptyQueue": "⚠️ Could not find any tracks.",
+        "noVoice": "❌ You must be in a voice channel first!",
         "footer": "Requested by {user}",
         "fetchError": "❌ Error fetching music.",
         "playError": "❌ Failed to play **{song}**. Skipping...",
