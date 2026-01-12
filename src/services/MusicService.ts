@@ -168,6 +168,11 @@ export class MusicService {
             this.queues.set(guild.id, queue);
             connection.subscribe(player);
 
+            connection.on('error', (error) => {
+                console.warn(`[Music] Voice Connection Error: ${error.message}`);
+                // Attempt to recover or clean up if needed
+            });
+
             player.on(AudioPlayerStatus.Idle, () => this.handleIdle(guild.id));
             player.on('error', async error => {
                 console.error(`[Music] Player Error: ${error.message}`);
