@@ -1,0 +1,1 @@
+ALTER TABLE "guild_settings" ADD COLUMN "voice_log_enabled" boolean DEFAULT false;

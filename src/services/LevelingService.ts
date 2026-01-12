@@ -3,6 +3,7 @@ import { userGuildStats, guildSettings } from '../database/schema';
 import { eq, and, sql } from 'drizzle-orm';
 import { GuildMember, TextChannel, Message } from 'discord.js';
 import { GuildSettingsService } from './GuildSettingsService';
+import { I18nService } from './I18nService';
 
 export class LevelingService {
   
@@ -166,7 +167,7 @@ export class LevelingService {
             ));
             
           if (channel && settings.levelUpChannelId !== 'disabled') {
-              const msg = `🎉 **${member?.user.username || 'User'}** has leveled up to Level **${newLevel}**!`;
+              const msg = await I18nService.t(stats.guildId!, 'leveling.levelUp', { user: member?.user.username || 'User', level: newLevel });
               
               if (settings.levelUpChannelId) {
                   const levelChannel = channel.guild.channels.cache.get(settings.levelUpChannelId);

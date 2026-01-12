@@ -8,9 +8,10 @@ export const shuffleAction: ActionCommand = {
   helpDescription: 'Randomizes the order of songs in the queue.',
   async execute(ctx: ContextAdapter) {
     if (!ctx.guildId) return;
+    const { I18nService } = await import("@services/I18nService");
 
     MusicService.shuffle(ctx.guildId);
-    await ctx.reply('🔀 Queue shuffled.');
+    await ctx.reply(await I18nService.t(ctx.guildId, 'music.shuffled'));
   },
 };
 

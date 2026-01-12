@@ -16,9 +16,10 @@ const ServerinfoCommand: ActionCommand = {
     helpDescription: "Shows detailed information about the current server, including member count, channels, creation date, boost status, and more.",
     async execute(ctx: ContextAdapter) {
         const guild = ctx.guild;
+        const { I18nService } = await import("@services/I18nService");
 
         if (!guild) {
-            await ctx.reply({ content: "❌ This command can only be used in a server!", ephemeral: true });
+            await ctx.reply({ content: await I18nService.t(ctx.guildId, 'serverinfo.onlyServer'), ephemeral: true });
             return;
         }
 
@@ -32,17 +33,17 @@ const ServerinfoCommand: ActionCommand = {
             .setTitle(`🏰 ${guild.name}`)
             .setThumbnail(guild.iconURL({ size: 256 }) || "")
             .addFields(
-                { name: "Server ID", value: guild.id, inline: true },
-                { name: "Owner", value: owner.user.toString(), inline: true },
-                { name: "Created", value: `<t:${Math.floor(guild.createdTimestamp / 1000)}:F>`, inline: false },
-                { name: "Members", value: `👥 ${guild.memberCount}`, inline: true },
-                { name: "Boost Level", value: `${guild.premiumTier > 0 ? '⭐'.repeat(guild.premiumTier) : '❌'} Level ${guild.premiumTier}`, inline: true },
-                { name: "Boosts", value: `💎 ${guild.premiumSubscriptionCount || 0}`, inline: true },
-                { name: "Verification Level", value: verificationLevels[guild.verificationLevel], inline: true },
-                { name: "Channels", value: `📝 ${textChannels} Text\n🔊 ${voiceChannels} Voice\n📁 ${categories} Categories`, inline: true },
-                { name: "Roles", value: `${guild.roles.cache.size}`, inline: true }
+                { name: await I18nService.t(ctx.guildId, 'serverinfo.id'), value: guild.id, inline: true },
+                { name: await I18nService.t(ctx.guildId, 'serverinfo.owner'), value: owner.user.toString(), inline: true },
+                { name: await I18nService.t(ctx.guildId, 'serverinfo.created'), value: `<t:${Math.floor(guild.createdTimestamp / 1000)}:F>`, inline: false },
+                { name: await I18nService.t(ctx.guildId, 'serverinfo.members'), value: `👥 ${guild.memberCount}`, inline: true },
+                { name: await I18nService.t(ctx.guildId, 'serverinfo.boostLevel'), value: `${guild.premiumTier > 0 ? '⭐'.repeat(guild.premiumTier) : '❌'} Level ${guild.premiumTier}`, inline: true },
+                { name: await I18nService.t(ctx.guildId, 'serverinfo.boosts'), value: `💎 ${guild.premiumSubscriptionCount || 0}`, inline: true },
+                { name: await I18nService.t(ctx.guildId, 'serverinfo.verification'), value: verificationLevels[guild.verificationLevel], inline: true },
+                { name: await I18nService.t(ctx.guildId, 'serverinfo.channels'), value: `📝 ${textChannels} ${await I18nService.t(ctx.guildId, 'serverinfo.text')}\n🔊 ${voiceChannels} ${await I18nService.t(ctx.guildId, 'serverinfo.voice')}\n📁 ${categories} ${await I18nService.t(ctx.guildId, 'serverinfo.categories')}`, inline: true },
+                { name: await I18nService.t(ctx.guildId, 'serverinfo.roles'), value: `${guild.roles.cache.size}`, inline: true }
             )
-            .setFooter({ text: `Requested by ${ctx.user.username}` })
+            .setFooter({ text: await I18nService.t(ctx.guildId, 'music.footer', { user: ctx.user.username }) })
             .setTimestamp();
 
         if (guild.description) {

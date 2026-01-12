@@ -3,6 +3,8 @@ import { ContextAdapter } from '@bot/contexts/ContextAdapter';
 import { MusicService } from '@services/MusicService';
 import { GuildMember } from 'discord.js';
 
+import { I18nService } from '@services/I18nService';
+
 export const joinAction: ActionCommand = {
   name: 'join',
   description: 'Summon bot to your voice channel',
@@ -14,15 +16,18 @@ export const joinAction: ActionCommand = {
     const voiceChannel = member?.voice?.channel;
 
     if (!voiceChannel) {
-         await ctx.reply({ content: '❌ You must be in a voice channel!', ephemeral: true });
+         const msg = await I18nService.t(ctx.guildId, 'music.noVoice');
+         await ctx.reply({ content: msg, ephemeral: true });
          return;
     }
 
     try {
         await MusicService.join(ctx.guild!, voiceChannel, ctx.channel as any);
-        await ctx.reply(`🔊 Joined **${voiceChannel.name}**!`);
+        const msg = await I18nService.t(ctx.guildId, 'music.joined', { channel: voiceChannel.name });
+        await ctx.reply(msg);
     } catch (e: any) {
-        await ctx.reply(`❌ Failed to join: ${e.message}`);
+        const msg = await I18nService.t(ctx.guildId, 'music.joinError', { error: e.message });
+        await ctx.reply(msg);
     }
   },
 };

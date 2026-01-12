@@ -19,6 +19,7 @@ import { eq } from 'drizzle-orm';
 import { config } from '@config/env';
 import { formatDuration } from '@src/utils/formatUtils';
 import { SocketService } from './SocketService';
+import { I18nService } from './I18nService';
 
 interface MusicQueue {
   connection: VoiceConnection;
@@ -207,7 +208,7 @@ export class MusicService {
         }
 
         if (songsToAdd.length === 0) {
-            textChannel.send('⚠️ Could not find any tracks.');
+            textChannel.send(await I18nService.t(guild.id, 'music.emptyQueue'));
             if (queue?.songs.length === 0 && queue.player.state.status === AudioPlayerStatus.Idle) {
                  this.startIdleTimer(guild.id);
             }
@@ -223,15 +224,18 @@ export class MusicService {
 
             // Build Embed for Added Songs
             const embed = new EmbedBuilder().setColor('#00ff00');
+            const requesterName = requester.globalName || requester.username;
 
             if (songsToAdd.length > 1) {
-                embed.setTitle('Playlist Added to Queue');
-                embed.setDescription(`✅ Added **${songsToAdd.length}** songs to the queue.`);
+                embed.setTitle(await I18nService.t(guild.id, 'music.songAdded')); // Use generic added title or specific playlist key
+                const desc = await I18nService.t(guild.id, 'music.addedToQueue', { count: songsToAdd.length });
+                embed.setDescription(desc);
                 if (songsToAdd[0].thumbnail) embed.setThumbnail(songsToAdd[0].thumbnail);
-                embed.setFooter({ text: `Requested by ${requester.globalName || requester.username}`, iconURL: requester.displayAvatarURL() });
+                const footerText = await I18nService.t(guild.id, 'music.footer', { user: requesterName });
+                embed.setFooter({ text: footerText, iconURL: requester.displayAvatarURL() });
             } else {
                 const song = songsToAdd[0];
-                embed.setTitle('Song Added to Queue');
+                embed.setTitle(await I18nService.t(guild.id, 'music.songAdded'));
                 embed.setDescription(`[${song.title}](${song.url})\n**Artist:** ${song.artist}`);
                 if (song.thumbnail) embed.setThumbnail(song.thumbnail);
                 embed.addFields([
@@ -239,7 +243,8 @@ export class MusicService {
                     { name: 'Position in Queue', value: String(queue.songs.length), inline: true },
                     { name: 'Platform', value: song.source ? song.source.charAt(0).toUpperCase() + song.source.slice(1) : 'Unknown', inline: true }
                 ]);
-                embed.setFooter({ text: `Requested by ${requester.globalName || requester.username}`, iconURL: requester.displayAvatarURL() });
+                const footerText = await I18nService.t(guild.id, 'music.footer', { user: requesterName });
+                embed.setFooter({ text: footerText, iconURL: requester.displayAvatarURL() });
             }
 
             textChannel.send({ embeds: [embed] });
@@ -252,7 +257,7 @@ export class MusicService {
 
     } catch (err) {
         console.error('[Music] Fetch Error:', err);
-        textChannel.send('❌ Error fetching music.');
+        textChannel.send(await I18nService.t(guild.id, 'music.fetchError'));
     }
   }
 
@@ -289,7 +294,7 @@ export class MusicService {
 
           // Now Playing Embed
           const embed = new EmbedBuilder()
-            .setTitle('🎶 Now Playing')
+            .setTitle(await I18nService.t(guildId, 'music.playing'))
             .setDescription(`[${song.title}](${song.url})\n**Artist:** ${song.artist}`)
             .setColor('#3498db')
             .setThumbnail(song.thumbnail || null)
@@ -306,7 +311,8 @@ export class MusicService {
 
       } catch (err) {
           console.error('[Music] Play Error:', err);
-          queue.textChannel?.send(`❌ Failed to play **${song.title}**. Skipping...`);
+          const msg = await I18nService.t(guildId, 'music.playError', { song: song.title });
+          queue.textChannel?.send(msg);
           // Shift failed song and try next
           queue.songs.shift();
           this.playNext(guildId);
@@ -482,8 +488,16 @@ export class MusicService {
   }
 
   // --- Internals ---
+  
+  public static cancelIdleTimer(guildId: string) {
+      const queue = this.queues.get(guildId);
+      if (queue && queue.disconnectTimeout) {
+          clearTimeout(queue.disconnectTimeout);
+          queue.disconnectTimeout = null;
+      }
+  }
 
-  private static async startIdleTimer(guildId: string) {
+  public static async startIdleTimer(guildId: string) {
       const queue = this.queues.get(guildId);
       if (!queue) return;
 
@@ -500,8 +514,9 @@ export class MusicService {
 
       if (queue.disconnectTimeout) clearTimeout(queue.disconnectTimeout);
 
-      queue.disconnectTimeout = setTimeout(() => {
-          queue.textChannel?.send({ embeds: [new EmbedBuilder().setColor('Red').setDescription('💤 Queue finished. Disconnecting...')] });
+      queue.disconnectTimeout = setTimeout(async () => {
+          const msg = await I18nService.t(guildId, 'music.idleDisconnect');
+          queue.textChannel?.send({ embeds: [new EmbedBuilder().setColor('Red').setDescription(msg)] });
           this.destroyQueue(guildId);
       }, timeoutMs);
   }

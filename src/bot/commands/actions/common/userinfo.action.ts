@@ -18,19 +18,20 @@ const UserinfoCommand: ActionCommand = {
         const targetUser = ctx.getOption("user", "user") as User | null;
         const user = targetUser || ctx.user;
         const member = ctx.guild?.members.cache.get(user.id);
+        const { I18nService } = await import("@services/I18nService");
 
         const embed = new EmbedBuilder()
             .setColor(0x5865F2)
-            .setTitle(`👤 User Information`)
+            .setTitle(await I18nService.t(ctx.guildId, 'userinfo.title'))
             .setThumbnail(user.displayAvatarURL({ size: 256 }))
             .addFields(
-                { name: "Username", value: user.username, inline: true },
-                { name: "Display Name", value: user.displayName, inline: true },
-                { name: "User ID", value: user.id, inline: true },
-                { name: "Account Created", value: `<t:${Math.floor(user.createdTimestamp / 1000)}:F>`, inline: false },
-                { name: "Bot Account", value: user.bot ? "✅ Yes" : "❌ No", inline: true }
+                { name: await I18nService.t(ctx.guildId, 'userinfo.username'), value: user.username, inline: true },
+                { name: await I18nService.t(ctx.guildId, 'userinfo.displayName'), value: user.displayName, inline: true },
+                { name: await I18nService.t(ctx.guildId, 'userinfo.id'), value: user.id, inline: true },
+                { name: await I18nService.t(ctx.guildId, 'userinfo.created'), value: `<t:${Math.floor(user.createdTimestamp / 1000)}:F>`, inline: false },
+                { name: await I18nService.t(ctx.guildId, 'userinfo.bot'), value: user.bot ? await I18nService.t(ctx.guildId, 'userinfo.yes') : await I18nService.t(ctx.guildId, 'userinfo.no'), inline: true }
             )
-            .setFooter({ text: `Requested by ${ctx.user.username}` })
+            .setFooter({ text: await I18nService.t(ctx.guildId, 'music.footer', { user: ctx.user.username }) })
             .setTimestamp();
 
         if (member) {
@@ -41,14 +42,14 @@ const UserinfoCommand: ActionCommand = {
                 .slice(0, 20);
 
             embed.addFields(
-                { name: "Joined Server", value: `<t:${Math.floor(member.joinedTimestamp! / 1000)}:F>`, inline: false },
-                { name: "Nickname", value: member.nickname || "None", inline: true },
-                { name: "Roles", value: roles.length > 0 ? roles.join(", ") : "No roles", inline: false }
+                { name: await I18nService.t(ctx.guildId, 'userinfo.joined'), value: `<t:${Math.floor(member.joinedTimestamp! / 1000)}:F>`, inline: false },
+                { name: await I18nService.t(ctx.guildId, 'userinfo.nickname'), value: member.nickname || "None", inline: true },
+                { name: await I18nService.t(ctx.guildId, 'userinfo.roles'), value: roles.length > 0 ? roles.join(", ") : await I18nService.t(ctx.guildId, 'userinfo.noRoles'), inline: false }
             );
 
             if (member.premiumSince) {
                 embed.addFields({
-                    name: "Server Booster Since",
+                    name: await I18nService.t(ctx.guildId, 'userinfo.booster'),
                     value: `<t:${Math.floor(member.premiumSinceTimestamp! / 1000)}:F>`,
                     inline: false
                 });

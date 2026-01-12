@@ -17,14 +17,15 @@ export const volumeAction: ActionCommand = {
   async execute(ctx: ContextAdapter) {
     if (!ctx.guildId) return;
     const level = ctx.getOption('level', 'integer') as number;
+    const { I18nService } = await import("@services/I18nService");
 
     if (level < 1 || level > 100) {
-        await ctx.reply('❌ Volume must be between 1 and 100.');
+        await ctx.reply(await I18nService.t(ctx.guildId, 'music.volumeInvalid'));
         return;
     }
 
     MusicService.setVolume(ctx.guildId, level);
-    await ctx.reply(`🔊 Volume set to **${level}%**.`);
+    await ctx.reply(await I18nService.t(ctx.guildId, 'music.volumeSet', { level }));
   },
 };
 

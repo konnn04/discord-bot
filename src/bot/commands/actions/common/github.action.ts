@@ -34,6 +34,7 @@ const githubCommand: ActionCommand = {
   cooldown: 10,
   execute: async (ctx, args) => {
     const username = args?.username as string;
+    const { I18nService } = await import("@services/I18nService");
 
     if (!username) {
       await ctx.reply('Please provide a username.');
@@ -45,9 +46,9 @@ const githubCommand: ActionCommand = {
 
       if (!response.ok) {
         if (response.status === 404) {
-          await ctx.reply(`❌ User **${username}** not found on GitHub.`);
+          await ctx.reply(await I18nService.t(ctx.guildId, 'github.notFound', { user: username }));
         } else {
-          await ctx.reply(`❌ Failed to fetch GitHub data. API Error: ${response.statusText}`);
+          await ctx.reply(await I18nService.t(ctx.guildId, 'github.apiError', { error: response.statusText }));
         }
         return;
       }
@@ -61,35 +62,37 @@ const githubCommand: ActionCommand = {
         .setDescription(data.bio || 'No bio provided.')
         .setThumbnail(data.avatar_url)
         .addFields(
-          { name: '👤 Username', value: `[${data.login}](${data.html_url})`, inline: true },
-          { name: '📦 Repos', value: data.public_repos.toLocaleString(), inline: true },
-          { name: '👥 Followers', value: data.followers.toLocaleString(), inline: true },
-          { name: '👣 Following', value: data.following.toLocaleString(), inline: true },
+          { name: await I18nService.t(ctx.guildId, 'github.username'), value: `[${data.login}](${data.html_url})`, inline: true },
+          { name: await I18nService.t(ctx.guildId, 'github.repos'), value: data.public_repos.toLocaleString(), inline: true },
+          { name: await I18nService.t(ctx.guildId, 'github.followers'), value: data.followers.toLocaleString(), inline: true },
+          { name: await I18nService.t(ctx.guildId, 'github.following'), value: data.following.toLocaleString(), inline: true },
         );
 
       if (data.company) {
-        embed.addFields({ name: '🏢 Company', value: data.company, inline: true });
+        embed.addFields({ name: await I18nService.t(ctx.guildId, 'github.company'), value: data.company, inline: true });
       }
       if (data.location) {
-        embed.addFields({ name: '📍 Location', value: data.location, inline: true });
+        embed.addFields({ name: await I18nService.t(ctx.guildId, 'github.location'), value: data.location, inline: true });
       }
       if (data.blog) {
         let blogUrl = data.blog;
         if (!blogUrl.startsWith('http')) blogUrl = `https://${blogUrl}`;
-        embed.addFields({ name: '🔗 Website', value: `[Link](${blogUrl})`, inline: true });
+        embed.addFields({ name: await I18nService.t(ctx.guildId, 'github.website'), value: `[Link](${blogUrl})`, inline: true });
       }
       if (data.twitter_username) {
-         embed.addFields({ name: '🐦 Twitter', value: `[@${data.twitter_username}](https://twitter.com/${data.twitter_username})`, inline: true });
+         embed.addFields({ name: await I18nService.t(ctx.guildId, 'github.twitter'), value: `[@${data.twitter_username}](https://twitter.com/${data.twitter_username})`, inline: true });
       }
 
       const createdDate = new Date(data.created_at).toLocaleDateString();
-      embed.setFooter({ text: `Joined GitHub on ${createdDate}`, iconURL: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png' });
+      const footerText = await I18nService.t(ctx.guildId, 'github.joined', { date: createdDate });
+      
+      embed.setFooter({ text: footerText, iconURL: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png' });
 
       await ctx.reply({ embeds: [embed] });
 
     } catch (error) {
       console.error('[Command] GitHub Error:', error);
-      await ctx.reply('❌ An error occurred while fetching GitHub data.');
+      await ctx.reply(await I18nService.t(ctx.guildId, 'github.error'));
     }
   },
 };

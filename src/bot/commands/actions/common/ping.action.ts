@@ -1,6 +1,8 @@
 import { ActionCommand } from "@shared/types/bot.types"
 import { ContextAdapter } from "@bot/contexts/ContextAdapter";
 
+import { I18nService } from "@services/I18nService";
+
 const PingCommand: ActionCommand = {
     name: "ping",
     description: "Check the bot's latency.",
@@ -11,10 +13,9 @@ const PingCommand: ActionCommand = {
         
         const latency = Date.now() - start;
         const apiLatency = Math.round(ctx.client.ws.ping);
-
-        await ctx.editReply({
-            content: `Pong! 🏓\nLatency: ${latency}ms\nAPI Latency: ${apiLatency}ms`
-        });
+        
+        const msg = await I18nService.t(ctx.guildId, 'ping.response', { latency, apiLatency });
+        await ctx.editReply({ content: msg });
     },
 };
 

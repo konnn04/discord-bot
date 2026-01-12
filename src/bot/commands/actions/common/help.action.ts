@@ -3,10 +3,11 @@ import { ContextAdapter } from "@bot/contexts/ContextAdapter";
 import { EmbedBuilder } from "discord.js";
 import { appConfig } from "@src/config/app";
 import { BotClient } from "@bot/types/bot.types";
+import { I18nService } from "@services/I18nService";
 
 const COMMANDS_PER_PAGE = 10;
 
-const getCommandsList = (client: BotClient, page: number = 1) => {
+const getCommandsList = async (client: BotClient, page: number = 1, guildId?: string | null) => {
     const commands = Array.from(client.actionCommands.values());
     const totalPages = Math.ceil(commands.length / COMMANDS_PER_PAGE);
     const currentPage = Math.max(1, Math.min(page, totalPages));
@@ -15,46 +16,54 @@ const getCommandsList = (client: BotClient, page: number = 1) => {
     const end = start + COMMANDS_PER_PAGE;
     const pageCommands = commands.slice(start, end);
 
+    const title = await I18nService.t(guildId, 'help.title', { appName: appConfig.info.appName.en });
+    const desc = await I18nService.t(guildId, 'help.desc', { current: currentPage, total: totalPages, count: commands.length });
+    const footer = await I18nService.t(guildId, 'help.footer', { prefix: appConfig.discord.prefix });
+
     const embed = new EmbedBuilder()
         .setColor(0x5865F2)
-        .setTitle(`📚 ${appConfig.info.appName.en} - Commands List`)
-        .setDescription(`Page ${currentPage}/${totalPages} • Total: ${commands.length} commands`)
-        .setFooter({ text: `Use ${appConfig.discord.prefix}help <command> for detailed info` })
+        .setTitle(title)
+        .setDescription(desc)
+        .setFooter({ text: footer })
         .setTimestamp();
 
     let commandsList = "";
+    
+    const available = await I18nService.t(guildId, 'help.available');
+    const unavailable = await I18nService.t(guildId, 'help.unavailable');
+
     for (const cmd of pageCommands) {
-        const slashSupport = !cmd.isOnlySlashCommand ? "✅" : "✅";
-        const prefixSupport = !cmd.isOnlySlashCommand ? "✅" : "❌";
+        const slashSupport = !cmd.isOnlySlashCommand ? available : available; // Both available for now as logic implies
+        const prefixSupport = !cmd.isOnlySlashCommand ? available : unavailable;
         
         commandsList += `**${cmd.name}** - ${cmd.description}\n`;
         commandsList += `└ Slash: ${slashSupport} • Prefix: ${prefixSupport}\n\n`;
     }
 
     embed.addFields({
-        name: "Commands",
+        name: "Commands", // Could key this
         value: commandsList || "No commands found"
     });
 
     return { embed, currentPage, totalPages };
 };
 
-const getCommandDetail = (client: BotClient, commandName: string) => {
+const getCommandDetail = async (client: BotClient, commandName: string, guildId?: string | null) => {
     const command = client.actionCommands.get(commandName.toLowerCase());
     
     if (!command) {
         return {
             embed: new EmbedBuilder()
                 .setColor(0xED4245)
-                .setTitle("❌ Command Not Found")
-                .setDescription(`Command \`${commandName}\` does not exist.\nUse \`${appConfig.discord.prefix}help\` to see all commands.`)
+                .setTitle(await I18nService.t(guildId, 'help.notFound'))
+                .setDescription(await I18nService.t(guildId, 'help.notFoundDesc', { command: commandName, prefix: appConfig.discord.prefix }))
         };
     }
 
     const prefix = appConfig.discord.prefix;
     const embed = new EmbedBuilder()
         .setColor(0x57F287)
-        .setTitle(`📖 Command: ${command.name}`)
+        .setTitle(await I18nService.t(guildId, 'help.detailTitle', { command: command.name }))
         .setDescription(command.helpDescription || command.description);
 
     let usageText = "";
@@ -81,7 +90,7 @@ const getCommandDetail = (client: BotClient, commandName: string) => {
     usageText += `**Slash Command:**\n\`/${command.name}\`\n`;
     
     embed.addFields({
-        name: "Usage",
+        name: await I18nService.t(guildId, 'help.usage'),
         value: usageText
     });
 
@@ -110,7 +119,7 @@ const getCommandDetail = (client: BotClient, commandName: string) => {
         }
 
         embed.addFields({
-            name: "Parameters",
+            name: await I18nService.t(guildId, 'help.parameters'),
             value: optionsText
         });
     }
@@ -118,16 +127,18 @@ const getCommandDetail = (client: BotClient, commandName: string) => {
     // Prefix syntax tip
     if (!command.isOnlySlashCommand && command.optionalArgs && command.optionalArgs.length > 0) {
         embed.addFields({
-            name: "💡 Prefix Syntax Tip",
-            value: "When using prefix commands, separate options with spaces using `key:value` format.\n" +
-                   "Example: `loop:true` `volume:50` `count:10`"
+            name: await I18nService.t(guildId, 'help.tipTitle'),
+            value: await I18nService.t(guildId, 'help.tipValue')
         });
     }
 
     // Command info
+    const availableKey = await I18nService.t(guildId, 'help.available');
+    const unavailableKey = await I18nService.t(guildId, 'help.unavailable');
+
     let infoText = "";
-    infoText += `**Slash Command:** ${!command.isOnlySlashCommand ? "✅ Available" : "✅ Available"}\n`;
-    infoText += `**Prefix Command:** ${!command.isOnlySlashCommand ? "✅ Available" : "❌ Not Available"}\n`;
+    infoText += `**Slash Command:** ${!command.isOnlySlashCommand ? availableKey : availableKey}\n`;
+    infoText += `**Prefix Command:** ${!command.isOnlySlashCommand ? availableKey : unavailableKey}\n`;
     
     if (command.cooldown) {
         infoText += `**Cooldown:** ${command.cooldown / 1000}s\n`;
@@ -136,7 +147,7 @@ const getCommandDetail = (client: BotClient, commandName: string) => {
     }
 
     embed.addFields({
-        name: "ℹ️ Info",
+        name: await I18nService.t(guildId, 'help.infoTitle'),
         value: infoText
     });
 
@@ -166,14 +177,15 @@ const HelpCommand: ActionCommand = {
         const client = ctx.client as BotClient;
         const commandName = ctx.getOption("command", "string") as string | null;
         const page = (ctx.getOption("page", "integer") as number) || 1;
+        const guildId = ctx.guildId || undefined; // Handle potential null if t() didn't support it, but now it does.
 
         if (commandName) {
             // Show detailed help for specific command
-            const { embed } = getCommandDetail(client, commandName);
+            const { embed } = await getCommandDetail(client, commandName, guildId);
             await ctx.reply({ embeds: [embed] });
         } else {
             // Show commands list with pagination
-            const { embed, currentPage, totalPages } = getCommandsList(client, page);
+            const { embed, currentPage, totalPages } = await getCommandsList(client, page, guildId);
             
             await ctx.reply({ embeds: [embed] });
         }

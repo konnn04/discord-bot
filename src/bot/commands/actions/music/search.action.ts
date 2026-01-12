@@ -18,18 +18,19 @@ export const searchAction: ActionCommand = {
   async execute(ctx: ContextAdapter) {
     if (!ctx.guildId) return;
     const query = ctx.getOption('query', 'string') as string;
+    const { I18nService } = await import("@services/I18nService");
 
     await ctx.defer();
     const results = await MusicService.search(query);
 
     if (!results || results.length === 0) {
-        await ctx.editReply('❌ No results found.');
+        await ctx.editReply(await I18nService.t(ctx.guildId, 'music.searchNoResults'));
         return;
     }
 
     const select = new StringSelectMenuBuilder()
 			.setCustomId('music_search_select')
-			.setPlaceholder('Select a song to play')
+			.setPlaceholder(await I18nService.t(ctx.guildId, 'music.searchSelect'))
 			.addOptions(
 				results.slice(0, 10).map((video: any, index: number) => 
 					new StringSelectMenuOptionBuilder()
@@ -44,7 +45,7 @@ export const searchAction: ActionCommand = {
 			.addComponents(select);
 
     const response = await ctx.editReply({
-			content: `🔎 Results for **${query}**:`,
+			content: await I18nService.t(ctx.guildId, 'music.searchResults', { query }),
 			components: [row],
     });
 
@@ -57,7 +58,7 @@ export const searchAction: ActionCommand = {
 
         const url = selection.values[0];
         
-        await selection.update({ content: `✅ Selected. Added to queue.`, components: [] });
+        await selection.update({ content: await I18nService.t(ctx.guildId, 'music.searchSelected'), components: [] });
         
         await MusicService.play(
             ctx.guild!, 
@@ -68,7 +69,7 @@ export const searchAction: ActionCommand = {
         );
 
     } catch (e) {
-        await ctx.editReply({ content: '❌ Search timed out or cancelled.', components: [] });
+        await ctx.editReply({ content: await I18nService.t(ctx.guildId, 'music.searchTimeout'), components: [] });
     }
   },
 };

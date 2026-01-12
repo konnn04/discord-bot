@@ -3,6 +3,8 @@ import { ContextAdapter } from '@bot/contexts/ContextAdapter';
 import { MusicService } from '@services/MusicService';
 import { TextChannel, GuildMember } from 'discord.js';
 
+import { I18nService } from '@services/I18nService';
+
 export const playAction: ActionCommand = {
   name: 'play',
   description: 'Play a song from YouTube/Spotify/SoundCloud',
@@ -21,7 +23,8 @@ export const playAction: ActionCommand = {
     const voiceChannel = member?.voice?.channel;
 
     if (!voiceChannel) {
-        await ctx.reply({ content: '❌ You must be in a voice channel!', ephemeral: true });
+        const msg = await I18nService.t(ctx.guildId, 'music.noVoice');
+        await ctx.reply({ content: msg, ephemeral: true });
         return;
     }
 
@@ -35,10 +38,12 @@ export const playAction: ActionCommand = {
         ctx.user
     );
 
-    await ctx.editReply({ content: `🔎 Searching for **${query}**...` });
+    const searchingMsg = await I18nService.t(ctx.guildId, 'music.searching', { query });
+    await ctx.editReply({ content: searchingMsg });
   },
 };
 
 export default playAction;
+
 
 

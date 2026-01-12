@@ -26,7 +26,7 @@ export class ApiClientService {
       await db.insert(apiClients).values({
           name,
           clientId,
-          clientSecret, // Store plaintext for now (demo), MUST HASH later
+          clientSecret, 
           permissions
       });
 

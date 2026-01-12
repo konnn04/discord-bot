@@ -17,12 +17,13 @@ export const removeAction: ActionCommand = {
   async execute(ctx: ContextAdapter) {
     if (!ctx.guildId) return;
     const index = ctx.getOption('index', 'integer') as number;
+    const { I18nService } = await import("@services/I18nService");
 
     const success = MusicService.removeSong(ctx.guildId, index);
     if (success) {
-        await ctx.reply(`✅ Removed song at index **${index}**.`);
+        await ctx.reply(await I18nService.t(ctx.guildId, 'music.removeSuccess', { index }));
     } else {
-        await ctx.reply('❌ Invalid index or queue empty.');
+        await ctx.reply(await I18nService.t(ctx.guildId, 'music.removeError'));
     }
   },
 };

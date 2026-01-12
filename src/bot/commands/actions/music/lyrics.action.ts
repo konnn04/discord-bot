@@ -20,11 +20,13 @@ export const lyricsAction: ActionCommand = {
     const song = ctx.getOption('song', 'string') as string | undefined;
     
     if (!ctx.guildId) return;
+
+    const { I18nService } = await import("@services/I18nService");
     
     const lyricsData = await MusicService.getLyrics(ctx.guildId, song);
     
     if (!lyricsData) {
-        await ctx.editReply({ content: '❌ Lyrics not found.' });
+        await ctx.editReply({ content: await I18nService.t(ctx.guildId, 'music.lyricsNotFound') });
         return;
     }
 
@@ -33,7 +35,7 @@ export const lyricsAction: ActionCommand = {
         : (lyricsData.plainLyrics || 'No lyrics text.');
 
     const embed = new EmbedBuilder()
-        .setTitle(`Lyrics: ${lyricsData.trackName} - ${lyricsData.artistName}`)
+        .setTitle(await I18nService.t(ctx.guildId, 'music.lyricsTitle', { track: lyricsData.trackName, artist: lyricsData.artistName }))
         .setDescription(lyricsText.substring(0, 4000)) 
         .setColor('#00ff00');
 

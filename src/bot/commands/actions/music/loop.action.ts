@@ -9,8 +9,11 @@ export const loopAction: ActionCommand = {
   async execute(ctx: ContextAdapter) {
     if (!ctx.guildId) return;
 
+    const { I18nService } = await import("@services/I18nService");
+
     const isLooping = await MusicService.toggleLoop(ctx.guildId);
-    await ctx.reply(isLooping ? '🔁 Loop enabled.' : '➡️ Loop disabled.');
+    const msg = isLooping ? await I18nService.t(ctx.guildId, 'music.loopEnabled') : await I18nService.t(ctx.guildId, 'music.loopDisabled');
+    await ctx.reply(msg);
   },
 };
 

@@ -43,6 +43,13 @@
       "when": 1768194455624,
       "tag": "0005_wet_the_order",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1768200668125,
+      "tag": "0006_supreme_prism",
+      "breakpoints": true
     }
   ]
 }

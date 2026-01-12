@@ -1,0 +1,134 @@
+{
+    "common": {
+        "success": "Success",
+        "error": "Error",
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "unauthorized": "Unauthorized."
+    },
+    "ping": {
+        "response": "Pong! 🏓\nLatency: {latency}ms\nAPI Latency: {apiLatency}ms"
+    },
+    "help": {
+        "title": "📚 {appName} - Commands List",
+        "desc": "Page {current}/{total} • Total: {count} commands",
+        "footer": "Use {prefix}help <command> for detailed info",
+        "notFound": "❌ Command Not Found",
+        "notFoundDesc": "Command `{command}` does not exist.\nUse `{prefix}help` to see all commands.",
+        "detailTitle": "📖 Command: {command}",
+        "usage": "Usage",
+        "parameters": "Parameters",
+        "tipTitle": "💡 Prefix Syntax Tip",
+        "tipValue": "When using prefix commands, separate options with spaces using `key:value` format.\nExample: `loop:true` `volume:50` `count:10`",
+        "previous": "⏮️ Playing previous song.",
+        "queueEmpty": "Empty queue.",
+        "queueTitle": "Queue for {guild}",
+        "queueNowPlaying": "**Now Playing:**\n{song}",
+        "queueNextUp": "**Next Up:**\n{songs}",
+        "queueNoNext": "No songs next.",
+        "queueFooter": "{count} songs in queue | Loop: {loop}",
+        "loopOn": "ON",
+        "loopOff": "OFF",
+        "removeSuccess": "✅ Removed song at index **{index}**.",
+        "removeError": "❌ Invalid index or queue empty.",
+        "resumed": "▶️ Resumed.",
+        "searchResults": "🔎 Results for **{query}**:",
+        "searchNoResults": "❌ No results found.",
+        "searchSelected": "✅ Selected. Added to queue.",
+        "searchTimeout": "❌ Search timed out or cancelled.",
+        "searchSelect": "Select a song to play",
+        "shuffled": "🔀 Queue shuffled.",
+        "skipped": "⏭️ Skipped.",
+        "stopped": "⏹️ Stopped.",
+        "volumeInvalid": "❌ Volume must be between 1 and 100.",
+        "volumeSet": "🔊 Volume set to **{level}%**.",
+        "infoTitle": "ℹ️ Info",
+        "available": "✅ Available",
+        "unavailable": "❌ Not Available"
+    },
+    "info": {
+        "version": "Version",
+        "author": "Author",
+        "uptime": "Uptime",
+        "servers": "Servers",
+        "users": "Users",
+        "commands": "Commands",
+        "features": "✨ Features",
+        "links": "🔗 Links"
+    },
+    "music": {
+        "addedToQueue": "✅ Added **{count}** songs to the queue.",
+        "songAdded": "Song Added to Queue",
+        "playing": "🎶 Now Playing",
+        "emptyQueue": "⚠️ Could not find any tracks.",
+        "footer": "Requested by {user}",
+        "fetchError": "❌ Error fetching music.",
+        "playError": "❌ Failed to play **{song}**. Skipping...",
+        "idleDisconnect": "💤 Queue finished. Disconnecting..."
+    },
+    "leveling": {
+        "levelUp": "🎉 **{user}** has leveled up to Level **{level}**!"
+    },
+    "avatar": {
+        "title": "{user}'s Avatar",
+        "formats": "**Available formats:**\n{formats}"
+    },
+    "github": {
+        "notFound": "❌ User **{user}** not found on GitHub.",
+        "apiError": "❌ Failed to fetch GitHub data. API Error: {error}",
+        "error": "❌ An error occurred while fetching GitHub data.",
+        "username": "👤 Username",
+        "repos": "📦 Repos",
+        "followers": "👥 Followers",
+        "following": "👣 Following",
+        "company": "🏢 Company",
+        "location": "📍 Location",
+        "website": "🔗 Website",
+        "twitter": "🐦 Twitter",
+        "joined": "Joined GitHub on {date}"
+    },
+    "serverinfo": {
+        "onlyServer": "❌ This command can only be used in a server!",
+        "id": "Server ID",
+        "owner": "Owner",
+        "created": "Created",
+        "members": "Members",
+        "boostLevel": "Boost Level",
+        "boosts": "Boosts",
+        "verification": "Verification Level",
+        "channels": "Channels",
+        "roles": "Roles",
+        "text": "Text",
+        "voice": "Voice",
+        "categories": "Categories"
+    },
+    "userinfo": {
+        "title": "👤 User Information",
+        "username": "Username",
+        "displayName": "Display Name",
+        "id": "User ID",
+        "created": "Account Created",
+        "bot": "Bot Account",
+        "yes": "✅ Yes",
+        "no": "❌ No",
+        "joined": "Joined Server",
+        "nickname": "Nickname",
+        "roles": "Roles",
+        "noRoles": "No roles",
+        "booster": "Server Booster Since"
+    },
+    "voice": {
+        "joined": "👋 **{user}** just joined <#{channel}>",
+        "left": "🚪 **{user}** left <#{channel}>",
+        "movedLeft": "🚪 **{user}** moved from <#{channel}>!",
+        "movedJoined": "👋 **{user}** just joined <#{channel}>",
+        "aloneTitle": "Empty Channel",
+        "aloneDesc": "Bot will leave in {time} if no one returns."
+    },
+    "config": {
+        "languageSet": "✅ Language set to **{lang}**.",
+        "voiceLogSet": "✅ Voice logging set to **{value}**.",
+        "unsupported": "❌ Unsupported language. Supported: {supported}",
+        "unknown": "❌ Unknown setting."
+    }
+}

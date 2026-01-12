@@ -50,32 +50,34 @@ const InfoCommand: ActionCommand = {
     async execute(ctx: ContextAdapter) {
         const client = ctx.client as BotClient;
         const botInfo = loadBotInfo();
+        const { I18nService } = await import("@services/I18nService");
         
         const uptime = process.uptime();
         const days = Math.floor(uptime / 86400);
         const hours = Math.floor((uptime % 86400) / 3600);
         const minutes = Math.floor((uptime % 3600) / 60);
         const uptimeString = `${days}d ${hours}h ${minutes}m`;
+        const guildId = ctx.guildId;
 
         const embed = new EmbedBuilder()
             .setColor(0x5865F2)
-            .setTitle(`🤖 ${botInfo.name}`)
+            .setTitle(await I18nService.t(guildId, 'info.title', { botName: botInfo.name }))
             .setDescription(botInfo.description)
             .setThumbnail(client.user?.displayAvatarURL({ size: 256 }) || "")
             .addFields(
-                { name: "Version", value: `\`${botInfo.version}\``, inline: true },
-                { name: "Author", value: botInfo.author, inline: true },
-                { name: "Uptime", value: uptimeString, inline: true },
-                { name: "Servers", value: `${client.guilds.cache.size}`, inline: true },
-                { name: "Users", value: `${client.guilds.cache.reduce((acc, guild) => acc + guild.memberCount, 0)}`, inline: true },
-                { name: "Commands", value: `${client.actionCommands.size}`, inline: true }
+                { name: await I18nService.t(guildId, 'info.version'), value: `\`${botInfo.version}\``, inline: true },
+                { name: await I18nService.t(guildId, 'info.author'), value: botInfo.author, inline: true },
+                { name: await I18nService.t(guildId, 'info.uptime'), value: uptimeString, inline: true },
+                { name: await I18nService.t(guildId, 'info.servers'), value: `${client.guilds.cache.size}`, inline: true },
+                { name: await I18nService.t(guildId, 'info.users'), value: `${client.guilds.cache.reduce((acc, guild) => acc + guild.memberCount, 0)}`, inline: true },
+                { name: await I18nService.t(guildId, 'info.commands'), value: `${client.actionCommands.size}`, inline: true }
             )
-            .setFooter({ text: `Requested by ${ctx.user.username}` })
+            .setFooter({ text: await I18nService.t(guildId, 'music.footer', { user: ctx.user.username }) })
             .setTimestamp();
 
         if (botInfo.features.length > 0) {
             embed.addFields({
-                name: "✨ Features",
+                name: await I18nService.t(guildId, 'info.features'),
                 value: botInfo.features.map(f => `• ${f}`).join("\n"),
                 inline: false
             });
@@ -94,7 +96,7 @@ const InfoCommand: ActionCommand = {
 
         if (links.length > 0) {
             embed.addFields({
-                name: "🔗 Links",
+                name: await I18nService.t(guildId, 'info.links'),
                 value: links.join(" • "),
                 inline: false
             });

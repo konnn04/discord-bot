@@ -8,9 +8,10 @@ export const resumeAction: ActionCommand = {
   helpDescription: 'Resumes the paused playback.',
   async execute(ctx: ContextAdapter) {
     if (!ctx.guildId) return;
+    const { I18nService } = await import("@services/I18nService");
 
     MusicService.resume(ctx.guildId);
-    await ctx.reply({ content: '▶️ Resumed.', ephemeral: false });
+    await ctx.reply({ content: await I18nService.t(ctx.guildId, 'music.resumed'), ephemeral: false });
   },
 };
 

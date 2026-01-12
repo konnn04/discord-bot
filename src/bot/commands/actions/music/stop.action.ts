@@ -8,9 +8,10 @@ export const stopAction: ActionCommand = {
   helpDescription: 'Stops the current playback and clears the queue.',
   async execute(ctx: ContextAdapter) {
     if (!ctx.guildId) return;
+    const { I18nService } = await import("@services/I18nService");
     
     MusicService.stop(ctx.guildId);
-    await ctx.reply({ content: '⏹️ Stopped.', ephemeral: false });
+    await ctx.reply({ content: await I18nService.t(ctx.guildId, 'music.stopped'), ephemeral: false });
   },
 };
 

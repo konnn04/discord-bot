@@ -17,7 +17,8 @@ const AvatarCommand: ActionCommand = {
     async execute(ctx: ContextAdapter) {
         const targetUser = ctx.getOption("user", "user") as User | null;
         const user = targetUser || ctx.user;
-
+        const { I18nService } = await import("@services/I18nService");
+        
         const avatarURL = user.displayAvatarURL({ size: 4096, extension: "png" });
         const avatarURLWebP = user.displayAvatarURL({ size: 4096, extension: "webp" });
         const avatarURLJPG = user.displayAvatarURL({ size: 4096, extension: "jpg" });
@@ -31,10 +32,10 @@ const AvatarCommand: ActionCommand = {
 
         const embed = new EmbedBuilder()
             .setColor(0x5865F2)
-            .setTitle(`${user.username}'s Avatar`)
-            .setDescription(`**Available formats:**\n${formats}`)
+            .setTitle(await I18nService.t(ctx.guildId, 'avatar.title', { user: user.username }))
+            .setDescription(await I18nService.t(ctx.guildId, 'avatar.formats', { formats }))
             .setImage(avatarURL)
-            .setFooter({ text: `Requested by ${ctx.user.username}` })
+            .setFooter({ text: await I18nService.t(ctx.guildId, 'music.footer', { user: ctx.user.username }) })
             .setTimestamp();
 
         await ctx.reply({ embeds: [embed] });

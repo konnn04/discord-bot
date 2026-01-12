@@ -1,201 +1,133 @@
-# 🦊 Discord Bot - MPC
+# 🦊 MPC Discord Bot
 
 ![Version](https://img.shields.io/github/package-json/v/mpc-ou/discord-bot?style=for-the-badge)
 ![License](https://img.shields.io/github/license/mpc-ou/discord-bot?style=for-the-badge)
-![Top language](https://img.shields.io/github/languages/top/mpc-ou/discord-bot?style=for-the-badge)
 ![Discord.js](https://img.shields.io/badge/discord.js-v14-blue?style=for-the-badge)
+![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)
 
-[Vietnamese Version (Phiên bản tiếng Việt)](./README.vi.md)
+[Tiếng Việt](./README.vi.md)
 
 ## 📖 Introduction
 
-A powerful Discord bot built with TypeScript, Discord.js v14, and Fastify. Features include music playback, meeting tracking, attendance management, and more.
+A powerful and feature-rich Discord Bot built with **TypeScript**, **Discord.js v14**, and **Fastify**. Designed for community management, music playback, meeting tracking, and more.
 
 ### ✨ Key Features
 
-- 🎵 **Music System** - Play music in voice channels
-- 📊 **Meeting Tracker** - Track voice channel attendance with detailed reports
-- ✅ **Attendance Manager** - Automated attendance tracking for events
-- 🌐 **Web Dashboard** - Fastify-based API with authentication
-- 🔧 **Slash Commands** - Modern Discord slash command support
-- 📝 **TypeScript** - Full type safety and better DX
+- **🎵 Music System**: High-quality music playback from YouTube, Spotify, and YouTube Music.
+- **📊 Meeting Tracker**: Track voice channel attendance, generate reports, and manage meeting sessions.
+- **✅ Attendance**: Event attendance management with optional Q&A verification.
+- **📈 Leveling**: XP system for text and voice activity.
+- **🔊 Voice Logging**: Notify when users join, leave, or move between voice channels.
+- **🌐 Web Dashboard**: Fastify-powered API and dashboard for management.
+- **🌍 Internationalization (i18n)**: Fully supported English (en) and Vietnamese (vi).
+- **🔧 Slash Commands**: Modern Discord slash commands interaction.
 
-## 📂 Project Structure
-
-```
-discord-bot/
-├── src/
-│   ├── bot/
-│   │   ├── commands/
-│   │   │   └── actions/
-│   │   │       ├── common/       # Common commands (help, ping)
-│   │   │       ├── meeting/      # Meeting tracking commands
-│   │   │       └── music/        # Music playback commands
-│   │   ├── contexts/            # Context adapters for commands
-│   │   ├── events/              # Discord event handlers
-│   │   ├── types/               # TypeScript type definitions
-│   │   └── utils/               # Utility classes & functions
-│   ├── api/
-│   │   ├── routes/              # API endpoints
-│   │   ├── middlewares/         # Fastify middlewares
-│   │   ├── plugins/             # Fastify plugins
-│   │   └── services/            # Business logic services
-│   ├── config/                  # Configuration files
-│   ├── database/                # Database models & migrations
-│   ├── shared/                  # Shared types across bot & api
-│   └── web/                     # Web dashboard frontend
-├── .env.example                 # Environment variables template
-├── package.json
-├── tsconfig.json
-└── README.md
-```
+---
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 
-- Node.js >= 18.x
-- npm or yarn
-- PostgreSQL (optional)
-- Discord Bot Token
+- **Node.js**: v18 or higher.
+- **PostgreSQL**: Required for database (or use SQLite if configured).
+- **FFmpeg**: Required for music playback.
+- **Discord Bot Token**: Get it from [Discord Developer Portal](https://discord.com/developers/applications).
 
-### Installation
+### 🛠️ Installation
 
-1. Clone the repository
+1.  **Clone the repository**
+    ```bash
+    git clone https://github.com/mpc-ou/discord-bot.git
+    cd discord-bot
+    ```
+
+2.  **Install dependencies**
+    ```bash
+    npm install
+    ```
+
+3.  **Environment Configuration**
+    Copy `.env.example` to `.env` and fill in your details:
+    ```bash
+    cp .env.example .env
+    ```
+    See `.env.example` for details on required variables.
+
+4.  **Database Setup**
+    Ensure your PostgreSQL server is running and the database exists. Then run migrations:
+    ```bash
+    npm run db:generate
+    npm run db:migrate
+    # Or use push for quick prototyping
+    npm run db:push
+    ```
+
+5.  **Deploy Commands**
+    Register Slash Commands with Discord:
+    ```bash
+    npm run deploy-commands
+    ```
+
+---
+
+## 🏃‍♂️ Running the Bot
+
+### Development Mode
+Runs the bot with hot-reloading using `tsx watch`.
 ```bash
-git clone https://github.com/mpc-ou/discord-bot.git
-cd discord-bot
-```
-
-2. Install dependencies
-```bash
-npm install
-```
-
-3. Configure environment variables
-```bash
-cp .env.example .env
-# Edit .env with your configuration
-```
-
-4. Start the bot
-```bash
-# Development mode with hot reload
 npm run dev
+```
 
-# Production build
+### Production Mode
+Build the TypeScript code and start the compiled bot.
+```bash
 npm run build
 npm start
 ```
 
-## 🎮 Commands
+---
 
-### Meeting Tracking
+## 💻 Developer Guide
 
-- `/start_tracking [channel] [duration]` - Start tracking voice channel attendance
-- `/end_tracking [channel]` - End tracking and generate reports
-
-### General
-
-- `/help [command]` - Display help information
-- `/ping` - Check bot latency
-
-## 🛠️ Configuration
-
-Create a `.env` file based on `.env.example`:
-
-```env
-# Discord
-DISCORD_TOKEN=your_bot_token
-DISCORD_CLIENT_ID=your_client_id
-DISCORD_PREFIX=!
-
-# API
-API_PORT=3000
-JWT_SECRET=your_jwt_secret
-
-# Database (optional)
-DATABASE_URL=postgresql://user:pass@localhost:5432/dbname
+### Project Structure
+```text
+src/
+├── bot/
+│   ├── commands/
+│   │   └── actions/     # Command implementations
+│   ├── events/          # Event handlers
+├── services/            # Business logic (Music, I18n, etc.)
+├── database/            # Drizzle ORM schema & migrations
+├── api/                 # Fastify API routes
+├── config/              # Environment config
+└── i18n/                # Locale JSON files
 ```
 
-## 📊 Features in Detail
+### Creating a New Action Command
+1.  Create a new file in `src/bot/commands/actions/<category>/<command_name>.action.ts`.
+2.  Implement the `ActionCommand` interface:
+    ```typescript
+    import { ActionCommand } from '@src/shared/types/bot.types';
+    import { I18nService } from '@services/I18nService';
 
-### Meeting Tracker
-
-Track voice channel meetings with comprehensive attendance reports:
-- Automatic join/leave tracking
-- Multiple session support per participant
-- Detailed timeline with timestamps
-- Public summary + private detailed reports
-- Auto-end after configurable duration
-- Channel deletion handling
-
-### Attendance Manager
-
-Manage event attendance with optional Q&A verification:
-- Create timed attendance sessions
-- Optional question-answer verification
-- Automatic session expiry
-- Detailed attendee reports
-
-## 🔧 Development
-
-### Build
-
-```bash
-npm run build
-```
-
-### Watch Mode
-
-```bash
-npm run dev
-```
-
-### Deploy Commands
-
-```bash
-npm run deploy-commands
-```
-
-## 📝 API Documentation
-
-The bot includes a Fastify-based REST API for integration:
-
-- `GET /api/guilds` - List guilds
-- Authentication via JWT tokens
-- CORS enabled for web dashboard
-
-## 🤝 Contributing
-
-We welcome contributions from the community! Please follow these steps:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-Please use the provided PR template and ensure:
-- All tests pass
-- Code follows TypeScript best practices
-- Documentation is updated
-
-## 📄 License
-
-This project is licensed under the GPL-2.0 License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- [Discord.js](https://discord.js.org/) - Powerful Discord API library
-- [Fastify](https://www.fastify.io/) - Fast and low overhead web framework
-- All contributors who helped shape this project
-
-## 📞 Support
-
-- Create an [Issue](https://github.com/mpc-ou/discord-bot/issues)
-- Join our Discord server (if available)
+    export const myCommand: ActionCommand = {
+        name: 'mycommand',
+        description: 'Description of command',
+        async execute(ctx) {
+            await ctx.reply('Hello World!');
+        }
+    };
+    export default myCommand;
+    ```
+3.  The command loader will automatically register it (restart required).
+4.  Run `npm run deploy-commands` if you changed arguments.
 
 ---
 
-Made with ❤️ by MPC Team
+## 🤝 Contributing
+
+Contributions are welcome! Please open an issue or submit a pull request.
+
+## 📄 License
+
+This project is licensed under the **GPL-2.0** License.

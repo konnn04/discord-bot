@@ -26,6 +26,8 @@ export async function startBot(db: any) {
   client.slashCommands = new Collection();
   client.cooldowns = new Collection();
 
+  const { I18nService } = await import("@services/I18nService");
+  I18nService.load();
 
   await loadCommands(client);
   await loadEvents(client);

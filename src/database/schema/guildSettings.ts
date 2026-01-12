@@ -19,6 +19,9 @@ export const guildSettings = pgTable('guild_settings', {
   // Moderation Settings
   modLogChannelId: varchar('mod_log_channel_id', { length: 20 }),
   autoRoleId: varchar('auto_role_id', { length: 20 }),
+
+  // Logging Settings
+  voiceLogEnabled: boolean('voice_log_enabled').default(false),
   
   // Welcome Settings
   welcomeEnabled: boolean('welcome_enabled').default(false),

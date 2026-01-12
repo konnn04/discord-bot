@@ -8,9 +8,10 @@ export const skipAction: ActionCommand = {
   helpDescription: 'Skips the current song to the next one in queue.',
   async execute(ctx: ContextAdapter) {
     if (!ctx.guildId) return;
+    const { I18nService } = await import("@services/I18nService");
 
     MusicService.skip(ctx.guildId);
-    await ctx.reply({ content: '⏭️ Skipped.', ephemeral: false });
+    await ctx.reply({ content: await I18nService.t(ctx.guildId, 'music.skipped'), ephemeral: false });
   },
 };
 

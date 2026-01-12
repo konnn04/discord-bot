@@ -8,9 +8,10 @@ export const previousAction: ActionCommand = {
   helpDescription: 'Plays the previously played song in the queue.',
   async execute(ctx: ContextAdapter) {
     if (!ctx.guildId) return;
+    const { I18nService } = await import("@services/I18nService");
 
     MusicService.previous(ctx.guildId);
-    await ctx.reply('⏮️ Playing previous song.');
+    await ctx.reply(await I18nService.t(ctx.guildId, 'music.previous'));
   },
 };
 
