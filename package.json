@@ -21,6 +21,7 @@
     "build": "cd web && npm install && npm run build",
     "build:web": "cd web && npm install && npm run build",
     "start": "tsx src/server.ts",
+    "railway:start": "npm run db:push && npm start",
     "deploy-commands": "tsx src/deployCommands.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/database/migrate.ts",
