@@ -444,7 +444,7 @@ export default function MusicPage() {
     }
 
     return (
-        <div className="h-[80vh] w-full p-4 lg:p-8 max-w-[1800px] mx-auto">
+        <div className="h-[80vh] w-full p-4 mx-auto">
             <MusicPlayer guildId={guildId} />
         </div>
     );
