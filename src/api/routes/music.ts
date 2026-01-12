@@ -152,19 +152,19 @@ export const musicRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
       switch (body.action) {
           case 'play':
               MusicService.resume(guildId);
-              sendFeedback('Resumed playback.');
+              sendFeedback(await I18nService.t(guildId, 'music.resumedPlayback'));
               break;
           case 'pause':
               MusicService.pause(guildId);
-              sendFeedback('Paused playback.');
+              sendFeedback(await I18nService.t(guildId, 'music.pausedPlayback'));
               break;
           case 'skip':
               MusicService.skip(guildId);
-              sendFeedback('Skipped track.');
+              sendFeedback(await I18nService.t(guildId, 'music.skippedTrack'));
               break;
           case 'stop':
               MusicService.stop(guildId);
-              sendFeedback('Stopped playback.');
+              sendFeedback(await I18nService.t(guildId, 'music.stoppedPlayback'));
               break;
           case 'volume':
               if (typeof body.value === 'number') {
