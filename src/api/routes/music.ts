@@ -156,10 +156,11 @@ export const musicRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
                   sendFeedback(`Set volume to ${body.value}%`);
               }
               break;
-          case 'loop':
+          case 'loop': {
               const isLoop = MusicService.toggleLoop(guildId);
               sendFeedback(isLoop ? 'Enabled loop.' : 'Disabled loop.');
               break;
+          }
           case 'shuffle':
               MusicService.shuffle(guildId);
               sendFeedback('Shuffled queue.');

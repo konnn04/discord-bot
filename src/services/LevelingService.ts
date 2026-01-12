@@ -74,7 +74,7 @@ export class LevelingService {
     if (!settings.levelingEnabled) return;
 
     // 2. Get User Stats
-    let stats = await this.getUserStats(guildId, userId);
+    const stats = await this.getUserStats(guildId, userId);
 
     // 3. Check Cooldown
     const now = new Date();

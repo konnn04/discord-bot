@@ -39,7 +39,7 @@ export async function globalApiRoutes(app: FastifyInstance) {
           if (!user) {
               try {
                   user = await app.discordBot.users.fetch(stat.userId, { force: true });
-              } catch (e) {}
+              } catch (e) { /* ignore */ }
           }
           
           const guild = app.discordBot.guilds.cache.get(stat.guildId);
@@ -47,7 +47,7 @@ export async function globalApiRoutes(app: FastifyInstance) {
           if (guild && !member) {
               try {
                   member = await guild.members.fetch(stat.userId);
-              } catch (e) {}
+              } catch (e) { /* ignore */ }
           }
 
           // Format Activity

@@ -83,7 +83,7 @@ const InfoCommand: ActionCommand = {
             });
         }
 
-        let links = [];
+        const links = [];
         if (botInfo.repository) {
             links.push(`[GitHub](${botInfo.repository})`);
         }
