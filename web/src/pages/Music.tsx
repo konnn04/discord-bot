@@ -331,6 +331,12 @@ const MusicPlayer = ({ guildId }: { guildId: string }) => {
     const [state, setState] = useState<MusicState | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [position, setPosition] = useState(0); // In Milliseconds for interpolation
+    const positionRef = useRef(position);
+
+    // Sync ref with state
+    useEffect(() => {
+        positionRef.current = position;
+    }, [position]);
 
     const fetchState = useCallback(async () => {
         try {
@@ -356,11 +362,12 @@ const MusicPlayer = ({ guildId }: { guildId: string }) => {
                     const newState = data.state as MusicState;
                     
                     const eventType = (args[0] as any)?.type;
+                    const currentPos = positionRef.current;
                     const shouldUpdatePosition = 
                         !prev?.playing ||
                         !newState.playing ||
                         eventType === 'track_start' ||
-                        (newState.position !== undefined && newState.position > position);
+                        (newState.position !== undefined && newState.position > currentPos);
                     
                     if (newState.position !== undefined && shouldUpdatePosition) {
                         setPosition(newState.position);
@@ -384,7 +391,7 @@ const MusicPlayer = ({ guildId }: { guildId: string }) => {
             socket.off('music:queue_add', handleUpdate);
             socket.off('music:track_start', handleUpdate);
         };
-    }, [guildId, fetchState, position]);
+    }, [guildId, fetchState]);
 
     // Timer Interpolation
     useEffect(() => {
