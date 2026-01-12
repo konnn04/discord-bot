@@ -1,140 +1,218 @@
-# 🦊 MPC Discord Bot
+# 🤖 MPC Discord Bot
 
-![Version](https://img.shields.io/github/package-json/v/mpc-ou/discord-bot?style=for-the-badge)
-![License](https://img.shields.io/github/license/mpc-ou/discord-bot?style=for-the-badge)
-![Discord.js](https://img.shields.io/badge/discord.js-v14-blue?style=for-the-badge)
 ![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-43853D?style=for-the-badge&logo=node.js&logoColor=white)
+![Discord.js](https://img.shields.io/badge/Discord.js-5865F2?style=for-the-badge&logo=discord&logoColor=white)
+![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
+![Fastify](https://img.shields.io/badge/Fastify-000000?style=for-the-badge&logo=fastify&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)
 
-[English Version](./README.md)
+Bot Discord đa năng với dashboard web hiện đại. Được xây dựng cho MPC Club với tính ổn định, hiệu suất cao và dễ sử dụng.
 
-## 📖 Giới thiệu
+[English](README.md) | **Tiếng Việt**
 
-Bot Discord mạnh mẽ và đầy đủ tính năng được xây dựng bằng **TypeScript**, **Discord.js v14**, và **Fastify**. Được thiết kế để quản lý cộng đồng, phát nhạc, theo dõi cuộc họp và nhiều tính năng khác.
+## ✨ Tính năng
 
-### ✨ Tính năng chính
+### 🎵 Hệ thống nhạc nâng cao
+- Phát nhạc chất lượng cao từ YouTube, Spotify, SoundCloud
+- Lời bài hát real-time với tự động cuộn
+- Quản lý hàng đợi, lặp lại, xáo trộn, bài trước
+- Điều khiển âm lượng và phân quyền DJ
+- Điều khiển qua web dashboard
 
-- **🎵 Hệ thống Âm nhạc**: Phát nhạc chất lượng cao từ YouTube, Spotify, và YouTube Music.
-- **📊 Theo dõi Cuộc họp**: Ghi lại thời gian tham gia voice, tạo báo cáo và quản lý phiên họp.
-- **✅ Điểm danh**: Quản lý điểm danh sự kiện với xác minh hỏi-đáp (tùy chọn).
-- **📈 Leveling**: Hệ thống cấp độ (XP) cho tin nhắn và voice.
-- **🔊 Nhật ký Voice (Voice Log)**: Thông báo khi thành viên vào/ra hoặc chuyển kênh voice.
-- **🌐 Web Dashboard**: API và giao diện quản lý tích hợp sẵn (Fastify).
-- **🌍 Đa ngôn ngữ (i18n)**: Hỗ trợ hoàn toàn Tiếng Việt (vi) và Tiếng Anh (en).
-- **🔧 Slash Commands**: Tương tác hiện đại với Discord Slash Commands.
+### 📊 Hệ thống Level & XP
+- Tùy chỉnh tỉ lệ XP cho tin nhắn và hoạt động voice
+- Thông báo lên cấp với kênh tùy chỉnh
+- Bảng xếp hạng tương tác
+- Thưởng role khi đạt level
 
----
+### 🎮 Minigame
+- Oẳn tù tì với theo dõi chuỗi thắng
+- Xúc xắc
+- Lệnh meme tương tác (ôm, vỗ đầu, hôn, v.v.)
 
-## 🚀 Bắt đầu
+### 👥 Theo dõi cuộc họp
+- Theo dõi tham gia kênh thoại
+- Tự động ghi lại phiên
+- Báo cáo tham gia chi tiết
+- Xuất tóm tắt cuộc họp
 
-### Yêu cầu tiên quyết
+### 🌐 Web Dashboard
+- Thống kê bot real-time
+- Quản lý guild
+- Điều khiển trình phát nhạc
+- Hồ sơ người dùng và bảng xếp hạng
+- Thiết kế responsive cho mobile
+- Hỗ trợ chế độ tối/sáng
 
-- **Node.js**: Phiên bản 18 trở lên.
-- **PostgreSQL**: Dùng làm database chính.
-- **FFmpeg**: Cần thiết để xử lý âm thanh (nhạc).
-- **Discord Bot Token**: Lấy tại [Discord Developer Portal](https://discord.com/developers/applications).
+### 🔧 Tiện ích
+- Hỗ trợ đa ngôn ngữ (Tiếng Anh, Tiếng Việt)
+- Thông tin server và người dùng
+- Hiển thị avatar
+- Tích hợp GitHub
 
-### 🛠️ Cài đặt
+## 🚀 Bắt đầu nhanh
 
-1.  **Clone mã nguồn**
-    ```bash
-    git clone https://github.com/mpc-ou/discord-bot.git
-    cd discord-bot
-    ```
+### Yêu cầu
 
-2.  **Cài đặt thư viện**
-    ```bash
-    npm install
-    ```
+- **Node.js** v20 trở lên
+- **PostgreSQL** database
+- **Discord Bot Token** ([Tạo tại đây](https://discord.com/developers/applications))
+- **FFmpeg** (cho tính năng voice/nhạc)
 
-3.  **Cấu hình môi trường (.env)**
-    Sao chép file mẫu và điền thông tin của bạn:
-    ```bash
-    cp .env.example .env
-    ```
-    Hãy mở file `.env` và điền đầy đủ các thông tin như `DISCORD_TOKEN`, `DATABASE_URL`... (Xem `.env.example` để biết thêm chi tiết).
+### Phát triển Local
 
-4.  **Cài đặt Database**
-    Đảm bảo PostgreSQL đang chạy và database đã được tạo. Sau đó chạy lệnh sau để tạo bảng:
-    ```bash
-    # Tạo migration files
-    npm run db:generate
-    
-    # Chạy migration để cập nhật database
-    npm run db:migrate
-    
-    # Hoặc dùng push (cho môi trường dev)
-    npm run db:push
-    ```
+1. **Clone và cài đặt dependencies**
 
-5.  **Triển khai Lệnh (Deploy Commands)**
-    Đăng ký Slash Commands với server Discord của bạn:
-    ```bash
-    npm run deploy-commands
-    ```
+   ```bash
+   git clone https://github.com/mpc-ou/discord-bot.git
+   cd discord-bot
+   npm install --legacy-peer-deps
+   cd web && npm install && cd ..
+   ```
 
----
+2. **Cấu hình môi trường**
 
-## 🏃‍♂️ Chạy Bot
+   Copy `.env.example` thành `.env` và điền giá trị:
 
-### Môi trường Development
-Chạy bot với tính năng hot-reload (tự động khởi động lại khi sửa code):
+   ```env
+   # Discord
+   DISCORD_TOKEN=token_bot_của_bạn
+   DISCORD_CLIENT_ID=client_id_của_bạn
+   DEVELOPER_ID=["discord_id_của_bạn"]
+
+   # Database
+   DATABASE_URL=postgresql://user:password@localhost:5432/dbname
+
+   # OAuth (cho Web Dashboard)
+   OAUTH_CLIENT_ID=client_id_của_bạn
+   OAUTH_CLIENT_SECRET=client_secret_của_bạn
+   OAUTH_REDIRECT_URI=http://localhost:3000/api/auth/callback
+
+   # JWT
+   JWT_SECRET=khóa_bí_mật_ngẫu_nhiên
+
+   # Server
+   SERVER_HOST=0.0.0.0
+   SERVER_PORT=3000
+   ```
+
+3. **Thiết lập database**
+
+   ```bash
+   npm run db:push
+   ```
+
+4. **Build frontend và khởi động bot**
+
+   ```bash
+   npm run build  # Build web dashboard
+   npm start      # Khởi động bot
+   ```
+
+   Để phát triển với hot reload:
+   ```bash
+   npm run dev      # Bot tự động khởi động lại
+   npm run dev:web  # Web dashboard dev server (http://localhost:5173)
+   ```
+
+## 🐳 Deploy với Docker
+
+1. **Build và chạy**
+
+   ```bash
+   docker build -t discord-bot .
+   docker run -d \
+     --name discord-bot \
+     -p 3000:3000 \
+     --env-file .env \
+     discord-bot
+   ```
+
+## ☁️ Deploy lên Railway
+
+Railway là nền tảng deploy được khuyến nghị.
+
+1. **Kết nối GitHub repository với Railway**
+2. **Thêm biến môi trường** từ `.env.example`
+3. **Deploy!** Railway sẽ tự động:
+   - Cài đặt dependencies
+   - Build web dashboard
+   - Khởi động bot
+
+Không cần cấu hình thêm - Railway tự động phát hiện scripts trong `package.json`.
+
+## 🛠️ Cấu trúc dự án
+
+```
+discord-bot/
+├── src/
+│   ├── bot/              # Discord.js bot
+│   │   ├── commands/     # Slash commands
+│   │   ├── events/       # Event handlers
+│   │   └── utils/        # Tiện ích bot
+│   ├── api/              # Fastify API server
+│   │   ├── routes/       # API endpoints
+│   │   └── middleware/   # Auth & validation
+│   ├── database/         # Drizzle ORM
+│   │   └── schema/       # Database schemas
+│   ├── services/         # Business logic
+│   ├── i18n/             # Bản dịch (en, vi)
+│   └── shared/           # Shared types
+├── web/                  # React dashboard
+│   ├── src/
+│   │   ├── pages/        # Trang dashboard
+│   │   ├── components/   # UI components
+│   │   └── lib/          # Frontend utilities
+└── .github/
+    └── workflows/        # CI/CD (linting)
+```
+
+## 📝 Scripts có sẵn
+
 ```bash
-npm run dev
+npm run dev          # Khởi động bot ở chế độ development
+npm run dev:web      # Khởi động web dashboard dev server
+npm run build        # Build web dashboard
+npm start            # Khởi động bot ở chế độ production
+npm run lint         # Chạy ESLint
+npm run db:push      # Push database schema
+npm run db:studio    # Mở Drizzle Studio (DB GUI)
+npm run deploy-commands # Deploy slash commands lên Discord
 ```
 
-### Môi trường Production
-Build code TypeScript sang JavaScript và chạy:
-```bash
-npm run build
-npm start
-```
+## 🔐 Biến môi trường
 
----
+Xem `.env.example` cho tất cả các tùy chọn cấu hình.
 
-## � Hướng dẫn cho Developer
-
-### Cấu trúc dự án
-```text
-src/
-├── bot/
-│   ├── commands/
-│   │   └── actions/     # Chứa logic các lệnh của bot
-│   ├── events/          # Xử lý sự kiện (message, voiceState...)
-├── services/            # Business logic (Music, I18n, GuildSettings...)
-├── database/            # Drizzle ORM schema & migrations
-├── api/                 # Fastify API routes
-├── config/              # File cấu hình môi trường
-└── i18n/                # Các file ngôn ngữ (en.json, vi.json)
-```
-
-### Cách tạo một Action Command mới
-Bot sử dụng cơ chế file-based routing cho commands. Để thêm lệnh mới:
-
-1.  Tạo file mới trong `src/bot/commands/actions/<tên_thư_mục>/<tên_lệnh>.action.ts`.
-2.  Export một object tuân theo interface `ActionCommand`:
-    ```typescript
-    import { ActionCommand } from '@src/shared/types/bot.types';
-    import { I18nService } from '@services/I18nService';
-
-    export const xinChaoCommand: ActionCommand = {
-        name: 'xinchao', // Tên lệnh dùng trong slash command
-        description: 'Gửi lời chào',
-        async execute(ctx) {
-            // Logic xử lý
-            await ctx.reply('Xin chào bạn!');
-        }
-    };
-    export default xinChaoCommand;
-    ```
-3.  Lưu file. Bot (ở chế độ dev) sẽ tự động nhận diện.
-4.  Nếu bạn thay đổi tham số (options) của lệnh, hãy chạy lại `npm run deploy-commands` để cập nhật với Discord.
-
----
+Biến quan trọng:
+- `DISCORD_TOKEN` - Token bot của bạn
+- `DATABASE_URL` - Chuỗi kết nối PostgreSQL
+- `DEVELOPER_ID` - Mảng các Discord ID có quyền admin
+- `JWT_SECRET` - Secret để xác thực web dashboard
 
 ## 🤝 Đóng góp
 
-Mọi đóng góp đều được hoan nghênh! Hãy mở Issue hoặc gửi Pull Request trên GitHub.
+Chào đón mọi đóng góp! Vui lòng:
 
-## 📄 Bản quyền
+1. Fork repository
+2. Tạo feature branch (`git checkout -b feature/tinh-nang-tuyet-voi`)
+3. Commit thay đổi (`git commit -m 'Thêm tính năng tuyệt vời'`)
+4. Push lên branch (`git push origin feature/tinh-nang-tuyet-voi`)
+5. Mở Pull Request
 
-Dự án này được cấp phép theo giấy phép **GPL-2.0**.
+## 📄 License
+
+Dự án này được cấp phép theo GPL-2.0 License - xem file [LICENSE](LICENSE) để biết thêm chi tiết.
+
+## 🙏 Cảm ơn
+
+- [Discord.js](https://discord.js.org/) - Thư viện Discord API
+- [Fastify](https://www.fastify.io/) - Web framework nhanh
+- [Drizzle ORM](https://orm.drizzle.team/) - TypeScript ORM
+- [shadcn/ui](https://ui.shadcn.com/) - UI components
+- [rikn-music-fetcher](https://www.npmjs.com/package/rikn-music-fetcher) - Xử lý nguồn nhạc
+
+---
+
+Được tạo với ❤️ bởi MPC Club
