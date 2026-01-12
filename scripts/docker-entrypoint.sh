@@ -17,8 +17,8 @@ if [ -n "${DATABASE_URL}" ]; then
   fi
 fi
 
-echo "Running DB migrations..."
-npm run db:migrate || echo "Migrations exited non-zero"
+echo "Running DB schema push..."
+npm run db:push || echo "Schema push exited non-zero"
 
 if [ "${RUN_DEPLOY_COMMANDS}" = "true" ]; then
   echo "RUN_DEPLOY_COMMANDS=true: running deploy-commands"
