@@ -16,7 +16,21 @@ class SocketClient {
     public connect() {
         if (this.socket?.connected) return;
 
-        this.socket = io(import.meta.env.VITE_API_URL || 'http://localhost:3000', {
+        // Auto-detect API URL based on environment
+        const getApiUrl = () => {
+            // If VITE_API_URL is set, use it
+            if (import.meta.env.VITE_API_URL) {
+                return import.meta.env.VITE_API_URL;
+            }
+            // In production (not localhost), use same origin
+            if (typeof window !== 'undefined' && !window.location.hostname.includes('localhost')) {
+                return window.location.origin;
+            }
+            // Development fallback
+            return 'http://localhost:3000';
+        };
+
+        this.socket = io(getApiUrl(), {
             withCredentials: true,
             transports: ['websocket', 'polling'],
         });
