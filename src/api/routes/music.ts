@@ -3,6 +3,7 @@ import { BotClient } from '../../bot/types/bot.types';
 import { MusicService } from '../../services/MusicService';
 import { authenticate } from '@api/middleware/auth';
 import { config } from '@config/env';
+import { I18nService } from '@src/services/I18nService';
 
 export const musicRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
   const client = app.discordBot as BotClient;
@@ -117,7 +118,22 @@ export const musicRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
 
       // Helper to send feedback to channel
       const sendFeedback = (message: string) => {
-           const channel = getWritableChannel(guild) as any;
+           const queue = MusicService.getQueue(guildId);
+           let channel = queue?.textChannel;
+
+           // If no queue channel (or it's gone), try bot's current voice channel
+           if (!channel) {
+               const botVoice = guild.members.me?.voice.channel;
+               if (botVoice && (botVoice as any).send && botVoice.permissionsFor(guild.members.me).has('SendMessages')) {
+                   channel = botVoice as any;
+               }
+           }
+           
+           // Fallback only if absolutely necessary, but try to use the most relevant one
+           if (!channel) {
+                channel = getWritableChannel(guild) as any;
+           }
+
            if (channel) channel.send(`[Web] **${member.user.username}**: ${message}`);
       };
 
@@ -153,7 +169,7 @@ export const musicRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
           case 'volume':
               if (typeof body.value === 'number') {
                   MusicService.setVolume(guildId, body.value);
-                  sendFeedback(`Set volume to ${body.value}%`);
+                  sendFeedback(await I18nService.t(guildId, 'music.volumeSet', { volume: body.value }));
               }
               break;
           case 'loop': {
@@ -172,7 +188,7 @@ export const musicRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
           case 'remove':
               if (typeof body.value === 'number') {
                   const song = MusicService.removeSong(guildId, body.value);
-                  if (song) sendFeedback(`Removed ${song} from queue.`);
+                  if (song) sendFeedback(await I18nService.t(guildId, 'music.removedFromQueue', { song }));
               }
               break;
           default:
@@ -204,7 +220,7 @@ export const musicRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
     onRequest: [authenticate]
   }, async (req, reply) => {
      const { guildId } = req.params as { guildId: string };
-     const { query } = req.body as { query: string };
+     const { query, forceSingle } = req.body as { query: string, forceSingle?: boolean };
 
      const allowed = await checkMusicPermission(req, reply, guildId);
      if (!allowed) return;
@@ -216,8 +232,9 @@ export const musicRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
 
      if (member.voice.channel && textChannel) {
         // Notification
-        textChannel.send(`[Web] **${member.user.username}** added a song via dashboard.`);
-        await MusicService.play(guild!, member.voice.channel, textChannel, query, member.user);
+        const safeUser = member.user.username.replace(/([*_`~])/g, '\\$1');
+        textChannel.send(await I18nService.t(guildId, 'music.addedByDashboard', { user: safeUser }));
+        await MusicService.play(guild!, member.voice.channel, textChannel, query, member.user, { forceSingle });
         return { success: true };
      } else {
          return reply.code(400).send({ error: 'Cannot find voice/text channel' });

@@ -25,9 +25,12 @@ function formatTime(seconds: number) {
 
 const SearchDialog = ({ guildId }: { guildId: string }) => {
     const [query, setQuery] = useState("");
+    const [link, setLink] = useState("");
     const [results, setResults] = useState<{ title: string; url: string; thumbnail?: string; artist?: string; author?: string; durationFormatted?: string; }[]>([]);
     const [searching, setSearching] = useState(false);
     const [open, setOpen] = useState(false);
+    const [isPlaylist, setIsPlaylist] = useState(false);
+    const [addPlaylist, setAddPlaylist] = useState(true);
 
     const handleSearch = async () => {
         if (!query.trim()) return;
@@ -43,15 +46,17 @@ const SearchDialog = ({ guildId }: { guildId: string }) => {
         }
     };
 
-    const handleAdd = async (url: string) => {
+    const handleAdd = async (url: string, forceSingle: boolean = false) => {
         try {
             await api.fetch(`/music/${guildId}/play`, {
                 method: "POST",
-                body: JSON.stringify({ query: url }),
+                body: JSON.stringify({ query: url, forceSingle }),
             }).then(() => {
                 setOpen(false);
                 setQuery("");
+                setLink("");
                 setResults([]);
+                toast.success("Added to queue!");
             }).catch((e) => {
                 console.error(e)
                 toast.error((e as any).error || "Failed to add song to queue.");
@@ -60,6 +65,24 @@ const SearchDialog = ({ guildId }: { guildId: string }) => {
             console.error(e);
             toast.error("Failed to add song to queue.");
         }
+    };
+
+    // Regex Check
+    useEffect(() => {
+        const ytPlaylist = /[?&]list=([^#&?]+)/;
+        const spotifyPlaylist = /open\.spotify\.com\/(album|playlist)/;
+        
+        if (ytPlaylist.test(link) || spotifyPlaylist.test(link)) {
+            setIsPlaylist(true);
+        } else {
+            setIsPlaylist(false);
+        }
+    }, [link]);
+
+    const isValidLink = (url: string) => {
+        const yt = /^(https?:\/\/)?(www\.|m\.)?(youtube\.com|youtu\.be)\/.+$/;
+        const sp = /^(https?:\/\/)?(open\.spotify\.com)\/.+$/;
+        return yt.test(url) || sp.test(url);
     };
 
     return (
@@ -71,35 +94,83 @@ const SearchDialog = ({ guildId }: { guildId: string }) => {
                 <DialogHeader>
                     <DialogTitle>Add Song to Queue</DialogTitle>
                 </DialogHeader>
-                <div className="flex gap-2 my-4">
-                    <Input 
-                        placeholder="Search or paste URL..." 
-                        value={query}
-                        onChange={(e) => setQuery(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                    />
-                    <Button onClick={handleSearch} disabled={searching}>
-                        {searching ? <Loader2 className="animate-spin" /> : <Search className="h-4 w-4" />}
-                    </Button>
-                </div>
                 
-                <div className="max-h-[300px] overflow-y-auto space-y-2">
-                    {results.map((item, i) => (
-                        <div key={i} className="flex items-center gap-3 p-2 rounded hover:bg-muted cursor-pointer" onClick={() => handleAdd(item.url)}>
-                            <div className="h-12 w-12 bg-muted flex-shrink-0 overflow-hidden rounded">
-                                {item.thumbnail && <img src={item.thumbnail} alt="" className="w-full h-full object-cover" />}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <div className="font-medium truncate">{item.title}</div>
-                                <div className="text-xs text-muted-foreground">{item.artist || item.author} • {item.durationFormatted}</div>
-                            </div>
-                            <Button size="sm" variant="ghost"><Plus className="h-4 w-4" /></Button>
+                <Tabs defaultValue="search" className="w-full">
+                    <TabsList className="grid w-full grid-cols-2 mb-4">
+                        <TabsTrigger value="search">Search</TabsTrigger>
+                        <TabsTrigger value="link">Direct Link</TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="search">
+                        <div className="flex gap-2 mb-4">
+                            <Input 
+                                placeholder="Search by keyword..." 
+                                value={query}
+                                onChange={(e) => setQuery(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                            />
+                            <Button onClick={handleSearch} disabled={searching}>
+                                {searching ? <Loader2 className="animate-spin" /> : <Search className="h-4 w-4" />}
+                            </Button>
                         </div>
-                    ))}
-                     {results.length === 0 && !searching && query && (
-                         <div className="text-center text-muted-foreground py-4">No results found.</div>
-                     )}
-                </div>
+                        <div className="max-h-[300px] overflow-y-auto space-y-2">
+                             {results.map((item, i) => (
+                                <div key={i} className="flex items-center gap-3 p-2 rounded hover:bg-muted cursor-pointer" onClick={() => handleAdd(item.url)}>
+                                    <div className="h-12 w-12 bg-muted flex-shrink-0 overflow-hidden rounded">
+                                        {item.thumbnail && <img src={item.thumbnail} alt="" className="w-full h-full object-cover" />}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="font-medium truncate">{item.title}</div>
+                                        <div className="text-xs text-muted-foreground">{item.artist || item.author} • {item.durationFormatted}</div>
+                                    </div>
+                                    <Button size="sm" variant="ghost"><Plus className="h-4 w-4" /></Button>
+                                </div>
+                            ))}
+                             {results.length === 0 && !searching && query && (
+                                 <div className="text-center text-muted-foreground py-4">No results found.</div>
+                             )}
+                        </div>
+                    </TabsContent>
+
+                    <TabsContent value="link" className="space-y-4">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Video or Playlist URL</label>
+                            <Input 
+                                placeholder="https://youtube.com/watch?v=..." 
+                                value={link}
+                                onChange={(e) => setLink(e.target.value)}
+                            />
+                            {!isValidLink(link) && link && <p className="text-xs text-destructive">Invalid YouTube or Spotify link</p>}
+                        </div>
+
+                        {isPlaylist && isValidLink(link) && (
+                            <div className="flex items-center space-x-2 border p-3 rounded-md bg-muted/50">
+                                <input 
+                                    type="checkbox" 
+                                    id="add-playlist" 
+                                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                    checked={addPlaylist}
+                                    onChange={(e) => setAddPlaylist(e.target.checked)}
+                                />
+                                <label
+                                    htmlFor="add-playlist"
+                                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                >
+                                    Add entire playlist
+                                </label>
+                            </div>
+                        )}
+
+                        <Button 
+                            className="w-full" 
+                            disabled={!link || !isValidLink(link)} 
+                            onClick={() => handleAdd(link, !addPlaylist)}
+                        >
+                            <Plus className="mr-2 h-4 w-4" /> 
+                            {isPlaylist && addPlaylist ? "Add Playlist" : "Add Track"}
+                        </Button>
+                    </TabsContent>
+                </Tabs>
             </DialogContent>
         </Dialog>
     );
@@ -152,7 +223,7 @@ const LyricsTab = ({ guildId, currentSong, position }: { guildId: string, curren
 
     if (Array.isArray(lyrics)) {
         return (
-            <ScrollArea className="h-[500px] w-full px-4" ref={scrollAreaRef}>
+            <ScrollArea className="max-h-[75vh] h-full w-full px-8" ref={scrollAreaRef}>
                 <div className="space-y-6 py-8 text-center">
                     {lyrics.map((line: any, i: number) => {
    
@@ -169,7 +240,7 @@ const LyricsTab = ({ guildId, currentSong, position }: { guildId: string, curren
                             <div 
                                 key={i} 
                                 ref={isActive ? activeLineRef : null}
-                                className={`transition-all duration-300 py-2 cursor-pointer ${isActive ? "scale-110 text-primary font-bold opacity-100" : "text-muted-foreground opacity-50 hover:opacity-80 scale-100"}`}
+                                className={`transition-all duration-300 py-2 cursor-pointer ${isActive ? "scale-105 text-primary font-bold opacity-100" : "text-muted-foreground opacity-50 hover:opacity-80 scale-100"}`}
                                 onClick={() => {
                                 }}
                             >
@@ -240,8 +311,19 @@ const MusicPlayer = ({ guildId }: { guildId: string }) => {
             const data = args[0] as { state?: Partial<MusicState>; [key: string]: unknown };
             if (data?.state) {
                 setState(prev => {
-                    const newState = data.state as MusicState; 
-                    if (newState.position !== undefined) setPosition(newState.position);
+                    const newState = data.state as MusicState;
+                    
+                    const eventType = (args[0] as any)?.type;
+                    const shouldUpdatePosition = 
+                        !prev?.playing ||
+                        !newState.playing ||
+                        eventType === 'track_start' ||
+                        (newState.position !== undefined && newState.position > position);
+                    
+                    if (newState.position !== undefined && shouldUpdatePosition) {
+                        setPosition(newState.position);
+                    }
+                    
                     if (!prev) return newState;
                     return { ...prev, ...newState };
                 });
@@ -260,7 +342,7 @@ const MusicPlayer = ({ guildId }: { guildId: string }) => {
             socket.off('music:queue_add', handleUpdate);
             socket.off('music:track_start', handleUpdate);
         };
-    }, [guildId, fetchState]);
+    }, [guildId, fetchState, position]);
 
     // Timer Interpolation
     useEffect(() => {

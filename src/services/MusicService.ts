@@ -204,7 +204,7 @@ export class MusicService {
       return queue;
   }
 
-  static async play(guild: Guild, voiceChannel: VoiceBasedChannel, textChannel: TextChannel, query: string, requester: any) {
+  static async play(guild: Guild, voiceChannel: VoiceBasedChannel, textChannel: TextChannel, query: string, requester: any, options: { forceSingle?: boolean } = {}) {
     const me = guild.members.me;
     const currentVoiceId = me?.voice.channelId;
 
@@ -230,8 +230,16 @@ export class MusicService {
 
         if (isUrl) {
              if (query.includes('list=') || query.includes('/playlist/')) {
-                 songsToAdd = await this.client.getSongsByPlaylist(query);
-                 songsToAdd.forEach((s: any) => s.thumbnail = s.images && s.images.length > 0 ? s.images[0].url : null);
+                 if (options.forceSingle) {
+                     const song = await this.client.getSongByUrl(query);
+                     if (song) {
+                        (song as any).thumbnail = song.images && song.images.length > 0 ? song.images[0].url : null;
+                        songsToAdd.push(song);
+                     }
+                 } else {
+                     songsToAdd = await this.client.getSongsByPlaylist(query);
+                     songsToAdd.forEach((s: any) => s.thumbnail = s.images && s.images.length > 0 ? s.images[0].url : null);
+                 }
              } else {
                  const song = await this.client.getSongByUrl(query);
                  if (song) {

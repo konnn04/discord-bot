@@ -57,6 +57,7 @@
         "links": "🔗 Links"
     },
     "music": {
+        "searching": "🔍 Searching for **{query}**...",
         "addedToQueue": "✅ Added **{count}** songs to the queue.",
         "songAdded": "Song Added to Queue",
         "playing": "🎶 Now Playing",
@@ -69,6 +70,12 @@
         "cookieUpdateError": "❌ **Error:** Failed to update cookies. Check logs.",
         "cookieUploadRequired": "⚠️ Please upload at least one file (yt_cookie or yt_music_cookie).",
         "cookieUpdatedFile": "- `{file}` updated.\n",
+        "addedByDashboard": "**{user}** added a song via dashboard.",
+        "removedFromQueue": "Removed {song} from queue.",
+        "resumedPlayback": "Resumed playback.",
+        "pausedPlayback": "Paused playback.",
+        "skippedTrack": "Skipped track.",
+        "stoppedPlayback": "Stopped playback.",
         "fields": {
             "duration": "Duration",
             "position": "Position in Queue",
