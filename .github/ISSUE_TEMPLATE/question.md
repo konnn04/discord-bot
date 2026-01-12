@@ -10,7 +10,6 @@ assignees: ''
 <!-- Đặt câu hỏi của bạn một cách rõ ràng -->
 
 
-
 ## 📚 Bối cảnh
 <!-- Cung cấp thêm ngữ cảnh về câu hỏi của bạn -->
 

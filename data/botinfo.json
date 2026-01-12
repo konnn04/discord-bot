@@ -1,0 +1,17 @@
+{
+  "name": "MPC Discord Bot",
+  "version": "0.0.1",
+  "description": "A multipurpose Discord bot for MPC community with music, games, and utility features",
+  "author": "MPC",
+  "repository": "https://github.com/mpc-ou/discord-bot",
+  "features": [
+    "Music playback and control",
+    "Voice meeting tracking",
+    "Interactive minigames",
+    "Server and user utilities"
+  ],
+  "support": {
+    "issues": "https://github.com/mpc-ou/discord-bot/issues",
+    "discussions": "https://github.com/mpc-ou/discord-bot/discussions"
+  }
+}

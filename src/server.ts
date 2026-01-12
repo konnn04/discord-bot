@@ -2,12 +2,14 @@ import { startBot } from './bot';
 import { createApp } from './api/app';
 import { config } from './config/env';
 
+import { db } from './database/client';
+
 async function start() {
   try {
-    const bot = await startBot();
+    const bot = await startBot(db);
     console.log('[SUCCESS] Discord bot started');
 
-    const app = await createApp(bot);
+    const app = await createApp(bot, db);
     await app.listen({ 
       port: config.server.port, 
       host: config.server.host,

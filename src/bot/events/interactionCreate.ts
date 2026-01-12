@@ -42,7 +42,19 @@ export default {
 
     try {
       const ctx = new ContextAdapter(interaction);
-      await command.execute(ctx);
+      
+      const args: Record<string, any> = {};
+      
+      if (command.optionalArgs) {
+        for (const arg of command.optionalArgs) {
+            const val = ctx.getOption(arg.name, arg.type?.toLowerCase() as any);
+            if (val !== null && val !== undefined) {
+                args[arg.name] = val;
+            }
+        }
+      }
+
+      await command.execute(ctx, args);
     } catch (error) {
       console.error(`[ERROR] Command "${command.name}" execution failed:`, error);
       

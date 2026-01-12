@@ -6,17 +6,19 @@ import { RPC } from "./utils/RPC";
 import { BotClient } from "./types/bot.types";
 import { MeetingTracker } from "./utils/MeetingTracker";
 
-export async function startBot() {
+export async function startBot(db: any) {
   const client = new Client({
     intents: [
       GatewayIntentBits.Guilds,
       GatewayIntentBits.GuildMessages,
       GatewayIntentBits.MessageContent,
       GatewayIntentBits.GuildMembers,
-      GatewayIntentBits.GuildVoiceStates, 
+      GatewayIntentBits.GuildVoiceStates,
+      GatewayIntentBits.GuildPresences,
     ],
   }) as BotClient;
 
+  client.db = db;
   client.rpc = new RPC(client);
   client.meetingTracker = new MeetingTracker(client);
 

@@ -9,4 +9,6 @@ export interface BotClient extends Client {
   slashCommands: Collection<string, SlashCommandBuilder>; 
   cooldowns: Collection<string, Collection<string, number>>;
   meetingTracker: MeetingTracker;
+  rpsStreaks: Map<string, number>;
+  db: any;
 }

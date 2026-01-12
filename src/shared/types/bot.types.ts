@@ -57,3 +57,4 @@ export interface ActionCommand {
   cooldown?: number; 
   execute: (ctx: any|ContextAdapter, args?: { [key: string]: any }) => Promise<void>;
 }
+

@@ -1,0 +1,1 @@
+ALTER TABLE "guild_settings" ALTER COLUMN "prefix" SET DEFAULT 'f!';
