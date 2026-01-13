@@ -65,4 +65,6 @@ export interface MusicState {
     loop: boolean;
     position: number;
     paused?: boolean;
+    guildName?: string;
+    voiceChannelName?: string;
 }

@@ -67,7 +67,7 @@
         "footer": "Requested by {user}",
         "fetchError": "❌ Error fetching music.",
         "playError": "❌ Failed to play **{song}**. Skipping...",
-        "idleDisconnect": "💤 Queue finished. Disconnecting...",
+        "idleDisconnect": "💤 Queue finished.",
         "cookieUpdateSuccess": "✅ **Cookies Updated:**\n{files}",
         "cookieUpdateError": "❌ **Error:** Failed to update cookies. Check logs.",
         "cookieUploadRequired": "⚠️ Please upload at least one file (yt_cookie or yt_music_cookie).",

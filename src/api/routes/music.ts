@@ -67,9 +67,16 @@ export const musicRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
   }, async (req, reply) => {
       const { guildId } = req.params as { guildId: string };
       const queue = MusicService.getQueue(guildId);
+      const guild = client.guilds.cache.get(guildId);
+      const voiceChannel = guild?.members?.me?.voice?.channel;
       
       if (!queue) {
-          return { playing: false, queue: [] };
+          return { 
+              playing: false, 
+              queue: [],
+              guildName: guild?.name,
+              voiceChannelName: voiceChannel?.name,
+          };
       }
 
       return {
@@ -78,7 +85,9 @@ export const musicRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
           queue: queue.songs,
           volume: queue.volume,
           loop: queue.loop,
-          position: queue.currentResource?.playbackDuration || 0
+          position: queue.currentResource?.playbackDuration || 0,
+          guildName: guild?.name,
+          voiceChannelName: voiceChannel?.name,
       };
   });
 

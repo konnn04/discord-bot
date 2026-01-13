@@ -82,7 +82,7 @@
         "footer": "Yêu cầu bởi {user}",
         "fetchError": "❌ Lỗi khi tải nhạc.",
         "playError": "❌ Không thể phát **{song}**. Đang bỏ qua...",
-        "idleDisconnect": "💤 Hàng đợi đã hết. Đang ngắt kết nối...",
+        "idleDisconnect": "💤 Hàng đợi đã hết.",
         "cookieUpdateSuccess": "✅ **Đã cập nhật Cookie:**\n{files}",
         "cookieUpdateError": "❌ **Lỗi:** Cập nhật cookie thất bại. Kiểm tra log.",
         "cookieUploadRequired": "⚠️ Vui lòng tải lên ít nhất một file (yt_cookie hoặc yt_music_cookie).",
