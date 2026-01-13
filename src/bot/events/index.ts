@@ -18,10 +18,10 @@ export async function loadEvents(client: BotClient) {
 
     if (event.once) {
       client.once(event.name, (...args) => event.execute(...args, client));
+      console.log(`✅ Loaded event: ${event.name} (once)`);
     } else {
       client.on(event.name, (...args) => event.execute(...args, client));
+      console.log(`✅ Loaded event: ${event.name} (on)`);
     }
-
-    console.log(`✅ Loaded event: ${event.name}`);
   }
 }

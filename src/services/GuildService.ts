@@ -65,7 +65,7 @@ export class GuildService {
       ownerId: guild.ownerId,
       memberCount: guild.memberCount,
       isActive: true,
-      leftAt: null, // Reset leftAt if they rejoin
+      leftAt: null,
     };
 
     console.log(`[Guild] Syncing guild: ${guild.name} (${guild.id})`);

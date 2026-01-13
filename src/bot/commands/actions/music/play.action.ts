@@ -8,57 +8,55 @@ import { GuildSettingsService } from '@services/GuildSettingsService';
 import { I18nService } from '@services/I18nService';
 
 export const playAction: ActionCommand = {
-  name: 'play',
-  description: 'Play a song from YouTube/Spotify/SoundCloud',
-  helpDescription: 'Usage: /play <query|url>',
-  optionalArgs: [
-      {
-          name: 'query',
-          description: 'Song name or URL',
-          type: 'STRING',
-          required: true
-      }
-  ],
-  async execute(ctx: ContextAdapter) {
-    const query = ctx.getOption('query', 'string') as string;
-    let member = ctx.member as GuildMember;
-
-    if (!member?.voice && ctx.guild) {
-        try {
-            member = await ctx.guild.members.fetch(ctx.user.id);
-        } catch (error) {
-            console.warn(`[Play] Failed to fetch member ${ctx.user.id} for voice check:`, error);
+    name: 'play',
+    description: 'Play a song from YouTube/Spotify/SoundCloud',
+    helpDescription: 'Usage: /play <query|url>',
+    optionalArgs: [
+        {
+            name: 'query',
+            description: 'Song name or URL',
+            type: 'STRING',
+            required: true
         }
-    }
+    ],
+    async execute(ctx: ContextAdapter) {
+        const query = ctx.getOption('query', 'string') as string;
+        let member = ctx.member as GuildMember;
 
-    const voiceChannel = member?.voice?.channel;
+        if (!member?.voice && ctx.guild) {
+            try {
+                member = await ctx.guild.members.fetch(ctx.user.id);
+            } catch (error) {
+                console.warn(`[Play] Failed to fetch member ${ctx.user.id} for voice check:`, error);
+            }
+        }
 
-    if (!voiceChannel) {
-        const msg = await I18nService.t(ctx.guildId, 'music.noVoice');
-        await ctx.reply({ content: msg, ephemeral: true });
-        return;
-    }
+        const voiceChannel = member?.voice?.channel;
 
-    await ctx.defer();
-    
-    // Ensure guild is in DB (Self-healing)
-    if (ctx.guild) {
-         // Run in background to not block play
-         GuildService.syncGuild(ctx.guild).catch(err => console.error(`[Play] Failed to auto-sync guild:`, err));
-         GuildSettingsService.getOrCreate(ctx.guild.id).catch(() => {});
-    }
+        if (!voiceChannel) {
+            const msg = await I18nService.t(ctx.guildId, 'music.noVoice');
+            await ctx.reply({ content: msg, ephemeral: true });
+            return;
+        }
 
-    await MusicService.play(
-        ctx.guild!, 
-        voiceChannel, 
-        ctx.channel as TextChannel, 
-        query, 
-        ctx.user
-    );
+        await ctx.defer();
 
-    const searchingMsg = await I18nService.t(ctx.guildId, 'music.searching', { query });
-    await ctx.editReply({ content: searchingMsg });
-  },
+        if (ctx.guild) {
+            GuildService.syncGuild(ctx.guild).catch(err => console.error(`[Play] Failed to auto-sync guild:`, err));
+            GuildSettingsService.getOrCreate(ctx.guild.id).catch(() => { });
+        }
+
+        await MusicService.play(
+            ctx.guild!,
+            voiceChannel,
+            ctx.channel as TextChannel,
+            query,
+            ctx.user
+        );
+
+        const searchingMsg = await I18nService.t(ctx.guildId, 'music.searching', { query });
+        await ctx.editReply({ content: searchingMsg });
+    },
 };
 
 export default playAction;

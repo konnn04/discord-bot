@@ -21,12 +21,34 @@ import type { MusicState, Guild } from "@shared/types/api.types";
 import type { Song } from "@shared/types/music.types";
 import { toast } from "sonner";
 import React from "react";
-// --- Utility ---
+// --- Type Definitions ---
+interface SongImage {
+    url: string;
+    width: number;
+    height: number;
+}
+
+interface SongWithImages extends Song {
+    images?: SongImage[];
+}
+
+// --- Utility Functions ---
 function formatTime(seconds: number) {
     if (!seconds || isNaN(seconds)) return "0:00";
     const m = Math.floor(seconds / 60);
     const s = Math.floor(seconds % 60);
     return `${m}:${s < 10 ? '0' : ''}${s}`;
+}
+
+function getBestThumbnail(song: SongWithImages | null | undefined): string | null | undefined {
+    if (!song) return undefined;
+
+    if (song.images && song.images.length > 0) {
+        const sorted = [...song.images].sort((a, b) => (b.width * b.height) - (a.width * a.height));
+        return sorted[0]?.url;
+    }
+
+    return song.thumbnail;
 }
 
 // --- Components ---
@@ -80,7 +102,7 @@ const SearchDialog = ({ guildId }: { guildId: string }) => {
     useEffect(() => {
         const ytPlaylist = /[?&]list=([^#&?]+)/;
         const spotifyPlaylist = /open\.spotify\.com\/(album|playlist)/;
-        
+
         if (ytPlaylist.test(link) || spotifyPlaylist.test(link)) {
             setIsPlaylist(true);
         } else {
@@ -103,7 +125,7 @@ const SearchDialog = ({ guildId }: { guildId: string }) => {
                 <DialogHeader>
                     <DialogTitle>Add Song to Queue</DialogTitle>
                 </DialogHeader>
-                
+
                 <Tabs defaultValue="search" className="w-full">
                     <TabsList className="grid w-full grid-cols-2 mb-4">
                         <TabsTrigger value="search">Search</TabsTrigger>
@@ -112,8 +134,8 @@ const SearchDialog = ({ guildId }: { guildId: string }) => {
 
                     <TabsContent value="search">
                         <div className="flex gap-2 mb-4">
-                            <Input 
-                                placeholder="Search by keyword..." 
+                            <Input
+                                placeholder="Search by keyword..."
                                 value={query}
                                 onChange={(e) => setQuery(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
@@ -123,41 +145,44 @@ const SearchDialog = ({ guildId }: { guildId: string }) => {
                             </Button>
                         </div>
                         <div className="max-h-[50vh] overflow-y-auto space-y-2 pr-2 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
-                             {results.map((item, i) => (
-                                <div key={i} className="flex items-center gap-3 p-2 rounded hover:bg-muted cursor-pointer group" onClick={() => handleAdd(item.url)}>
-                                    <div className="h-12 w-12 bg-muted flex-shrink-0 overflow-hidden rounded relative">
-                                        {item.thumbnail && <img src={item.thumbnail} alt="" className="w-full h-full object-cover" />}
-                                        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                            <Plus className="h-6 w-6 text-white drop-shadow-md" />
+                            {results.map((item, i) => {
+                                const thumbnail = getBestThumbnail(item as SongWithImages);
+                                return (
+                                    <div key={i} className="flex items-center gap-3 p-2 rounded hover:bg-muted cursor-pointer group" onClick={() => handleAdd(item.url)}>
+                                        <div className="h-12 w-12 bg-muted flex-shrink-0 overflow-hidden rounded relative">
+                                            {thumbnail && <img src={thumbnail} alt="" className="w-full h-full object-cover" />}
+                                            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                <Plus className="h-6 w-6 text-white drop-shadow-md" />
+                                            </div>
                                         </div>
+                                        <div className="flex-1 min-w-0">
+                                            <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <div className="font-medium truncate text-sm">{item.title}</div>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        <p>{item.title}</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
+                                            <div className="text-xs text-muted-foreground truncate">{item.artist || item.author} • {item.durationFormatted}</div>
+                                        </div>
+                                        <Button size="sm" variant="ghost" className="opacity-0 group-hover:opacity-100 transition-opacity"><Plus className="h-4 w-4" /></Button>
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        <TooltipProvider>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <div className="font-medium truncate text-sm">{item.title}</div>
-                                                </TooltipTrigger>
-                                                <TooltipContent>
-                                                    <p>{item.title}</p>
-                                                </TooltipContent>
-                                            </Tooltip>
-                                        </TooltipProvider>
-                                        <div className="text-xs text-muted-foreground truncate">{item.artist || item.author} • {item.durationFormatted}</div>
-                                    </div>
-                                    <Button size="sm" variant="ghost" className="opacity-0 group-hover:opacity-100 transition-opacity"><Plus className="h-4 w-4" /></Button>
-                                </div>
-                            ))}
-                             {results.length === 0 && !searching && query && (
-                                 <div className="text-center text-muted-foreground py-4">No results found.</div>
-                             )}
+                                );
+                            })}
+                            {results.length === 0 && !searching && query && (
+                                <div className="text-center text-muted-foreground py-4">No results found.</div>
+                            )}
                         </div>
                     </TabsContent>
 
                     <TabsContent value="link" className="space-y-4">
                         <div className="space-y-2">
                             <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Video or Playlist URL</label>
-                            <Input 
-                                placeholder="https://youtube.com/watch?v=..." 
+                            <Input
+                                placeholder="https://youtube.com/watch?v=..."
                                 value={link}
                                 onChange={(e) => setLink(e.target.value)}
                             />
@@ -166,9 +191,9 @@ const SearchDialog = ({ guildId }: { guildId: string }) => {
 
                         {isPlaylist && isValidLink(link) && (
                             <div className="flex items-center space-x-2 border p-3 rounded-md bg-muted/50">
-                                <input 
-                                    type="checkbox" 
-                                    id="add-playlist" 
+                                <input
+                                    type="checkbox"
+                                    id="add-playlist"
                                     className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
                                     checked={addPlaylist}
                                     onChange={(e) => setAddPlaylist(e.target.checked)}
@@ -182,12 +207,12 @@ const SearchDialog = ({ guildId }: { guildId: string }) => {
                             </div>
                         )}
 
-                        <Button 
-                            className="w-full" 
-                            disabled={!link || !isValidLink(link)} 
+                        <Button
+                            className="w-full"
+                            disabled={!link || !isValidLink(link)}
                             onClick={() => handleAdd(link, !addPlaylist)}
                         >
-                            <Plus className="mr-2 h-4 w-4" /> 
+                            <Plus className="mr-2 h-4 w-4" />
                             {isPlaylist && addPlaylist ? "Add Playlist" : "Add Track"}
                         </Button>
                     </TabsContent>
@@ -231,19 +256,19 @@ const LyricsTab = ({ guildId, currentSong, position }: { guildId: string, curren
 
     useEffect(() => {
         if (!lyrics || !Array.isArray(lyrics) || typeof lyrics === 'string') return;
-        
+
         const posSec = position / 1000;
         const newIndex = lyrics.findIndex((line: any, i: number) => {
             let lineTime = line.seconds !== undefined ? Number(line.seconds) : (Number(line.time) / 1000);
             if (isNaN(lineTime)) lineTime = 0;
-            
+
             let nextLineTime = Infinity;
             if (lyrics[i + 1]) {
                 const nextLine = lyrics[i + 1];
                 const nextTime = nextLine.seconds !== undefined ? Number(nextLine.seconds) : (Number(nextLine.time) / 1000);
                 if (!isNaN(nextTime)) nextLineTime = nextTime;
             }
-            
+
             // Adjust for sync (optional small offset if needed)
             return lineTime <= posSec && nextLineTime > posSec;
         });
@@ -262,10 +287,10 @@ const LyricsTab = ({ guildId, currentSong, position }: { guildId: string, curren
                 const top = activeElement.offsetTop;
                 const containerHeight = container.clientHeight;
                 const elementHeight = activeElement.clientHeight;
-                
-                container.scrollTo({ 
-                    top: top - containerHeight / 2 + elementHeight / 2, 
-                    behavior: "smooth" 
+
+                container.scrollTo({
+                    top: top - containerHeight / 2 + elementHeight / 2,
+                    behavior: "smooth"
                 });
             }
         }
@@ -276,21 +301,21 @@ const LyricsTab = ({ guildId, currentSong, position }: { guildId: string, curren
     };
 
     if (loading) return <div className="flex h-full items-center justify-center p-8"><Loader2 className="animate-spin text-muted-foreground" /></div>;
-    
+
     if (!lyrics || typeof lyrics === 'string') {
         const text = typeof lyrics === 'string' ? lyrics : "No lyrics available";
         return (
             <div className="flex h-full items-center justify-center p-8 text-center text-muted-foreground whitespace-pre-wrap leading-loose">
-               {text}
+                {text}
             </div>
         );
     }
 
     if (Array.isArray(lyrics)) {
         if (lyrics.length === 0) {
-             return (
+            return (
                 <div className="flex h-full items-center justify-center p-8 text-center text-muted-foreground whitespace-pre-wrap leading-loose">
-                   No lyrics found.
+                    No lyrics found.
                 </div>
             );
         }
@@ -298,27 +323,27 @@ const LyricsTab = ({ guildId, currentSong, position }: { guildId: string, curren
         return (
             <div className="relative h-full group/lyrics">
                 {!isAutoScroll && (
-                    <Button 
-                        size="sm" 
-                        variant="secondary" 
+                    <Button
+                        size="sm"
+                        variant="secondary"
                         className="absolute bottom-4 right-8 z-10 shadow-lg opacity-90 hover:opacity-100"
                         onClick={() => setIsAutoScroll(true)}
                     >
                         <ArrowDown className="mr-2 h-4 w-4" /> Resume Sync
                     </Button>
                 )}
-                <ScrollArea 
-                    className="max-h-[60vh] h-full w-full px-8" 
+                <ScrollArea
+                    className="max-h-[60vh] h-full w-full px-8"
                     ref={scrollAreaRef}
                     onWheel={handleUserInteraction}
                     onTouchMove={handleUserInteraction}
                 >
                     <div className="space-y-6 py-8 text-center">
                         {lyrics.map((line: any, i: number) => {
-       
+
                             let lineTime = line.seconds !== undefined ? Number(line.seconds) : (Number(line.time) / 1000);
                             if (isNaN(lineTime)) lineTime = 0;
-                            
+
                             let nextLineTime = Infinity;
                             if (lyrics[i + 1]) {
                                 const nextLine = lyrics[i + 1];
@@ -334,24 +359,24 @@ const LyricsTab = ({ guildId, currentSong, position }: { guildId: string, curren
                             } else {
                                 isActive = lineTime <= posSec && nextLineTime > posSec;
                             }
-                             
-                             return (
-                                <div 
-                                    key={i} 
+
+                            return (
+                                <div
+                                    key={i}
                                     data-index={i}
                                     ref={isActive ? activeLineRef : null}
-                                    className={`transition-all duration-300 py-2 cursor-pointer ${isActive ? "scale-105 text-primary font-bold opacity-100" : "text-muted-foreground opacity-50 hover:opacity-80 scale-100"}`}
+                                    className={`transition-all duration-300 py-2 cursor-pointer ${isActive ? "scale-100 text-primary font-bold opacity-100" : "text-muted-foreground opacity-50 hover:opacity-80 scale-95"}`}
                                     onClick={() => {
                                         // For now just allow click.
                                     }}
                                 >
                                     <p className="text-xl sm:text-2xl leading-relaxed">{line.text}</p>
                                 </div>
-                             );
+                            );
                         })}
                     </div>
                 </ScrollArea>
-           </div>
+            </div>
         );
     }
 
@@ -363,31 +388,34 @@ const QueueTab = ({ queue, onRemove }: { queue: any[], onRemove: (index: number)
 
     return (
         <ScrollArea className="h-[500px] pr-4">
-             <div className="space-y-2">
-                {queue.map((song, i) => (
-                    <div key={i} className="flex items-center gap-3 p-3 rounded-md hover:bg-muted/50 transition-colors group border border-transparent hover:border-border">
-                        <div className="w-6 text-center text-muted-foreground font-mono text-sm">{i + 1}</div>
-                        <div className="h-10 w-10 rounded bg-muted overflow-hidden flex-shrink-0">
-                            {song.thumbnail ? <img src={song.thumbnail} alt="" className="w-full h-full object-cover" /> : <Disc className="h-6 w-6 m-2 text-muted-foreground" />}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <div className="font-medium truncate text-sm">{song.title}</div>
-                            <div className="text-xs text-muted-foreground truncate flex items-center gap-1">
-                                <span>{song.artist || song.author || "Unknown Artist"}</span>
-                                {song.requester && (
-                                    <>
-                                        <span>•</span>
-                                        <span className="text-muted-foreground/80">Added by {song.requester.globalName || song.requester.username}</span>
-                                    </>
-                                )}
+            <div className="space-y-2">
+                {queue.map((song, i) => {
+                    const thumbnail = getBestThumbnail(song as SongWithImages);
+                    return (
+                        <div key={i} className="flex items-center gap-3 p-3 rounded-md hover:bg-muted/50 transition-colors group border border-transparent hover:border-border">
+                            <div className="w-6 text-center text-muted-foreground font-mono text-sm">{i + 1}</div>
+                            <div className="h-10 w-10 rounded bg-muted overflow-hidden flex-shrink-0">
+                                {thumbnail ? <img src={thumbnail} alt="" className="w-full h-full object-cover" /> : <Disc className="h-6 w-6 m-2 text-muted-foreground" />}
                             </div>
+                            <div className="flex-1 min-w-0">
+                                <div className="font-medium truncate text-sm">{song.title}</div>
+                                <div className="text-xs text-muted-foreground truncate flex items-center gap-1">
+                                    <span>{song.artist || song.author || "Unknown Artist"}</span>
+                                    {song.requester && (
+                                        <>
+                                            <span>•</span>
+                                            <span className="text-muted-foreground/80">Added by {song.requester.globalName || song.requester.username}</span>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="text-xs text-muted-foreground font-mono">{song.durationFormatted || formatTime(Number(song.duration))}</div>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive" onClick={() => onRemove(i + 1)}>
+                                <Square className="h-3 w-3" />
+                            </Button>
                         </div>
-                        <div className="text-xs text-muted-foreground font-mono">{song.durationFormatted || formatTime(Number(song.duration))}</div>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive" onClick={() => onRemove(i + 1)}>
-                            <Square className="h-3 w-3" />
-                        </Button>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
         </ScrollArea>
     );
@@ -398,7 +426,7 @@ const QueueTab = ({ queue, onRemove }: { queue: any[], onRemove: (index: number)
 const MusicPlayer = ({ guildId }: { guildId: string }) => {
     const [state, setState] = useState<MusicState | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [position, setPosition] = useState(0); 
+    const [position, setPosition] = useState(0);
     const positionRef = useRef(position);
 
     // Sync ref with state
@@ -424,29 +452,29 @@ const MusicPlayer = ({ guildId }: { guildId: string }) => {
         socket.joinGuild(guildId);
 
         const handleUpdate = (...args: unknown[]) => {
-            const data = args[0] as { state?: Partial<MusicState>; [key: string]: unknown };
+            const data = args[0] as { state?: Partial<MusicState>;[key: string]: unknown };
             if (data?.state) {
                 setState(prev => {
                     const newState = data.state as MusicState;
-                    
+
                     const eventType = (args[0] as any)?.type;
-                    
+
                     // On track start, always reset position to 0 immediately
                     if (eventType === 'music:track_start' || eventType === 'track_start') {
-                         setPosition(0);
-                         if (positionRef.current !== 0) positionRef.current = 0;
-                    } 
-                    
+                        setPosition(0);
+                        if (positionRef.current !== 0) positionRef.current = 0;
+                    }
+
                     const currentPos = positionRef.current;
-                    const shouldUpdatePosition = 
+                    const shouldUpdatePosition =
                         !prev?.playing ||
                         !newState.playing ||
                         (newState.position !== undefined && newState.position > currentPos);
-                    
+
                     if (newState.position !== undefined && shouldUpdatePosition) {
                         setPosition(newState.position);
                     }
-                    
+
                     if (!prev) return newState;
                     return { ...prev, ...newState };
                 });
@@ -454,8 +482,8 @@ const MusicPlayer = ({ guildId }: { guildId: string }) => {
                 // If it is track start but no state, we should still reset position while fetching
                 const eventType = (args[0] as any)?.type;
                 if (eventType === 'music:track_start' || eventType === 'track_start') {
-                     setPosition(0);
-                     positionRef.current = 0;
+                    setPosition(0);
+                    positionRef.current = 0;
                 }
                 fetchState();
             }
@@ -486,7 +514,7 @@ const MusicPlayer = ({ guildId }: { guildId: string }) => {
         }
         return () => clearInterval(interval);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [state?.playing, state?.paused, state?.currentSong]); 
+    }, [state?.playing, state?.paused, state?.currentSong]);
 
     const control = async (action: string, value?: number | boolean) => {
         try {
@@ -509,30 +537,31 @@ const MusicPlayer = ({ guildId }: { guildId: string }) => {
     const progressPercent = Math.min((currentPositionSeconds / currentDuration) * 100, 100);
 
     return (
-        <div className="grid xl:grid-cols-2 gap-6 h-[calc(100vh-140px)] min-h-[600px]">
+        <div className="grid xl:grid-cols-2 gap-6 min-h-[600px]">
             {/* Left Column: Player Controls */}
-            <div className="flex flex-col gap-6">
+            <div className="flex flex-col gap-6 h-full max-h-[calc(100vh-140px)]">
                 <Card className="flex-1 flex flex-col justify-center border-none bg-gradient-to-b from-muted/50 to-muted/10 shadow-lg">
-                   <CardContent className="p-8 sm:p-12 flex flex-col items-center text-center space-y-8">
-                        {/* Album Art */}
+                    <CardContent className="p-8 sm:p-12 flex flex-col items-center text-center space-y-8">
                         <div className="relative group w-full max-w-sm aspect-square shadow-2xl rounded-2xl overflow-hidden bg-black/50 border border-white/5">
-                             {state.currentSong?.thumbnail ? (
-                                 <img src={state.currentSong.thumbnail} alt="Art" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                             ) : (
-                                 <div className="flex items-center justify-center w-full h-full text-muted-foreground">
-                                     <ListMusic className="w-24 h-24 opacity-20" />
-                                 </div>
-                             )}
-                             {/* Overlay */}
-                             <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                                 {state.playing && (
-                                     <div className="flex gap-1.5 items-end h-16 pointer-events-none">
-                                         {[...Array(4)].map((_, i) => (
-                                             <div key={i} className="w-2.5 bg-white/80 animate-pulse rounded-full" style={{ height: `${40 + Math.random() * 60}%`, animationDuration: `${0.4 + Math.random() * 0.4}s` }} />
-                                         ))}
-                                     </div>
-                                 )}
-                             </div>
+                            {(() => {
+                                const thumbnail = getBestThumbnail(state.currentSong as SongWithImages);
+                                return thumbnail ? (
+                                    <img src={thumbnail} alt="Art" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                                ) : (
+                                    <div className="flex items-center justify-center w-full h-full text-muted-foreground">
+                                        <ListMusic className="w-24 h-24 opacity-20" />
+                                    </div>
+                                );
+                            })()}
+                            <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                {state.playing && (
+                                    <div className="flex gap-1.5 items-end h-16 pointer-events-none">
+                                        {[...Array(4)].map((_, i) => (
+                                            <div key={i} className="w-2.5 bg-white/80 animate-pulse rounded-full" style={{ height: `${40 + Math.random() * 60}%`, animationDuration: `${0.4 + Math.random() * 0.4}s` }} />
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         {/* Song Info */}
@@ -543,51 +572,51 @@ const MusicPlayer = ({ guildId }: { guildId: string }) => {
 
                         {/* Progress */}
                         <div className="w-full max-w-md space-y-2">
-                             <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                                 <div className="h-full bg-primary transition-all duration-1000 ease-linear rounded-full" style={{ width: `${progressPercent}%` }} />
-                             </div>
-                             <div className="flex justify-between text-xs font-mono text-muted-foreground/80">
-                                 <span>{formatTime(currentPositionSeconds)}</span>
-                                 <span>{formatTime(currentDuration)}</span>
-                             </div>
+                            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                                <div className="h-full bg-primary transition-all duration-1000 ease-linear rounded-full" style={{ width: `${progressPercent}%` }} />
+                            </div>
+                            <div className="flex justify-between text-xs font-mono text-muted-foreground/80">
+                                <span>{formatTime(currentPositionSeconds)}</span>
+                                <span>{formatTime(currentDuration)}</span>
+                            </div>
                         </div>
 
                         {/* Controls */}
                         <div className="flex items-center gap-6 sm:gap-8">
-                             <Button variant="ghost" size="icon" className={`h-10 w-10 ${state.loop ? "text-primary" : "text-muted-foreground"}`} onClick={() => control("loop")}>
-                                 <Repeat className="h-5 w-5" />
-                             </Button>
-                             <Button variant="secondary" size="icon" className="h-12 w-12 rounded-full" onClick={() => control("previous")}>
-                                 <SkipForward className="h-5 w-5 rotate-180" />
-                             </Button>
-                             <Button size="icon" className="h-16 w-16 rounded-full shadow-xl hover:scale-105 transition-transform" onClick={() => control(state.playing ? "pause" : "play")}>
-                                 {state.playing ? <Pause className="h-8 w-8" /> : <Play className="h-8 w-8 ml-1" />}
-                             </Button>
-                             <Button variant="secondary" size="icon" className="h-12 w-12 rounded-full" onClick={() => control("skip")}>
-                                 <SkipForward className="h-5 w-5" />
-                             </Button>
-                             <Button variant="ghost" size="icon" className="h-10 w-10 text-muted-foreground hover:text-destructive" onClick={() => control("stop")}>
-                                 <Square className="h-5 w-5" />
-                             </Button>
+                            <Button variant="ghost" size="icon" className={`h-10 w-10 ${state.loop ? "text-primary" : "text-muted-foreground"}`} onClick={() => control("loop")}>
+                                <Repeat className="h-5 w-5" />
+                            </Button>
+                            <Button variant="secondary" size="icon" className="h-12 w-12 rounded-full" onClick={() => control("previous")}>
+                                <SkipForward className="h-5 w-5 rotate-180" />
+                            </Button>
+                            <Button size="icon" className="h-16 w-16 rounded-full shadow-xl hover:scale-105 transition-transform" onClick={() => control(state.playing ? "pause" : "play")}>
+                                {state.playing ? <Pause className="h-8 w-8" /> : <Play className="h-8 w-8 ml-1" />}
+                            </Button>
+                            <Button variant="secondary" size="icon" className="h-12 w-12 rounded-full" onClick={() => control("skip")}>
+                                <SkipForward className="h-5 w-5" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-10 w-10 text-muted-foreground hover:text-destructive" onClick={() => control("stop")}>
+                                <Square className="h-5 w-5" />
+                            </Button>
                         </div>
-                        
+
                         {/* Volume */}
                         <div className="flex items-center gap-3 w-full max-w-[200px] group">
-                             <Volume2 className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
-                             <Slider 
-                                 defaultValue={[state.volume]} 
-                                 max={100} 
-                                 step={1} 
-                                 onValueCommit={(val) => control("volume", val[0])}
-                                 className="cursor-pointer"
-                             />
+                            <Volume2 className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                            <Slider
+                                defaultValue={[state.volume]}
+                                max={100}
+                                step={1}
+                                onValueCommit={(val) => control("volume", val[0])}
+                                className="cursor-pointer"
+                            />
                         </div>
-                   </CardContent>
+                    </CardContent>
                 </Card>
             </div>
 
             {/* Right Column: Queue & Lyrics */}
-            <Card className="flex flex-col border-none shadow-lg h-full">
+            <Card className="flex flex-col border-none shadow-lg h-full max-h-[calc(100vh-140px)]">
                 <Tabs defaultValue="queue" className="flex flex-col h-full">
                     <div className="flex items-center justify-between px-6 pt-6 pb-2">
                         <TabsList className="grid w-[200px] grid-cols-2">
@@ -596,21 +625,21 @@ const MusicPlayer = ({ guildId }: { guildId: string }) => {
                         </TabsList>
                         <SearchDialog guildId={guildId} />
                     </div>
-                    
+
                     <div className="flex-1 overflow-hidden p-6 pt-2">
-                         <TabsContent value="queue" className="h-full mt-0 data-[state=active]:flex flex-col">
-                             <div className="flex items-center justify-between mb-4">
-                                 <h3 className="font-semibold text-lg flex items-center gap-2"><ListMusic className="h-5 w-5" /> Up Next</h3>
-                                 <Badge variant="outline">{state.queue.length} songs</Badge>
-                             </div>
-                             <QueueTab queue={state.queue} onRemove={(idx) => control("remove", idx)} />
-                         </TabsContent>
-                         <TabsContent value="lyrics" className="h-full mt-0 data-[state=active]:flex flex-col">
-                             <div className="flex items-center justify-between mb-4">
-                                 <h3 className="font-semibold text-lg flex items-center gap-2"><Mic2 className="h-5 w-5" /> Lyrics</h3>
-                             </div>
-                             <LyricsTab guildId={guildId} currentSong={state.currentSong} position={position} />
-                         </TabsContent>
+                        <TabsContent value="queue" className="h-full mt-0 data-[state=active]:flex flex-col">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="font-semibold text-lg flex items-center gap-2"><ListMusic className="h-5 w-5" /> Up Next</h3>
+                                <Badge variant="outline">{state.queue.length} songs</Badge>
+                            </div>
+                            <QueueTab queue={state.queue} onRemove={(idx) => control("remove", idx)} />
+                        </TabsContent>
+                        <TabsContent value="lyrics" className="h-full mt-0 data-[state=active]:flex flex-col">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="font-semibold text-lg flex items-center gap-2"><Mic2 className="h-5 w-5" /> Lyrics</h3>
+                            </div>
+                            <LyricsTab guildId={guildId} currentSong={state.currentSong} position={position} />
+                        </TabsContent>
                     </div>
                 </Tabs>
             </Card>
@@ -663,7 +692,7 @@ export default function MusicPageWithBoundary() {
 function MusicPage() {
     const { guildId } = useParams();
     const [guilds, setGuilds] = useState<Guild[]>([]);
-    const [loading, setLoading] = useState(!guildId); 
+    const [loading, setLoading] = useState(!guildId);
     const navigate = useNavigate();
 
     useEffect(() => {
