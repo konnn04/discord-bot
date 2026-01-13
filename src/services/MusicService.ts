@@ -218,12 +218,22 @@ export class MusicService {
         }
 
         try {
+            console.log(`[Music] Play request: query="${query}", options=${JSON.stringify(options)}`);
+
+            if (query.includes('list=RD')) {
+                options.forceSingle = true;
+            }
+
             let songsToAdd: Song[] = [];
             const isUrl = query.startsWith('http');
 
             if (isUrl) {
                  if (query.includes('list=') || query.includes('/playlist/')) {
                      if (options.forceSingle) {
+                         if (query.includes('youtube') && !query.includes('v=')) {
+                                throw new Error("Cannot play single track from a playlist URL without a video ID.");
+                         }
+
                          const song = await this.client.getSongByUrl(query) as unknown as Song;
                          if (song) {
                              song.thumbnail = song.images && song.images.length > 0 ? song.images[0].url : null;

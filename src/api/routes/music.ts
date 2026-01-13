@@ -239,7 +239,10 @@ export const musicRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
     onRequest: [authenticate]
   }, async (req, reply) => {
      const { guildId } = req.params as { guildId: string };
-     const { query, forceSingle } = req.body as { query: string, forceSingle?: boolean };
+     const { query: rawQuery, forceSingle } = req.body as { query: string, forceSingle?: boolean };
+     const query = rawQuery?.trim();
+
+     if (!query) return reply.code(400).send({ error: 'Query is required' });
 
      const allowed = await checkMusicPermission(req as unknown as AuthenticatedRequest, reply, guildId);
      if (!allowed) return;
