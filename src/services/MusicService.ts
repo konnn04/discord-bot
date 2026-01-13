@@ -403,6 +403,13 @@ export class MusicService {
             }
         }
 
+        // Send immediate notification if queue is now empty
+        if (queue.songs.length === 0 && queue.textChannel) {
+            I18nService.t(guildId, 'music.idleDisconnect').then(msg => {
+                queue.textChannel?.send({ embeds: [new EmbedBuilder().setColor('Orange').setDescription(msg)] });
+            }).catch(() => {});
+        }
+
         this.playNext(guildId);
     }
 
