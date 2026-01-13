@@ -2,6 +2,8 @@ import { ActionCommand } from '@src/shared/types/bot.types';
 import { ContextAdapter } from '@bot/contexts/ContextAdapter';
 import { MusicService } from '@services/MusicService';
 import { TextChannel, GuildMember } from 'discord.js';
+import { GuildService } from '@services/GuildService';
+import { GuildSettingsService } from '@services/GuildSettingsService';
 
 import { I18nService } from '@services/I18nService';
 
@@ -19,7 +21,16 @@ export const playAction: ActionCommand = {
   ],
   async execute(ctx: ContextAdapter) {
     const query = ctx.getOption('query', 'string') as string;
-    const member = ctx.member as GuildMember;
+    let member = ctx.member as GuildMember;
+
+    if (!member?.voice && ctx.guild) {
+        try {
+            member = await ctx.guild.members.fetch(ctx.user.id);
+        } catch (error) {
+            console.warn(`[Play] Failed to fetch member ${ctx.user.id} for voice check:`, error);
+        }
+    }
+
     const voiceChannel = member?.voice?.channel;
 
     if (!voiceChannel) {
@@ -30,6 +41,13 @@ export const playAction: ActionCommand = {
 
     await ctx.defer();
     
+    // Ensure guild is in DB (Self-healing)
+    if (ctx.guild) {
+         // Run in background to not block play
+         GuildService.syncGuild(ctx.guild).catch(err => console.error(`[Play] Failed to auto-sync guild:`, err));
+         GuildSettingsService.getOrCreate(ctx.guild.id).catch(() => {});
+    }
+
     await MusicService.play(
         ctx.guild!, 
         voiceChannel, 
