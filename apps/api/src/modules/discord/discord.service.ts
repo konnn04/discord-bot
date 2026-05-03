@@ -88,9 +88,11 @@ export class DiscordService implements OnModuleInit, OnModuleDestroy {
       );
 
       // Register slash commands after bot is ready
-      this.commandLoader.registerSlashCommands().catch((err) => {
-        this.logger.error('Failed to register slash commands', err);
-      });
+      if (process.env.NODE_ENV !== 'production' || process.env.REGISTER_SLASH === 'true') {
+        this.commandLoader.registerSlashCommands().catch((err) => {
+          this.logger.error('Failed to register slash commands', err);
+        });
+      }
 
       // Pass client instance to services
       this.xpBuffer.setClient(this.client);
@@ -114,7 +116,9 @@ export class DiscordService implements OnModuleInit, OnModuleDestroy {
       }
     });
 
-    await this.client.login(token);
+    this.client.login(token).catch((err) => {
+      this.logger.error('Failed to login to Discord:', err);
+    });
   }
 
   async onModuleDestroy() {
