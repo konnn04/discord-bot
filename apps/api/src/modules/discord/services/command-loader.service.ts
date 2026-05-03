@@ -114,7 +114,20 @@ export class CommandLoaderService {
         cmd.toJSON(),
       );
 
-      this.logger.log(`Registering ${commandsData.length} slash commands...`);
+      const existingCommands = (await rest.get(
+        Routes.applicationCommands(clientId),
+      )) as any[];
+      const entryPointCommands = existingCommands.filter(
+        (cmd) => cmd.type === 4, // 4 is PrimaryEntryPoint
+      );
+
+      for (const ep of entryPointCommands) {
+        commandsData.push(ep);
+      }
+
+      this.logger.log(
+        `Registering ${commandsData.length} commands (including ${entryPointCommands.length} entry point commands)...`,
+      );
 
       await rest.put(Routes.applicationCommands(clientId), {
         body: commandsData,
