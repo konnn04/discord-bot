@@ -80,6 +80,12 @@ docker-compose up -d --build
 
 Chúng tôi luôn hoan nghênh sự đóng góp của mọi người! Vui lòng tham khảo file [CONTRIBUTING.md](CONTRIBUTING.md) để biết chi tiết về các quy định và quy trình gửi pull requests.
 
+## Nguồn & API Bổ Sung (Credits)
+
+Dự án có sử dụng các API tuyệt vời từ cộng đồng:
+- [nekos.best](https://nekos.best/) - Sử dụng để tạo ảnh GIF tương tác kiểu anime (ôm, xoa đầu, đấm, v.v.).
+- [hoyo-codes](https://docs.hb.seria.moe/) bởi Seria - Sử dụng để lấy dữ liệu giftcode mới nhất của nhà Hoyoverse cho tính năng auto-tracker.
+
 ## Giấy Phép
 
 Dự án này sử dụng giấy phép MIT License - xem file [LICENSE](LICENSE) để biết thêm chi tiết.

@@ -80,6 +80,12 @@ docker-compose up -d --build
 
 We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct, and the process for submitting pull requests to us.
 
+## Third-Party APIs & Credits
+
+This project relies on the following excellent community APIs:
+- [nekos.best](https://nekos.best/) - Used for generating anime-style GIF reactions (hug, pat, slap, etc.).
+- [hoyo-codes](https://docs.hb.seria.moe/) by Seria - Used for fetching the latest Hoyoverse giftcodes for the automated tracker.
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
