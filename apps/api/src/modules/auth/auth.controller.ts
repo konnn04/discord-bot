@@ -17,10 +17,21 @@ export class AuthController {
 
   @Get('login')
   login(@Req() req: Request, @Res() res: Response) {
-    const protocol =
-      (req.headers['x-forwarded-proto'] as string) || req.protocol;
-    const host = (req.headers['x-forwarded-host'] as string) || req.get('host');
-    const redirectUri = `${protocol}://${host}/api/auth/callback`;
+    const envDomain =
+      process.env.CUSTOM_DOMAIN || process.env.RAILWAY_PUBLIC_DOMAIN;
+    let baseUrl = '';
+    if (envDomain) {
+      baseUrl = envDomain.startsWith('http')
+        ? envDomain
+        : `https://${envDomain}`;
+    } else {
+      const protocol =
+        (req.headers['x-forwarded-proto'] as string) || req.protocol;
+      const host =
+        (req.headers['x-forwarded-host'] as string) || req.get('host');
+      baseUrl = `${protocol}://${host}`;
+    }
+    const redirectUri = `${baseUrl}/api/auth/callback`;
 
     const url = this.authService.getAuthUrl(redirectUri);
     return res.redirect(url);
@@ -36,10 +47,21 @@ export class AuthController {
       throw new UnauthorizedException('Missing OAuth2 code');
     }
 
-    const protocol =
-      (req.headers['x-forwarded-proto'] as string) || req.protocol;
-    const host = (req.headers['x-forwarded-host'] as string) || req.get('host');
-    const redirectUri = `${protocol}://${host}/api/auth/callback`;
+    const envDomain =
+      process.env.CUSTOM_DOMAIN || process.env.RAILWAY_PUBLIC_DOMAIN;
+    let baseUrl = '';
+    if (envDomain) {
+      baseUrl = envDomain.startsWith('http')
+        ? envDomain
+        : `https://${envDomain}`;
+    } else {
+      const protocol =
+        (req.headers['x-forwarded-proto'] as string) || req.protocol;
+      const host =
+        (req.headers['x-forwarded-host'] as string) || req.get('host');
+      baseUrl = `${protocol}://${host}`;
+    }
+    const redirectUri = `${baseUrl}/api/auth/callback`;
 
     const tokenData = await this.authService.exchangeCode(code, redirectUri);
 
