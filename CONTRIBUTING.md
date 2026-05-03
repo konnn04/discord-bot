@@ -1,245 +1,47 @@
-# 🤝 Hướng dẫn đóng góp
+# Contributing to Discord Bot
 
-Cảm ơn bạn đã quan tâm đến việc đóng góp cho Discord Bot MPC! Tài liệu này sẽ hướng dẫn bạn qua quy trình đóng góp.
+First off, thank you for considering contributing to Discord Bot! It's people like you that make open source such a great community.
 
-## 📋 Mục lục
+## 1. Where do I go from here?
 
-- [Code of Conduct](#code-of-conduct)
-- [Bắt đầu](#bắt-đầu)
-- [Quy trình phát triển](#quy-trình-phát-triển)
-- [Coding Standards](#coding-standards)
-- [Commit Messages](#commit-messages)
-- [Pull Request Process](#pull-request-process)
+If you've noticed a bug or have a feature request, make sure to check our [Issues](../../issues) tab to see if someone else has already created an issue. If not, go ahead and make one!
 
-## 📜 Code of Conduct
+## 2. Setting up your environment
 
-Khi tham gia dự án, bạn cần tuân thủ các nguyên tắc:
-- Tôn trọng tất cả contributors
-- Sử dụng ngôn ngữ thân thiện và chuyên nghiệp
-- Chấp nhận phản hồi mang tính xây dựng
-- Tập trung vào điều tốt nhất cho cộng đồng
+1. Fork the repo and create your branch from `main` or `dev`.
+2. Ensure you have `Node.js` (v20+) and `pnpm` (v10) installed.
+3. Run `pnpm install` in the repository root.
+4. Set up your `.env` variables inside `apps/api` (You'll need a test Discord Bot Token and a local PostgreSQL instance).
+5. Run `cd apps/api && npx prisma generate && npx prisma db push` to initialize your local database.
 
-## 🚀 Bắt đầu
+## 3. Development Workflow
 
-### Fork và Clone
+This is a monorepo. Please adhere to the following architecture rules:
+- **Shared logic & Types**: If your changes affect both the API and Web, place the code in `packages/shared`.
+- **Bot Logic**: Modify `apps/api/src/...`.
+- **Frontend**: Modify `apps/web/src/...`.
 
-1. Fork repository về tài khoản của bạn
-2. Clone fork về máy:
+To start the dev server, simply run:
 ```bash
-git clone https://github.com/YOUR_USERNAME/discord-bot.git
-cd discord-bot
+pnpm dev
 ```
 
-3. Thêm upstream remote:
+## 4. Linting and Testing
+
+Before submitting your PR, make sure your code passes our linting rules. 
 ```bash
-git remote add upstream https://github.com/mpc-ou/discord-bot.git
+pnpm lint
 ```
+*(Optionally run `pnpm lint:fix` or `pnpm lint --fix` to auto-format).*
 
-### Cài đặt Dependencies
+If you added any new functionality, please ensure there are no TypeScript compilation errors by running `pnpm build`.
 
-```bash
-npm install
-```
+## 5. Submitting a Pull Request
 
-### Chạy Development Server
+1. Make sure your changes are well-tested and documented.
+2. Update the README.md with details of changes to the interface or architecture, if applicable.
+3. Open a Pull Request! We will review your changes as soon as possible.
 
-```bash
-npm run dev
-```
+## Code of Conduct
 
-## 🔄 Quy trình phát triển
-
-### 1. Tạo Branch mới
-
-```bash
-git checkout -b feature/ten-tinh-nang
-# hoặc
-git checkout -b fix/ten-loi
-```
-
-Quy ước đặt tên branch:
-- `feature/` - Tính năng mới
-- `fix/` - Sửa lỗi
-- `docs/` - Cập nhật documentation
-- `refactor/` - Refactor code
-- `test/` - Thêm/sửa tests
-- `chore/` - Cập nhật dependencies, config, etc.
-
-### 2. Development
-
-- Viết code theo [Coding Standards](#coding-standards)
-- Test thường xuyên
-- Commit code theo [Commit Messages](#commit-messages)
-
-### 3. Sync với Upstream
-
-```bash
-git fetch upstream
-git rebase upstream/main
-```
-
-### 4. Push Changes
-
-```bash
-git push origin feature/ten-tinh-nang
-```
-
-## 💻 Coding Standards
-
-### TypeScript
-
-- Sử dụng TypeScript strict mode
-- Định nghĩa types rõ ràng, tránh `any`
-- Sử dụng interfaces cho object types
-- Export types khi cần thiết
-
-```typescript
-interface User {
-  id: string;
-  name: string;
-  age?: number;
-}
-
-function getUser(id: string): Promise<User> {
-  // ...
-}
-```
-
-### Code Style
-
-- Sử dụng 2 spaces cho indentation
-- Sử dụng single quotes cho strings
-- Thêm semicolons ở cuối statements
-- Tối đa 100 ký tự mỗi dòng
-
-### File Organization
-
-- Một file một component/class chính
-- Đặt tên file theo PascalCase cho classes
-- Đặt tên file theo camelCase cho utilities
-- Group imports: external → internal → types
-
-```typescript
-import { Client } from 'discord.js';
-import { config } from '@/config';
-import type { BotClient } from '@/types';
-```
-
-### Comments
-
-- Tránh comment quá nhiều (code nên tự giải thích)
-- Comment cho logic phức tạp
-- JSDoc cho public APIs
-
-```typescript
-/**
- * Track voice channel meeting attendance
- * @param channelId - Voice channel ID to track
- * @param duration - Duration in minutes
- * @returns Meeting session
- */
-async function startTracking(channelId: string, duration: number): Promise<MeetingSession> {
-  // Implementation
-}
-```
-
-## 📝 Commit Messages
-
-Sử dụng conventional commits format:
-
-```
-<type>(<scope>): <subject>
-
-<body>
-
-<footer>
-```
-
-### Types
-
-- `feat` - Tính năng mới
-- `fix` - Sửa lỗi
-- `docs` - Documentation
-- `style` - Formatting, missing semicolons, etc.
-- `refactor` - Code refactoring
-- `test` - Thêm/sửa tests
-- `chore` - Dependencies, config, etc.
-
-### Examples
-
-```bash
-feat(meeting): add participant list to summary report
-
-- Display up to 50 participants in basic report
-- Sort by total duration
-- Show overflow indicator
-
-Closes #123
-```
-
-```bash
-fix(tracker): handle channel deletion properly
-
-When a voice channel is deleted, the tracking session
-should be automatically cancelled to prevent orphaned sessions.
-```
-
-## 🔀 Pull Request Process
-
-### Trước khi tạo PR
-
-- [ ] Code đã được test kỹ
-- [ ] TypeScript build không có lỗi
-- [ ] Đã sync với upstream/main
-- [ ] Commit messages tuân theo format
-- [ ] Documentation đã được cập nhật
-
-### Tạo Pull Request
-
-1. Push branch lên fork của bạn
-2. Mở PR từ fork về main repository
-3. Điền đầy đủ PR template
-4. Link đến related issues
-5. Request review từ maintainers
-
-### Review Process
-
-- Maintainers sẽ review trong vòng 2-3 ngày
-- Thực hiện các thay đổi được yêu cầu
-- PR cần ít nhất 1 approval
-- CI/CD phải pass
-
-### Merge
-
-- Squash merge được ưu tiên
-- Maintainers sẽ merge sau khi approve
-
-## 🐛 Báo cáo Bugs
-
-Sử dụng [Bug Report template](.github/ISSUE_TEMPLATE/bug_report.md) và cung cấp:
-- Mô tả rõ ràng
-- Các bước tái hiện
-- Kết quả mong đợi vs thực tế
-- Môi trường (OS, Node version, etc.)
-- Logs/Screenshots
-
-## 💡 Đề xuất Features
-
-Sử dụng [Feature Request template](.github/ISSUE_TEMPLATE/feature_request.md) và giải thích:
-- Vấn đề cần giải quyết
-- Giải pháp đề xuất
-- Lợi ích mang lại
-- Các phương án thay thế
-
-## 📞 Liên hệ
-
-- GitHub Issues: [Issues](https://github.com/mpc-ou/discord-bot/issues)
-- Discord Server: TBA
-
-## 🙏 Cảm ơn
-
-Cảm ơn bạn đã dành thời gian đóng góp! Mọi đóng góp, dù lớn hay nhỏ, đều được đánh giá cao.
-
----
-
-❤️ MPC Team
+Please note that this project is released with a Contributor Code of Conduct. By participating in this project you agree to abide by its terms. Be respectful and constructive!

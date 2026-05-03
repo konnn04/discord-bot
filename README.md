@@ -1,201 +1,85 @@
-# 🦊 Discord Bot - MPC
+# Discord Bot
 
-![Version](https://img.shields.io/github/package-json/v/mpc-ou/discord-bot?style=for-the-badge)
-![License](https://img.shields.io/github/license/mpc-ou/discord-bot?style=for-the-badge)
-![Top language](https://img.shields.io/github/languages/top/mpc-ou/discord-bot?style=for-the-badge)
-![Discord.js](https://img.shields.io/badge/discord.js-v14-blue?style=for-the-badge)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-[Vietnamese Version (Phiên bản tiếng Việt)](./README.vi.md)
+*Read this in other languages: [English](README.md), [Tiếng Việt](README.vi.md).*
 
-## 📖 Introduction
+A fully-featured, modular Discord bot built with **NestJS**, **Prisma (PostgreSQL)**, and a **React/Vite** dashboard interface. Designed as a monorepo using **pnpm workspaces**, ensuring excellent code-sharing and scalability.
 
-A powerful Discord bot built with TypeScript, Discord.js v14, and Fastify. Features include music playback, meeting tracking, attendance management, and more.
+## Features
 
-### ✨ Key Features
+- **Modular Architecture**: Built with NestJS, leveraging dependency injection for scalable backend logic.
+- **Dynamic Command & Event Loading**: Automatically registers Discord commands and events.
+- **Robust Configuration System**: Stores global and per-guild settings in PostgreSQL (JSONB) with in-memory caching for zero-latency lookups.
+- **Leveling & XP System**: Tracks user activity in voice and text channels with automatic leveling and leaderboards.
+- **Automated Notifications**: Configurable scheduled tasks via `@nestjs/schedule` (e.g., Hoyoverse giftcode auto-fetcher).
+- **Web Dashboard**: An integrated React + Vite frontend application for easy administration and configuration.
+- **Public Presence API**: A Lanyard-like API to display user Discord status seamlessly on personal portfolios.
 
-- 🎵 **Music System** - Play music in voice channels
-- 📊 **Meeting Tracker** - Track voice channel attendance with detailed reports
-- ✅ **Attendance Manager** - Automated attendance tracking for events
-- 🌐 **Web Dashboard** - Fastify-based API with authentication
-- 🔧 **Slash Commands** - Modern Discord slash command support
-- 📝 **TypeScript** - Full type safety and better DX
-
-## 📂 Project Structure
+## Monorepo Structure
 
 ```
 discord-bot/
-├── src/
-│   ├── bot/
-│   │   ├── commands/
-│   │   │   └── actions/
-│   │   │       ├── common/       # Common commands (help, ping)
-│   │   │       ├── meeting/      # Meeting tracking commands
-│   │   │       └── music/        # Music playback commands
-│   │   ├── contexts/            # Context adapters for commands
-│   │   ├── events/              # Discord event handlers
-│   │   ├── types/               # TypeScript type definitions
-│   │   └── utils/               # Utility classes & functions
-│   ├── api/
-│   │   ├── routes/              # API endpoints
-│   │   ├── middlewares/         # Fastify middlewares
-│   │   ├── plugins/             # Fastify plugins
-│   │   └── services/            # Business logic services
-│   ├── config/                  # Configuration files
-│   ├── database/                # Database models & migrations
-│   ├── shared/                  # Shared types across bot & api
-│   └── web/                     # Web dashboard frontend
-├── .env.example                 # Environment variables template
-├── package.json
-├── tsconfig.json
-└── README.md
+├── apps/
+│   ├── api/       # NestJS backend & Discord bot logic
+│   └── web/       # React (Vite) frontend dashboard
+├── packages/
+│   └── shared/    # Shared types, constants, and utilities
+└── docker-compose.yml
 ```
 
-## 🚀 Getting Started
+## Prerequisites
 
-### Prerequisites
-
-- Node.js >= 18.x
-- npm or yarn
-- PostgreSQL (optional)
+- Node.js (v20 or newer)
+- pnpm (v10)
+- PostgreSQL
 - Discord Bot Token
 
-### Installation
+## Installation
 
-1. Clone the repository
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/yourusername/discord-bot.git
+   cd discord-bot
+   ```
+
+2. **Install dependencies:**
+   ```bash
+   pnpm install
+   ```
+
+3. **Configure Environment Variables:**
+   Create a `.env` file in `apps/api/`:
+   ```env
+   DATABASE_URL="postgresql://user:password@localhost:5432/discord_bot?schema=public"
+   DISCORD_TOKEN="your-discord-bot-token"
+   ```
+
+4. **Initialize Database:**
+   ```bash
+   cd apps/api
+   npx prisma generate
+   npx prisma db push
+   ```
+
+## Running the Application
+
+### Development
+Start the application in development mode (spins up both API and Web):
 ```bash
-git clone https://github.com/mpc-ou/discord-bot.git
-cd discord-bot
+pnpm dev
 ```
 
-2. Install dependencies
+### Production (Docker)
+We provide a `docker-compose.yml` to easily deploy the entire stack:
 ```bash
-npm install
+docker-compose up -d --build
 ```
 
-3. Configure environment variables
-```bash
-cp .env.example .env
-# Edit .env with your configuration
-```
+## Contributing
 
-4. Start the bot
-```bash
-# Development mode with hot reload
-npm run dev
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct, and the process for submitting pull requests to us.
 
-# Production build
-npm run build
-npm start
-```
+## License
 
-## 🎮 Commands
-
-### Meeting Tracking
-
-- `/start_tracking [channel] [duration]` - Start tracking voice channel attendance
-- `/end_tracking [channel]` - End tracking and generate reports
-
-### General
-
-- `/help [command]` - Display help information
-- `/ping` - Check bot latency
-
-## 🛠️ Configuration
-
-Create a `.env` file based on `.env.example`:
-
-```env
-# Discord
-DISCORD_TOKEN=your_bot_token
-DISCORD_CLIENT_ID=your_client_id
-DISCORD_PREFIX=!
-
-# API
-API_PORT=3000
-JWT_SECRET=your_jwt_secret
-
-# Database (optional)
-DATABASE_URL=postgresql://user:pass@localhost:5432/dbname
-```
-
-## 📊 Features in Detail
-
-### Meeting Tracker
-
-Track voice channel meetings with comprehensive attendance reports:
-- Automatic join/leave tracking
-- Multiple session support per participant
-- Detailed timeline with timestamps
-- Public summary + private detailed reports
-- Auto-end after configurable duration
-- Channel deletion handling
-
-### Attendance Manager
-
-Manage event attendance with optional Q&A verification:
-- Create timed attendance sessions
-- Optional question-answer verification
-- Automatic session expiry
-- Detailed attendee reports
-
-## 🔧 Development
-
-### Build
-
-```bash
-npm run build
-```
-
-### Watch Mode
-
-```bash
-npm run dev
-```
-
-### Deploy Commands
-
-```bash
-npm run deploy-commands
-```
-
-## 📝 API Documentation
-
-The bot includes a Fastify-based REST API for integration:
-
-- `GET /api/guilds` - List guilds
-- Authentication via JWT tokens
-- CORS enabled for web dashboard
-
-## 🤝 Contributing
-
-We welcome contributions from the community! Please follow these steps:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-Please use the provided PR template and ensure:
-- All tests pass
-- Code follows TypeScript best practices
-- Documentation is updated
-
-## 📄 License
-
-This project is licensed under the GPL-2.0 License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- [Discord.js](https://discord.js.org/) - Powerful Discord API library
-- [Fastify](https://www.fastify.io/) - Fast and low overhead web framework
-- All contributors who helped shape this project
-
-## 📞 Support
-
-- Create an [Issue](https://github.com/mpc-ou/discord-bot/issues)
-- Join our Discord server (if available)
-
----
-
-Made with ❤️ by MPC Team
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

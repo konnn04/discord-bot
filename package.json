@@ -1,39 +1,23 @@
 {
   "name": "discord-bot",
-  "version": "0.0.1",
-  "description": "",
-  "homepage": "https://github.com/mpc-ou/discord-bot#readme",
-  "bugs": {
-    "url": "https://github.com/mpc-ou/discord-bot/issues"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/mpc-ou/discord-bot.git"
-  },
-  "license": "GPL-2.0",
-  "author": "MPC",
-  "type": "module",
-  "main": "server.ts",
+  "version": "1.0.0",
+  "description": "FoxyBot - Discord bot with web dashboard",
+  "private": true,
   "scripts": {
-    "dev": "tsx watch src/server.ts",
-    "build": "tsc",
-    "start": "node dist/server.js",
-    "deploy-commands": "tsx src/bot/commands/deploy.ts"
+    "dev": "concurrently -n api,web -c blue,green \"pnpm dev:api\" \"pnpm dev:web\"",
+    "dev:api": "pnpm --filter api start:dev",
+    "dev:web": "pnpm --filter web dev",
+    "build": "pnpm --filter shared build && pnpm --filter api build && pnpm --filter web build",
+    "build:shared": "pnpm --filter shared build",
+    "db:generate": "pnpm --filter api exec prisma generate",
+    "db:migrate": "pnpm --filter api exec prisma migrate dev",
+    "db:studio": "pnpm --filter api exec prisma studio"
   },
-  "dependencies": {
-    "@fastify/cookie": "^11.0.2",
-    "@fastify/cors": "^11.2.0",
-    "@fastify/jwt": "^10.0.0",
-    "@fastify/static": "^9.0.0",
-    "discord.js": "^14.25.1",
-    "dotenv": "^17.2.3",
-    "fastify": "^5.6.2",
-    "pg": "^8.16.3"
-  },
+  "keywords": [],
+  "author": "MPC",
+  "license": "ISC",
+  "packageManager": "pnpm@10.24.0",
   "devDependencies": {
-    "@types/node": "^25.0.3",
-    "tsx": "^4.21.0",
-    "typescript": "^5.9.3",
-    "vite": "^7.3.1"
+    "concurrently": "^9.2.1"
   }
 }

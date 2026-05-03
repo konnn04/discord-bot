@@ -1,0 +1,12 @@
+import { Module } from '@nestjs/common';
+import { GuildsController } from './guilds.controller';
+import { GuildsService } from './guilds.service';
+import { AuthModule } from '../auth/auth.module';
+import { DiscordModule } from '../discord/discord.module';
+
+@Module({
+  imports: [AuthModule, DiscordModule],
+  controllers: [GuildsController],
+  providers: [GuildsService],
+})
+export class GuildsModule {}

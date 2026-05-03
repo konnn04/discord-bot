@@ -1,0 +1,207 @@
+import {
+  Injectable,
+  Logger,
+  OnModuleInit,
+  OnModuleDestroy,
+} from '@nestjs/common';
+import { createHash } from 'crypto';
+import { ConfigService } from '@nestjs/config';
+import { Client, GatewayIntentBits, Partials } from 'discord.js';
+import { CommandLoaderService } from './services/command-loader.service';
+import { EventLoaderService } from './services/event-loader.service';
+import { CooldownService } from './services/cooldown.service';
+import { PermissionService } from './services/permission.service';
+import { GuildSettingsService } from '../settings/guild-settings.service';
+import { GlobalSettingsService } from '../settings/global-settings.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { XpBufferService } from '../xp/services/xp-buffer/xp-buffer.service';
+import { MichosgcService } from '../michosgc/michosgc.service';
+import { MeetingTracker } from './utils/meeting-tracker';
+
+@Injectable()
+export class DiscordService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(DiscordService.name);
+  public readonly client: Client;
+  public readonly meetingTracker: MeetingTracker;
+  private voiceXpInterval: NodeJS.Timeout | null = null;
+  private guildHashes = new Map<string, string>();
+
+  constructor(
+    private config: ConfigService,
+    private commandLoader: CommandLoaderService,
+    private eventLoader: EventLoaderService,
+    private cooldownService: CooldownService,
+    private permissionService: PermissionService,
+    private guildSettings: GuildSettingsService,
+    private globalSettings: GlobalSettingsService,
+    private xpBuffer: XpBufferService,
+    private michosgc: MichosgcService,
+    private prisma: PrismaService,
+  ) {
+    this.client = new Client({
+      intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent,
+        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.GuildVoiceStates,
+        GatewayIntentBits.GuildPresences,
+      ],
+      partials: [Partials.Channel, Partials.GuildMember],
+    });
+
+    this.meetingTracker = new MeetingTracker(this.client);
+  }
+
+  async onModuleInit() {
+    // Create dependencies object to inject into commands and events
+    const deps = {
+      commandLoader: this.commandLoader,
+      eventLoader: this.eventLoader,
+      cooldownService: this.cooldownService,
+      permissionService: this.permissionService,
+      guildSettings: this.guildSettings,
+      globalSettings: this.globalSettings,
+      xpBuffer: this.xpBuffer,
+      prisma: this.prisma,
+      meetingTracker: this.meetingTracker,
+      discordClient: this.client,
+    };
+
+    // Load commands and events, automatically injecting dependencies
+    await this.commandLoader.loadAll(deps);
+    await this.eventLoader.loadAll(this.client, deps);
+
+    const token = this.config.get<string>('DISCORD_TOKEN');
+    if (!token) {
+      this.logger.error('DISCORD_TOKEN is not set!');
+      return;
+    }
+
+    this.client.once('clientReady', () => {
+      this.logger.log(`Discord bot ready as ${this.client.user?.tag}`);
+      this.logger.log(`Serving ${this.client.guilds.cache.size} guild(s)`);
+
+      // Sync guilds with database
+      this.syncGuilds().catch((err) =>
+        this.logger.error('Failed to sync guilds:', err),
+      );
+
+      // Register slash commands after bot is ready
+      this.commandLoader.registerSlashCommands().catch((err) => {
+        this.logger.error('Failed to register slash commands', err);
+      });
+
+      // Pass client instance to services
+      this.xpBuffer.setClient(this.client);
+      this.michosgc.setClient(this.client);
+
+      // Start voice XP interval (runs every 60s)
+      this.voiceXpInterval = setInterval(() => this.grantVoiceXp(), 60 * 1000);
+    });
+
+    // Listen for new guilds to sync them immediately
+    this.client.on('guildCreate', async (guild) => {
+      this.logger.log(`Joined new guild: ${guild.name} (${guild.id})`);
+      try {
+        await this.prisma.guild.upsert({
+          where: { id: guild.id },
+          update: { name: guild.name, ownerId: guild.ownerId },
+          create: { id: guild.id, name: guild.name, ownerId: guild.ownerId },
+        });
+      } catch (err) {
+        this.logger.error(`Failed to sync new guild ${guild.id}:`, err);
+      }
+    });
+
+    await this.client.login(token);
+  }
+
+  async onModuleDestroy() {
+    this.logger.log('Shutting down Discord client...');
+    if (this.voiceXpInterval) {
+      clearInterval(this.voiceXpInterval);
+    }
+    await this.client.destroy();
+  }
+
+  /** Sync all guilds to database */
+  private async syncGuilds() {
+    this.logger.log('Syncing guilds with database...');
+    let count = 0;
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    for (const [_guildId, guild] of this.client.guilds.cache) {
+      if (await this.syncGuild(guild)) {
+        count++;
+      }
+    }
+    this.logger.log(`Successfully synced ${count} guild(s) metadata.`);
+  }
+
+  /** Sync a single guild metadata with caching */
+  private async syncGuild(guild: any): Promise<boolean> {
+    try {
+      const hashPayload = `${guild.name}:${guild.ownerId}:${guild.icon || ''}`;
+      const currentHash = createHash('md5').update(hashPayload).digest('hex');
+
+      if (this.guildHashes.get(guild.id) !== currentHash) {
+        await this.prisma.guild.upsert({
+          where: { id: guild.id },
+          update: {
+            name: guild.name,
+            ownerId: guild.ownerId,
+            icon: guild.icon,
+          },
+          create: {
+            id: guild.id,
+            name: guild.name,
+            ownerId: guild.ownerId,
+            icon: guild.icon,
+          },
+        });
+        this.guildHashes.set(guild.id, currentHash);
+        return true;
+      }
+      return false;
+    } catch (err) {
+      this.logger.error(`Failed to sync guild ${guild.id}:`, err);
+      return false;
+    }
+  }
+
+  /** Grant XP to all users currently in voice channels */
+  private grantVoiceXp() {
+    let usersGranted = 0;
+    for (const [guildId, guild] of this.client.guilds.cache) {
+      for (const [memberId, voiceState] of guild.voiceStates.cache) {
+        // Ignore bots and people not in a channel
+        if (
+          !voiceState.channelId ||
+          !voiceState.member ||
+          voiceState.member.user.bot
+        )
+          continue;
+
+        // Ignore deafened or muted members (to prevent AFK farming)
+        if (voiceState.selfDeaf || voiceState.serverDeaf) continue;
+
+        // Grant 1 minute of voice XP
+        this.xpBuffer.addVoiceXp(
+          memberId,
+          guildId,
+          1,
+          voiceState.member.user.username,
+          voiceState.channelId,
+          voiceState.member.user.avatar,
+        );
+        usersGranted++;
+      }
+    }
+    if (usersGranted > 0) {
+      this.logger.debug(
+        `Granted 1 minute of voice XP to ${usersGranted} users`,
+      );
+    }
+  }
+}
