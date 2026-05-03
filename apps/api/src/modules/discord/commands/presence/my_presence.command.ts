@@ -108,7 +108,16 @@ const myPresence: ActionCommand = {
         });
 
         // Determine API base URL
-        const baseUrl = process.env.API_BASE_URL || 'http://localhost:3000/api';
+        const envDomain =
+          process.env.CUSTOM_DOMAIN || process.env.RAILWAY_PUBLIC_DOMAIN;
+        let baseUrl = process.env.API_BASE_URL;
+        if (envDomain) {
+          baseUrl = envDomain.startsWith('http')
+            ? `${envDomain}/api`
+            : `https://${envDomain}/api`;
+        } else if (!baseUrl) {
+          baseUrl = 'http://localhost:3000/api';
+        }
         const apiLink = `${baseUrl}/public/me?id=${discordId}`;
 
         const descLines = [

@@ -14,8 +14,8 @@
     "db:studio": "pnpm --filter api exec prisma studio"
   },
   "keywords": [],
-  "author": "MPC",
-  "license": "ISC",
+  "author": "Konnn04",
+  "license": "MIT",
   "packageManager": "pnpm@10.24.0",
   "devDependencies": {
     "concurrently": "^9.2.1"

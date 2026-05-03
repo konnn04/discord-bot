@@ -6,111 +6,83 @@ datasource db {
   provider = "postgresql"
 }
 
-// ============ GUILD (basic metadata, synced from Discord) ============
-
 model Guild {
-  id       String @id // Discord guild ID
-  name     String
-  icon     String?
-  ownerId  String
-  settings Json?  // Store guild settings as JSONB
-  joinedAt DateTime @default(now())
-
-  members GuildMember[]
+  id        String          @id
+  name      String
+  icon      String?
+  ownerId   String
+  settings  Json?
+  joinedAt  DateTime        @default(now())
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  members   GuildMember[]
   xpHistory GuildMemberXp[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 }
-
-// ============ GLOBAL SETTINGS ============
 
 model GlobalSetting {
-  id       String @id @default("global")
-  settings Json?  // Store global settings as JSONB
+  id        String   @id @default("global")
+  settings  Json?
   updatedAt DateTime @updatedAt
 }
-
-// ============ USER ============
 
 model User {
-  id        String @id @default(cuid())
-  discordId String @unique
-  username  String
-  avatar    String?
-
+  id           String          @id @default(cuid())
+  avatar       String?
+  createdAt    DateTime        @default(now())
+  discordId    String          @unique
+  updatedAt    DateTime        @updatedAt
+  username     String
   guildMembers GuildMember[]
-  xpHistory GuildMemberXp[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  xpHistory    GuildMemberXp[]
 }
 
-// ============ GUILD MEMBER (XP/Level data per user per guild) ============
-
 model GuildMember {
-  id      String @id @default(cuid())
-  userId  String
-  guildId String
-  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  guild   Guild  @relation(fields: [guildId], references: [id], onDelete: Cascade)
-
-  // XP / Leveling
-  xp    Int @default(0)
-  level Int @default(0)
-
-  // Meeting / Voice tracking
-  totalVoiceMinutes Int @default(0)
-  meetingsAttended  Int @default(0)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                String   @id @default(cuid())
+  userId            String
+  guildId           String
+  xp                Int      @default(0)
+  level             Int      @default(0)
+  totalVoiceMinutes Int      @default(0)
+  meetingsAttended  Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  guild             Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, guildId])
   @@index([guildId])
   @@index([guildId, xp(sort: Desc)])
 }
 
-// ============ XP HISTORY (For Monthly/Yearly Leaderboards) ============
-
 model GuildMemberXp {
   id        String   @id @default(cuid())
   userId    String
   guildId   String
-  
-  // Format: "YYYY-MM" for monthly, "YYYY" for yearly
-  period    String   
+  period    String
   xp        Int      @default(0)
-
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  guild     Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  guild     Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, guildId, period])
   @@index([guildId, period, xp(sort: Desc)])
 }
 
-// ============ PUBLIC PRESENCE (Lanyard-like API) ============
-
 model PublicPresence {
-  id              String   @id @default(cuid())
-  discordId       String   @unique // Discord user ID
-  guildId         String   // Guild to track presence from
-  enabled         Boolean  @default(true)
-  showcaseGuildIds String[] @default([]) // Guilds to showcase in API response
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id               String   @id @default(cuid())
+  discordId        String   @unique
+  guildId          String
+  enabled          Boolean  @default(true)
+  showcaseGuildIds String[] @default([])
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   @@index([discordId])
 }
 
-// ============ MICHOSGC CACHE ============
-
 model GiftcodeCache {
   game  String @id
   hash  String
-  codes Json   // Array of code strings
+  codes Json
 }

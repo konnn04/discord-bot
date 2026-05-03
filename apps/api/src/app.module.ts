@@ -11,6 +11,7 @@ import { XpModule } from './modules/xp/xp.module';
 import { PresenceModule } from './modules/presence/presence.module';
 import { MichosgcModule } from './modules/michosgc/michosgc.module';
 import { CustomThrottlerGuard } from './guards/custom-throttler.guard';
+import { HealthController } from './health.controller';
 
 import { ScheduleModule } from '@nestjs/schedule';
 
@@ -38,6 +39,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     PresenceModule,
     MichosgcModule,
   ],
+  controllers: [HealthController],
   providers: [
     {
       provide: APP_GUARD,
