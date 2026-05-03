@@ -27,7 +27,9 @@ export type OptionType =
   | 'boolean'
   | 'user'
   | 'channel'
-  | 'role';
+  | 'role'
+  | 'number'
+  | 'attachment';
 
 // ============ BASE CONTEXT ============
 
@@ -135,6 +137,10 @@ export class InteractionContext extends BaseContext {
         return this.options.getChannel(name) as Channel | null;
       case 'role':
         return this.options.getRole(name);
+      case 'number':
+        return this.options.getNumber(name);
+      case 'attachment':
+        return this.options.getAttachment(name);
       default:
         return this.options.get(name)?.value ?? null;
     }
@@ -286,6 +292,12 @@ export class MessageContext extends BaseContext {
           ? (this.message.guild?.roles.cache.get(match[1]) ?? null)
           : null;
       }
+      case 'number': {
+        const num = Number.parseFloat(value);
+        return Number.isNaN(num) ? null : num;
+      }
+      case 'attachment':
+        return null; // Not typically supported in simple prefix parsing
       case 'string':
       default:
         return value;

@@ -12,7 +12,7 @@ export enum PermissionLevel {
 }
 
 /** Command option type mapping */
-export type OptionType = 'string' | 'integer' | 'boolean' | 'user' | 'channel' | 'role' | 'number';
+export type OptionType = 'string' | 'integer' | 'boolean' | 'user' | 'channel' | 'role' | 'number' | 'attachment';
 
 /** Definition for a single command option */
 export interface OptionCommand {
