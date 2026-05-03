@@ -35,6 +35,7 @@ RUN pnpm install --prod --frozen-lockfile
 COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
+COPY --from=builder /app/apps/api/prisma.config.ts ./apps/api/prisma.config.ts
 
 # Generate Prisma client for prod
 RUN pnpm --filter api exec prisma generate
