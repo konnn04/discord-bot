@@ -23,6 +23,9 @@ export interface GlobalSettings {
   michosgc: {
     cronInterval: number; // in minutes
   };
+  music: {
+    maxQueueSize: number;
+  };
 }
 
 export interface GuildSettings {
@@ -51,6 +54,7 @@ export interface GuildSettings {
     xpPerMessage: number;
     xpPerVoiceMinute: number;
     messageCooldown: number; // Cooldown in seconds
+    levelUpNotification: boolean; // Enable/disable level up messages
     levelUpChannelId: string | null;
     levelUpMessage: string | null; // Supports {user}, {level} placeholders
     ignoredChannels: string[];
@@ -80,6 +84,12 @@ export interface GuildSettings {
       tot: string | null;
     };
   };
+
+  // Music Settings
+  music: {
+    defaultVolume: number;
+    autoLeaveTimeout: number; // seconds
+  };
 }
 
 /** Default global settings */
@@ -102,6 +112,9 @@ export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
   },
   michosgc: {
     cronInterval: 15, // 15 minutes
+  },
+  music: {
+    maxQueueSize: 500,
   },
 };
 
@@ -128,6 +141,7 @@ export function createDefaultGuildSettings(guildId: string): GuildSettings {
       xpPerMessage: 15,
       xpPerVoiceMinute: 10,
       messageCooldown: 60,
+      levelUpNotification: false,
       levelUpChannelId: null,
       levelUpMessage: '🎉 Chúc mừng {user} đã đạt level **{level}**!',
       ignoredChannels: [],
@@ -150,6 +164,10 @@ export function createDefaultGuildSettings(guildId: string): GuildSettings {
         nap: null,
         tot: null,
       },
+    },
+    music: {
+      defaultVolume: 80,
+      autoLeaveTimeout: 120, // 2 minutes
     },
   };
 }

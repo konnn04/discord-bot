@@ -1,11 +1,42 @@
 import type { EventHandler } from 'shared/src/types/discord.types';
-import { Interaction } from 'discord.js';
+import { Interaction, MessageFlags } from 'discord.js';
 import { ContextAdapter } from '../contexts/context-adapter';
+import { getPlayerManager } from '../services/music/player-manager';
 
 const interactionCreateEvent: EventHandler = {
   name: 'interactionCreate',
 
   async execute(interaction: Interaction, deps: any) {
+    // ====== Music Button Interactions ======
+    if (interaction.isButton()) {
+      const musicButtons = [
+        'music_prev',
+        'music_pause',
+        'music_skip',
+        'music_stop',
+        'music_lyrics',
+      ];
+      if (musicButtons.includes(interaction.customId)) {
+        try {
+          await getPlayerManager().handleButton(interaction);
+        } catch (error) {
+          console.error('[ERROR] Music button handler failed:', error);
+          try {
+            if (!interaction.replied && !interaction.deferred) {
+              await interaction.reply({
+                content: '❌ Lỗi xử lý nút.',
+                flags: MessageFlags.Ephemeral,
+              });
+            }
+          } catch {
+            /* ignore */
+          }
+        }
+        return;
+      }
+    }
+
+    // ====== Slash Command Interactions ======
     if (!interaction.isChatInputCommand()) return;
     if (!deps?.commandLoader) return;
 
@@ -27,7 +58,7 @@ const interactionCreateEvent: EventHandler = {
       ) {
         await interaction.reply({
           content: '🔒 Bạn không có quyền sử dụng lệnh này.',
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
         return;
       }
@@ -43,7 +74,7 @@ const interactionCreateEvent: EventHandler = {
       if (remaining > 0) {
         await interaction.reply({
           content: `⏰ Vui lòng chờ ${remaining.toFixed(1)}s trước khi dùng \`${command.name}\` lần nữa.`,
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
         return;
       }
@@ -62,7 +93,7 @@ const interactionCreateEvent: EventHandler = {
         } else {
           await interaction.reply({
             content: '❌ Đã xảy ra lỗi khi thực hiện lệnh!',
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
           });
         }
       } catch {

@@ -15,6 +15,7 @@ import {
   BaseMessageOptions,
   InteractionResponse,
   Channel,
+  MessageFlags,
 } from 'discord.js';
 
 export type InteractionSource =
@@ -161,7 +162,9 @@ export class InteractionContext extends BaseContext {
     ephemeral: boolean = false,
   ): Promise<InteractionResponse | Message> {
     if (!this.interaction.deferred && !this.interaction.replied) {
-      return await this.interaction.deferReply({ ephemeral });
+      return await this.interaction.deferReply({
+        flags: ephemeral ? MessageFlags.Ephemeral : undefined,
+      });
     }
     return await this.interaction.fetchReply();
   }

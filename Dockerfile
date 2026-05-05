@@ -1,5 +1,8 @@
 FROM node:20-alpine AS builder
 
+# Build tools for native modules (sodium-native, @discordjs/opus)
+RUN apk add --no-cache python3 make g++
+
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
@@ -16,6 +19,9 @@ RUN pnpm --filter api exec prisma generate
 RUN pnpm --filter api build
 
 FROM node:20-alpine AS runner
+
+# ffmpeg is required by @discordjs/voice for audio encoding
+RUN apk add --no-cache ffmpeg
 
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"

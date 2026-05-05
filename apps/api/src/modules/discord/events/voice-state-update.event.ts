@@ -1,37 +1,84 @@
 import type { EventHandler } from 'shared/src/types/discord.types';
 import { VoiceState, EmbedBuilder } from 'discord.js';
+import { getPlayerManager } from '../services/music/player-manager';
 
 const voiceStateUpdateEvent: EventHandler = {
   name: 'voiceStateUpdate',
 
   execute(oldState: VoiceState, newState: VoiceState, deps: any) {
     const meetingTracker = deps?.meetingTracker;
-    if (!meetingTracker) return;
-
     const member = newState.member || oldState.member;
-    if (!member || member.user.bot) return;
+    if (!member) return;
 
     const oldChannelId = oldState.channelId;
     const newChannelId = newState.channelId;
 
-    // User left a tracked channel
-    if (oldChannelId && oldChannelId !== newChannelId) {
-      const session = meetingTracker.getSession(oldChannelId);
-      if (session) {
-        meetingTracker.removeParticipant(oldChannelId, member.id);
+    // ====== Meeting Tracker Logic ======
+    if (meetingTracker && !member.user.bot) {
+      // User left a tracked channel
+      if (oldChannelId && oldChannelId !== newChannelId) {
+        const session = meetingTracker.getSession(oldChannelId);
+        if (session) {
+          meetingTracker.removeParticipant(oldChannelId, member.id);
+        }
+      }
+
+      // User joined a tracked channel
+      if (newChannelId && newChannelId !== oldChannelId) {
+        const session = meetingTracker.getSession(newChannelId);
+        if (session) {
+          meetingTracker.addParticipant(newChannelId, member);
+        }
       }
     }
 
-    // User joined a tracked channel
-    if (newChannelId && newChannelId !== oldChannelId) {
-      const session = meetingTracker.getSession(newChannelId);
-      if (session) {
-        meetingTracker.addParticipant(newChannelId, member);
+    // ====== Music Player Cleanup Logic ======
+    const pm = getPlayerManager();
+    const guild = newState.guild;
+    const guildId = guild.id;
+    const botId = guild.client.user?.id;
+
+    if (botId) {
+      // Bot was disconnected/kicked from voice
+      if (member.id === botId && oldChannelId && !newChannelId) {
+        if (pm.isConnected(guildId)) {
+          pm.leave(guildId);
+          console.log(
+            `[Music] Bot was kicked from voice in guild ${guildId}, cleaned up.`,
+          );
+        }
+      }
+
+      // Check if bot is now alone in the voice channel
+      if (!member.user.bot && oldChannelId && oldChannelId !== newChannelId) {
+        const botVoiceState = guild.voiceStates.cache.get(botId);
+        if (botVoiceState?.channelId === oldChannelId) {
+          // Someone left the channel the bot is in
+          const channel = oldState.channel;
+          if (channel) {
+            const nonBotMembers = channel.members.filter((m) => !m.user.bot);
+            if (nonBotMembers.size === 0) {
+              // Bot is alone, start auto-leave
+              pm.handleAloneInChannel(guildId);
+              console.log(
+                `[Music] Bot is alone in voice channel ${oldChannelId}, starting auto-leave timer.`,
+              );
+            }
+          }
+        }
+      }
+
+      // Someone joined back to the bot's channel — cancel auto-leave
+      if (!member.user.bot && newChannelId && newChannelId !== oldChannelId) {
+        const botVoiceState = guild.voiceStates.cache.get(botId);
+        if (botVoiceState?.channelId === newChannelId) {
+          pm.cancelAutoLeave(guildId);
+        }
       }
     }
 
     // --- Voice Welcome/Alert Feature ---
-    if (deps?.guildSettings && newState.guild) {
+    if (!member.user.bot && deps?.guildSettings && newState.guild) {
       const settings = deps.guildSettings.get(newState.guild.id);
       if (settings?.features?.voiceWelcome) {
         const sendToChannel = (channel: any, desc: string) => {

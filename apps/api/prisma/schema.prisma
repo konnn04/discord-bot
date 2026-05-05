@@ -30,9 +30,11 @@ model User {
   avatar       String?
   createdAt    DateTime        @default(now())
   discordId    String          @unique
-  updatedAt    DateTime        @updatedAt
-  username     String
-  guildMembers GuildMember[]
+  updatedAt          DateTime        @updatedAt
+  username           String
+  githubUsername     String?
+  githubShowPresence Boolean         @default(false)
+  guildMembers       GuildMember[]
   xpHistory    GuildMemberXp[]
 }
 
@@ -85,4 +87,22 @@ model GiftcodeCache {
   game  String @id
   hash  String
   codes Json
+}
+
+model MusicHistory {
+  id        String   @id @default(cuid())
+  discordId String
+  guildId   String
+  title     String
+  artist    String
+  url       String?
+  source    String   // "youtube" | "spotify"
+  sourceId  String
+  duration  Int      @default(0) // seconds
+  playedAt  DateTime @default(now())
+
+  @@index([discordId])
+  @@index([guildId])
+  @@index([discordId, guildId])
+  @@index([playedAt])
 }
