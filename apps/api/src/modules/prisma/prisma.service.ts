@@ -67,4 +67,7 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   get giftcodeCache() {
     return this.client?.giftcodeCache;
   }
+  get musicHistory() {
+    return this.client?.musicHistory;
+  }
 }

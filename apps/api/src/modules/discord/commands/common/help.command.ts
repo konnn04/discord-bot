@@ -2,6 +2,7 @@ import { EmbedBuilder } from 'discord.js';
 import type { ActionCommand } from 'shared/src/types/discord.types';
 import { PermissionLevel } from 'shared/src/types/discord.types';
 import { ContextAdapter } from '../../contexts/context-adapter';
+import { paginate } from '../../utils/pagination';
 
 /**
  * NOTE: This command accesses the command loader at runtime via a workaround.
@@ -79,23 +80,36 @@ const help: ActionCommand = {
       string,
       ActionCommand[]
     >;
-    const embed = new EmbedBuilder()
-      .setTitle('📚 Danh sách lệnh')
-      .setDescription('Sử dụng `help <tên lệnh>` để xem chi tiết.')
-      .setColor(0x5865f2)
-      .setTimestamp();
+    const categoriesList = Array.from(categories.entries());
+    const pages: EmbedBuilder[] = [];
+    const itemsPerPage = 3;
+    const totalPages = Math.ceil(categoriesList.length / itemsPerPage);
 
-    for (const [category, commands] of categories) {
-      const commandList = commands
-        .map((c: ActionCommand) => `\`${c.name}\` — ${c.description}`)
-        .join('\n');
-      embed.addFields({
-        name: `📁 ${category.charAt(0).toUpperCase() + category.slice(1)}`,
-        value: commandList || 'Trống',
-      });
+    for (let p = 0; p < totalPages; p++) {
+      const embed = new EmbedBuilder()
+        .setTitle('📚 Danh sách lệnh')
+        .setDescription('Sử dụng `/help <tên lệnh>` để xem chi tiết.')
+        .setColor(0x5865f2)
+        .setTimestamp();
+
+      const chunk = categoriesList.slice(
+        p * itemsPerPage,
+        (p + 1) * itemsPerPage,
+      );
+      for (const [category, commands] of chunk) {
+        const commandList = commands
+          .map((c: ActionCommand) => `\`${c.name}\` — ${c.description}`)
+          .join('\n');
+        embed.addFields({
+          name: `📁 ${category.charAt(0).toUpperCase() + category.slice(1)}`,
+          value: commandList || 'Trống',
+        });
+      }
+      pages.push(embed);
     }
 
-    await ctx.reply({ embeds: [embed] });
+    const msgOrInteraction = await ctx.defer();
+    await paginate(msgOrInteraction, pages, ctx.userId);
   },
 };
 

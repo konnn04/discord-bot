@@ -183,13 +183,47 @@ export class PresenceService {
     const clientStatus = presence?.clientStatus;
     const status = presence?.status || 'offline';
 
-    // 7. Build showcase guilds
+    // 7. Fetch dbUser to check githubShowPresence
+    const dbUser = await this.prisma.user?.findUnique({
+      where: { discordId },
+    });
+
+    let githubData: any = null;
+    if (dbUser?.githubUsername && dbUser.githubShowPresence) {
+      try {
+        const { default: axios } = await import('axios');
+        const ghRes = await axios.get(
+          `https://api.github.com/users/${dbUser.githubUsername}`,
+          {
+            headers: { 'User-Agent': 'DiscordBot' },
+          },
+        );
+        if (ghRes.status === 200) {
+          const gh = ghRes.data;
+          githubData = {
+            username: gh.login,
+            url: gh.html_url,
+            public_repos: gh.public_repos,
+            followers: gh.followers,
+            following: gh.following,
+            avatar_url: gh.avatar_url,
+            bio: gh.bio,
+            company: gh.company,
+          };
+        }
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (_e) {
+        // ignore github errors
+      }
+    }
+
+    // 8. Build showcase guilds
     const showcaseGuilds = await this.buildShowcaseGuilds(
       discordId,
       record.showcaseGuildIds || [],
     );
 
-    // 8. Build response
+    // 9. Build response
     const response = {
       data: {
         kv: {},
@@ -215,6 +249,7 @@ export class PresenceService {
         active_on_discord_mobile: clientStatus?.mobile !== undefined,
         listening_to_spotify: listeningToSpotify,
         spotify: spotifyData,
+        github: githubData,
         showcase_guilds: showcaseGuilds,
       },
       success: true,

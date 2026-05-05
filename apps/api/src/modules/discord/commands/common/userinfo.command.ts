@@ -102,11 +102,12 @@ const userInfo: ActionCommand = {
           },
         );
 
-        // XP info if available
+        // XP and GitHub info if available
         if (deps?.prisma) {
           const dbUser = await deps.prisma.user?.findUnique({
             where: { discordId: fetched.id },
           });
+
           if (dbUser) {
             const guildMember = await deps.prisma.guildMember?.findUnique({
               where: {
@@ -119,6 +120,36 @@ const userInfo: ActionCommand = {
                 value: `Level **${guildMember.level}** — ${guildMember.xp} XP`,
                 inline: true,
               });
+            }
+
+            if (dbUser.githubUsername) {
+              try {
+                // We use axios directly since it's simple enough
+                const { default: axios } = await import('axios');
+                const ghRes = await axios.get(
+                  `https://api.github.com/users/${dbUser.githubUsername}`,
+                  {
+                    headers: { 'User-Agent': 'DiscordBot' },
+                  },
+                );
+
+                if (ghRes.status === 200) {
+                  const gh = ghRes.data;
+                  embed.addFields({
+                    name: '🐙 GitHub',
+                    value: `[${gh.login}](${gh.html_url})\n📦 ${gh.public_repos} repo(s)\n👥 ${gh.followers} followers`,
+                    inline: true,
+                  });
+                  // If no avatar is present, we could use GitHub's, but Discord avatar is priority
+                }
+              } catch (_e) {
+                embed.addFields({
+                  name: '🐙 GitHub',
+                  value: `[${dbUser.githubUsername}](https://github.com/${dbUser.githubUsername}) (Không thể tải chi tiết)`,
+                  inline: true,
+                });
+                console.error(_e);
+              }
             }
           }
         }

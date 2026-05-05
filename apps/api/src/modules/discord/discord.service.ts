@@ -17,6 +17,11 @@ import { PrismaService } from '../prisma/prisma.service';
 import { XpBufferService } from '../xp/services/xp-buffer/xp-buffer.service';
 import { MichosgcService } from '../michosgc/michosgc.service';
 import { MeetingTracker } from './utils/meeting-tracker';
+import {
+  setPlayerPrisma,
+  setPlayerGuildSettings,
+} from './services/music/player-manager';
+import { setQueueGuildSettings } from './services/music/queue-manager';
 
 @Injectable()
 export class DiscordService implements OnModuleInit, OnModuleDestroy {
@@ -88,7 +93,10 @@ export class DiscordService implements OnModuleInit, OnModuleDestroy {
       );
 
       // Register slash commands after bot is ready
-      if (process.env.NODE_ENV !== 'production' || process.env.REGISTER_SLASH === 'true') {
+      if (
+        process.env.NODE_ENV !== 'production' ||
+        process.env.REGISTER_SLASH === 'true'
+      ) {
         this.commandLoader.registerSlashCommands().catch((err) => {
           this.logger.error('Failed to register slash commands', err);
         });
@@ -97,6 +105,11 @@ export class DiscordService implements OnModuleInit, OnModuleDestroy {
       // Pass client instance to services
       this.xpBuffer.setClient(this.client);
       this.michosgc.setClient(this.client);
+
+      // Pass prisma and settings to managers
+      setPlayerPrisma(this.prisma);
+      setPlayerGuildSettings(this.guildSettings);
+      setQueueGuildSettings(this.guildSettings);
 
       // Start voice XP interval (runs every 60s)
       this.voiceXpInterval = setInterval(() => this.grantVoiceXp(), 60 * 1000);

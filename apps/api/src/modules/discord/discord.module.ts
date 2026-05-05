@@ -4,11 +4,13 @@ import { CommandLoaderService } from './services/command-loader.service';
 import { EventLoaderService } from './services/event-loader.service';
 import { CooldownService } from './services/cooldown.service';
 import { PermissionService } from './services/permission.service';
+import { MusicController } from './controllers/music.controller';
 
 import { MichosgcModule } from '../michosgc/michosgc.module';
 
 @Module({
   imports: [MichosgcModule],
+  controllers: [MusicController],
   providers: [
     DiscordService,
     CommandLoaderService,

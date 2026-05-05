@@ -291,6 +291,10 @@ export class XpBufferService implements OnModuleDestroy {
 
       // Get the guild settings for the level-up channel and message
       const settings = this.guildSettings.get(guildId);
+
+      // Check if notifications are enabled
+      if (!settings.xp.levelUpNotification) return;
+
       const channelId = settings.xp.levelUpChannelId;
       const template =
         settings.xp.levelUpMessage ||
