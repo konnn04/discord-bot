@@ -260,21 +260,26 @@ export class PlayerManager {
     const buttons = createMusicButtons(false);
 
     if (gp.nowPlayingMessage) {
-      try {
-        await gp.nowPlayingMessage.edit({
-          embeds: [embed],
-          components: [buttons],
-        });
-        return;
-      } catch {
-        gp.nowPlayingMessage = null;
+      const shouldRecreate = await this._isNotLastMessage(gp);
+      if (!shouldRecreate) {
+        try {
+          await gp.nowPlayingMessage.edit({
+            embeds: [embed],
+            components: [buttons],
+          });
+          return;
+        } catch {
+          // Edit failed — fall through to send new
+        }
       }
+      await this.deleteNowPlaying(guildId);
     }
 
     try {
       const ch = await gp.client.channels.fetch(queue.textChannelId);
       if (ch && ch.isTextBased()) {
-        const msg = await (ch as TextChannel).send({
+        const textCh = ch as TextChannel;
+        const msg = await textCh.send({
           embeds: [embed],
           components: [buttons],
         });
@@ -282,6 +287,17 @@ export class PlayerManager {
       }
     } catch {
       // Ignore send errors
+    }
+  }
+
+  private async _isNotLastMessage(gp: GuildPlayer): Promise<boolean> {
+    if (!gp.nowPlayingMessage || !gp.client) return true;
+    try {
+      const ch = await gp.client.channels.fetch(gp.nowPlayingMessage.channelId);
+      if (!ch || !('lastMessageId' in ch)) return true;
+      return (ch as TextChannel).lastMessageId !== gp.nowPlayingMessage.id;
+    } catch {
+      return true;
     }
   }
 
