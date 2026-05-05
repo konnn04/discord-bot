@@ -254,12 +254,22 @@ export class PlayerManager {
     const queue = qm.get(guildId);
     if (!queue) return;
 
-    await this.deleteNowPlaying(guildId);
-
     const embed = createNowPlayingEmbed(guildId, false, 0);
     if (!embed) return;
 
     const buttons = createMusicButtons(false);
+
+    if (gp.nowPlayingMessage) {
+      try {
+        await gp.nowPlayingMessage.edit({
+          embeds: [embed],
+          components: [buttons],
+        });
+        return;
+      } catch {
+        gp.nowPlayingMessage = null;
+      }
+    }
 
     try {
       const ch = await gp.client.channels.fetch(queue.textChannelId);
@@ -290,10 +300,10 @@ export class PlayerManager {
 
     try {
       await gp.nowPlayingMessage.delete();
+      gp.nowPlayingMessage = null;
     } catch {
-      // Ignore delete errors
+      gp.nowPlayingMessage = null;
     }
-    gp.nowPlayingMessage = null;
   }
 
   async handleButton(interaction: ButtonInteraction): Promise<void> {

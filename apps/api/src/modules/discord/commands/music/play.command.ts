@@ -132,19 +132,23 @@ const play: ActionCommand = {
         const q = qm.get(guildId)!;
         q.current = q.tracks.length - tracksToAdd.length;
 
-        // Join and play
         pm.join(voiceChannel);
-        const success = await pm.play(guildId, ctx.client);
+        const result = await pm.playWithAutoSkip(guildId, ctx.client);
 
-        if (!success) {
+        if (!result.success) {
+          const extraInfo =
+            result.autoSkippedCount > 0
+              ? ` (đã thử ${result.autoSkippedCount + 1} bài nhưng đều bị lỗi)`
+              : '';
           await ctx.editReply(
-            '❌ Không thể phát bài hát này. Thử bài khác nhé.',
+            `❌ Không thể phát bài hát nào${extraInfo}. Thử bài khác nhé.`,
           );
           return;
         }
 
         if (totalAddedCount === 1) {
-          const t = tracksToAdd[0];
+          const current = qm.getCurrent(guildId);
+          const t = current || tracksToAdd[0];
           const embed = new EmbedBuilder()
             .setColor(0x10b981)
             .setAuthor({ name: '🎵 Đang phát' })
@@ -158,12 +162,18 @@ const play: ActionCommand = {
             .setFooter({ text: `Yêu cầu bởi ${t.requestedBy}` });
           await ctx.editReply({ embeds: [embed] });
         } else {
+          const current = qm.getCurrent(guildId);
+          const nowPlaying = current || tracksToAdd[0];
+          const skipNote =
+            result.autoSkippedCount > 0
+              ? `\n⚠️ Đã tự động bỏ qua ${result.autoSkippedCount} bài bị lỗi.`
+              : '';
           const embed = new EmbedBuilder()
             .setColor(0x10b981)
             .setTitle('📋 Đã thêm playlist vào queue')
             .setDescription(
-              `Đang phát **${tracksToAdd[0].track.title}** — ${tracksToAdd[0].track.artist || 'Không rõ'}\n` +
-                `+${totalAddedCount - 1} bài khác đã được thêm vào queue.`,
+              `Đang phát **${nowPlaying.track.title}** — ${nowPlaying.track.artist || 'Không rõ'}\n` +
+                `+${totalAddedCount - 1} bài khác đã được thêm vào queue.${skipNote}`,
             );
           await ctx.editReply({ embeds: [embed] });
         }
