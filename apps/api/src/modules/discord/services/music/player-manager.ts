@@ -247,7 +247,8 @@ class PlayerManager {
         `[PlayerManager] Audio error in guild ${guildId}:`,
         error.message,
       );
-      void this.onTrackEnd(guildId);
+      // Don't call onTrackEnd here — after an error the player transitions
+      // to Idle automatically, which triggers the Idle handler above.
     });
 
     this.players.set(guildId, gp);
@@ -315,6 +316,7 @@ class PlayerManager {
 
       gp.resource = resource;
       gp.playStartedAt = Date.now();
+      gp.stopping = false;
       gp.player.play(resource);
 
       // Clear auto-leave timer
