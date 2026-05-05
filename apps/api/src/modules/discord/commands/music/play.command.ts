@@ -123,18 +123,14 @@ const play: ActionCommand = {
         return;
       }
 
-      // Check if we need to start playing or just add to queue
       const wasEmpty = !qm.getCurrent(guildId);
       const isCurrentlyPlaying = pm.isPlaying(guildId);
 
       qm.addTracks(guildId, textChannelId, tracksToAdd);
 
-      // If nothing was playing, set current to the first new track
       if (wasEmpty || !isCurrentlyPlaying) {
         const q = qm.get(guildId)!;
-        if (wasEmpty) {
-          q.current = q.tracks.length - tracksToAdd.length; // point to first added
-        }
+        q.current = q.tracks.length - tracksToAdd.length;
 
         // Join and play
         pm.join(voiceChannel);
@@ -172,7 +168,6 @@ const play: ActionCommand = {
           await ctx.editReply({ embeds: [embed] });
         }
       } else {
-        // Already playing, just added to queue
         if (totalAddedCount === 1) {
           const t = tracksToAdd[0];
           const pos = qm.get(guildId)!.tracks.length;

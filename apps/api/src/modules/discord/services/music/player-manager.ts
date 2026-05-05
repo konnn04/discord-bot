@@ -1,7 +1,3 @@
-/**
- * Manages voice connections, AudioPlayers, and playback per guild.
- * Handles: now-playing message with buttons, music history tracking.
- */
 import {
   joinVoiceChannel,
   createAudioPlayer,
@@ -42,6 +38,7 @@ interface GuildPlayer {
   nowPlayingMessage: Message | null;
   client: Client | null;
   stopping: boolean;
+  switching: boolean;
 }
 
 let _prisma: any = null;
@@ -54,12 +51,10 @@ function getPrisma(): any {
   return _prisma;
 }
 
-/** Set prisma instance from outside (e.g. from deps) */
 export function setPlayerPrisma(prisma: any): void {
   _prisma = prisma;
 }
 
-/** Set guild settings from outside */
 export function setPlayerGuildSettings(settings: any): void {
   _guildSettings = settings;
 }
@@ -70,8 +65,6 @@ function getAutoLeaveMs(guildId: string): number {
   }
   return 120 * 1000;
 }
-
-// ====== Button Action Row ======
 
 function createMusicButtons(
   isPaused: boolean,
@@ -137,7 +130,6 @@ function createNowPlayingEmbed(
     .setFooter({ text: `Yêu cầu bởi ${current.requestedBy}` })
     .setTimestamp();
 
-  // Show next track
   const q = qm.get(guildId);
   if (q && q.current + 1 < q.tracks.length) {
     const next = q.tracks[q.current + 1];
@@ -149,8 +141,6 @@ function createNowPlayingEmbed(
 
   return embed;
 }
-
-// ====== Music History ======
 
 async function recordHistory(
   discordId: string,
@@ -184,12 +174,9 @@ async function recordHistory(
   }
 }
 
-// ====== Player Manager ======
-
 class PlayerManager {
   private players = new Map<string, GuildPlayer>();
 
-  /** Join a voice channel and set up a player */
   join(channel: VoiceBasedChannel): GuildPlayer {
     const guildId = channel.guild.id;
 
@@ -219,9 +206,9 @@ class PlayerManager {
       nowPlayingMessage: null,
       client: null,
       stopping: false,
+      switching: false,
     };
 
-    // Handle connection state changes
     connection.on(VoiceConnectionStatus.Disconnected, async () => {
       try {
         await Promise.race([
@@ -237,7 +224,6 @@ class PlayerManager {
       this.cleanup(guildId);
     });
 
-    // Handle player idle (track ended)
     player.on(AudioPlayerStatus.Idle, () => {
       void this.onTrackEnd(guildId);
     });
@@ -247,15 +233,12 @@ class PlayerManager {
         `[PlayerManager] Audio error in guild ${guildId}:`,
         error.message,
       );
-      // Don't call onTrackEnd here — after an error the player transitions
-      // to Idle automatically, which triggers the Idle handler above.
     });
 
     this.players.set(guildId, gp);
     return gp;
   }
 
-  /** Play the current track from the queue */
   async play(guildId: string, client?: Client): Promise<boolean> {
     const gp = this.players.get(guildId);
     if (!gp) return false;
@@ -268,7 +251,6 @@ class PlayerManager {
     const api = getMusicApi();
 
     try {
-      // JIT Resolve if youtubeId is missing
       if (!current.youtubeId) {
         if (current.track.source === 'youtube') {
           current.youtubeId = current.track.sourceId;
@@ -292,7 +274,6 @@ class PlayerManager {
 
       const streamUrl = api.getProxyStreamUrl(current.youtubeId);
 
-      // Resolve the next track in the background while this one plays
       void this.prefetchNextTrack(guildId);
 
       const response = await fetch(streamUrl, {
@@ -317,18 +298,18 @@ class PlayerManager {
       gp.resource = resource;
       gp.playStartedAt = Date.now();
       gp.stopping = false;
-      gp.player.play(resource);
 
-      // Clear auto-leave timer
+      gp.switching = true;
+      gp.player.play(resource);
+      gp.switching = false;
+
       if (gp.autoLeaveTimeout) {
         clearTimeout(gp.autoLeaveTimeout);
         gp.autoLeaveTimeout = null;
       }
 
-      // Record history
       void recordHistory(current.requestedById, guildId, current.track);
 
-      // Send now-playing message with buttons
       await this.sendNowPlaying(guildId);
 
       return true;
@@ -341,7 +322,6 @@ class PlayerManager {
     }
   }
 
-  /** Send or update the now-playing message with interactive buttons */
   private async sendNowPlaying(guildId: string): Promise<void> {
     const gp = this.players.get(guildId);
     if (!gp?.client) return;
@@ -350,7 +330,6 @@ class PlayerManager {
     const queue = qm.get(guildId);
     if (!queue) return;
 
-    // Delete old now-playing message
     await this.deleteNowPlaying(guildId);
 
     const embed = createNowPlayingEmbed(guildId, false, 0);
@@ -368,11 +347,10 @@ class PlayerManager {
         gp.nowPlayingMessage = msg;
       }
     } catch {
-      // Silently fail
+      // Ignore send errors
     }
   }
 
-  /** Delete the current now-playing message */
   private async deleteNowPlaying(guildId: string): Promise<void> {
     const gp = this.players.get(guildId);
     if (!gp?.nowPlayingMessage) return;
@@ -380,12 +358,11 @@ class PlayerManager {
     try {
       await gp.nowPlayingMessage.delete();
     } catch {
-      // Message already deleted — that's fine
+      // Ignore delete errors
     }
     gp.nowPlayingMessage = null;
   }
 
-  /** Handle button interactions from now-playing message */
   async handleButton(interaction: ButtonInteraction): Promise<void> {
     const guildId = interaction.guildId;
     if (!guildId) return;
@@ -399,7 +376,6 @@ class PlayerManager {
       return;
     }
 
-    // Check if user is in the same voice channel
     const member = interaction.member as any;
     const userVoiceChannelId = member?.voice?.channelId;
     if (!userVoiceChannelId) {
@@ -416,7 +392,6 @@ class PlayerManager {
       case 'music_pause': {
         if (this.isPaused(guildId)) {
           this.resume(guildId);
-          // Update button appearance
           const embed = createNowPlayingEmbed(
             guildId,
             false,
@@ -538,12 +513,12 @@ class PlayerManager {
     }
   }
 
-  /** Handle track end — auto-play next or notify */
   private async onTrackEnd(guildId: string): Promise<void> {
     const gp = this.players.get(guildId);
 
-    // If stop() was called, don't send duplicate messages or auto-advance
     if (gp?.stopping) return;
+
+    if (gp?.switching) return;
 
     const qm = getQueueManager();
 
@@ -551,10 +526,8 @@ class PlayerManager {
       qm.skip(guildId, 1, true);
       await this.play(guildId, gp?.client || undefined);
     } else {
-      // Queue ended
       await this.deleteNowPlaying(guildId);
 
-      // Send "queue ended" message
       if (gp?.client) {
         const queue = getQueueManager().get(guildId);
         if (queue) {
@@ -572,12 +545,11 @@ class PlayerManager {
               });
             }
           } catch {
-            /* ignore */
+            // Ignore send errors
           }
         }
       }
 
-      // Start auto-leave timer
       if (gp) {
         gp.autoLeaveTimeout = setTimeout(() => {
           void this.leaveWithNotice(guildId);
@@ -586,7 +558,6 @@ class PlayerManager {
     }
   }
 
-  /** Pause playback */
   pause(guildId: string): boolean {
     const gp = this.players.get(guildId);
     if (!gp) return false;
@@ -597,7 +568,6 @@ class PlayerManager {
     return false;
   }
 
-  /** Resume playback */
   resume(guildId: string): boolean {
     const gp = this.players.get(guildId);
     if (!gp) return false;
@@ -608,13 +578,11 @@ class PlayerManager {
     return false;
   }
 
-  /** Check if paused */
   isPaused(guildId: string): boolean {
     const gp = this.players.get(guildId);
     return gp?.player.state.status === AudioPlayerStatus.Paused;
   }
 
-  /** Check if playing */
   isPlaying(guildId: string): boolean {
     const gp = this.players.get(guildId);
     if (!gp) return false;
@@ -624,7 +592,6 @@ class PlayerManager {
     );
   }
 
-  /** Stop playback but stay in voice */
   stop(guildId: string): void {
     const gp = this.players.get(guildId);
     if (gp) {
@@ -634,7 +601,6 @@ class PlayerManager {
     getQueueManager().clear(guildId);
   }
 
-  /** Leave voice channel and clean up */
   leave(guildId: string): void {
     void this.deleteNowPlaying(guildId);
     const gp = this.players.get(guildId);
@@ -648,12 +614,10 @@ class PlayerManager {
     getQueueManager().remove(guildId);
   }
 
-  /** Leave with a notification in the text channel */
   private async leaveWithNotice(guildId: string): Promise<void> {
     const gp = this.players.get(guildId);
     const queue = getQueueManager().get(guildId);
 
-    // Send goodbye message before cleanup
     if (gp?.client && queue) {
       try {
         const ch = await gp.client.channels.fetch(queue.textChannelId);
@@ -667,14 +631,13 @@ class PlayerManager {
           });
         }
       } catch {
-        /* ignore */
+        // Ignore send errors
       }
     }
 
     this.leave(guildId);
   }
 
-  /** Set volume */
   setVolume(guildId: string, vol: number): void {
     const qm = getQueueManager();
     qm.setVolume(guildId, vol);
@@ -684,14 +647,12 @@ class PlayerManager {
     }
   }
 
-  /** Get elapsed time in seconds */
   getElapsed(guildId: string): number {
     const gp = this.players.get(guildId);
     if (!gp || !gp.playStartedAt) return 0;
     return Math.floor((Date.now() - gp.playStartedAt) / 1000);
   }
 
-  /** Clean up internal state */
   private cleanup(guildId: string): void {
     void this.deleteNowPlaying(guildId);
     const gp = this.players.get(guildId);
@@ -703,7 +664,6 @@ class PlayerManager {
     getQueueManager().remove(guildId);
   }
 
-  /** Check if bot is in a voice channel for this guild */
   isConnected(guildId: string): boolean {
     const gp = this.players.get(guildId);
     return (
@@ -711,7 +671,6 @@ class PlayerManager {
     );
   }
 
-  /** Handle bot being alone in voice */
   handleAloneInChannel(guildId: string): void {
     const gp = this.players.get(guildId);
     if (!gp || gp.autoLeaveTimeout) return;
@@ -721,7 +680,6 @@ class PlayerManager {
     }, getAutoLeaveMs(guildId));
   }
 
-  /** Cancel auto-leave */
   cancelAutoLeave(guildId: string): void {
     const gp = this.players.get(guildId);
     if (gp?.autoLeaveTimeout) {
@@ -733,27 +691,20 @@ class PlayerManager {
     }
   }
 
-  /**
-   * Prefetches the YouTube ID for the next track in the queue.
-   * This drastically reduces the lag (3-5s) when skipping or auto-advancing to the next song,
-   * by resolving the metadata in the background while the current track plays.
-   */
   private prefetchNextTrack(guildId: string): void {
     const qm = getQueueManager();
     const queue = qm.get(guildId);
     if (!queue || queue.tracks.length === 0) return;
 
-    // Determine the next track index
     const nextIndex = queue.current + 1;
     if (nextIndex >= queue.tracks.length) {
       if (queue.loopMode === 'queue') {
-        // Loop mode: prefetch the first track
         const firstTrack = queue.tracks[0];
         if (firstTrack && !firstTrack.youtubeId) {
           this.resolveTrack(firstTrack).catch(() => {});
         }
       }
-      return; // No next track
+      return;
     }
 
     const nextTrack = queue.tracks[nextIndex];
@@ -762,9 +713,6 @@ class PlayerManager {
     }
   }
 
-  /**
-   * Helper to silently resolve a track's youtubeId
-   */
   private async resolveTrack(item: any): Promise<void> {
     if (item.youtubeId) return;
 
@@ -779,12 +727,11 @@ class PlayerManager {
       item.youtubeId = resolved.youtube.sourceId;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
-      // Ignore errors for background prefetch
+      // Ignore resolve errors
     }
   }
 }
 
-/** Singleton */
 let _instance: PlayerManager | null = null;
 export function getPlayerManager(): PlayerManager {
   if (!_instance) _instance = new PlayerManager();
