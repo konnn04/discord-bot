@@ -41,6 +41,7 @@ interface GuildPlayer {
   autoLeaveTimeout: NodeJS.Timeout | null;
   nowPlayingMessage: Message | null;
   client: Client | null;
+  stopping: boolean;
 }
 
 let _prisma: any = null;
@@ -217,6 +218,7 @@ class PlayerManager {
       autoLeaveTimeout: null,
       nowPlayingMessage: null,
       client: null,
+      stopping: false,
     };
 
     // Handle connection state changes
@@ -536,16 +538,19 @@ class PlayerManager {
 
   /** Handle track end — auto-play next or notify */
   private async onTrackEnd(guildId: string): Promise<void> {
+    const gp = this.players.get(guildId);
+
+    // If stop() was called, don't send duplicate messages or auto-advance
+    if (gp?.stopping) return;
+
     const qm = getQueueManager();
 
     if (qm.hasNext(guildId)) {
       qm.skip(guildId, 1, true);
-      const gp = this.players.get(guildId);
       await this.play(guildId, gp?.client || undefined);
     } else {
       // Queue ended
       await this.deleteNowPlaying(guildId);
-      const gp = this.players.get(guildId);
 
       // Send "queue ended" message
       if (gp?.client) {
@@ -573,7 +578,7 @@ class PlayerManager {
       // Start auto-leave timer
       if (gp) {
         gp.autoLeaveTimeout = setTimeout(() => {
-          this.leave(guildId);
+          void this.leaveWithNotice(guildId);
         }, getAutoLeaveMs(guildId));
       }
     }
@@ -621,6 +626,7 @@ class PlayerManager {
   stop(guildId: string): void {
     const gp = this.players.get(guildId);
     if (gp) {
+      gp.stopping = true;
       gp.player.stop(true);
     }
     getQueueManager().clear(guildId);
@@ -632,11 +638,40 @@ class PlayerManager {
     const gp = this.players.get(guildId);
     if (gp) {
       if (gp.autoLeaveTimeout) clearTimeout(gp.autoLeaveTimeout);
+      gp.stopping = true;
       gp.player.stop(true);
       gp.connection.destroy();
     }
     this.players.delete(guildId);
     getQueueManager().remove(guildId);
+  }
+
+  /** Leave with a notification in the text channel */
+  private async leaveWithNotice(guildId: string): Promise<void> {
+    const gp = this.players.get(guildId);
+    const queue = getQueueManager().get(guildId);
+
+    // Send goodbye message before cleanup
+    if (gp?.client && queue) {
+      try {
+        const ch = await gp.client.channels.fetch(queue.textChannelId);
+        if (ch && ch.isTextBased()) {
+          await (ch as TextChannel).send({
+            embeds: [
+              new EmbedBuilder()
+                .setColor(0x6b7280)
+                .setDescription(
+                  '👋 Đã rời kênh thoại do không có hoạt động.',
+                ),
+            ],
+          });
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+
+    this.leave(guildId);
   }
 
   /** Set volume */
@@ -682,7 +717,7 @@ class PlayerManager {
     if (!gp || gp.autoLeaveTimeout) return;
     gp.player.pause();
     gp.autoLeaveTimeout = setTimeout(() => {
-      this.leave(guildId);
+      void this.leaveWithNotice(guildId);
     }, getAutoLeaveMs(guildId));
   }
 
