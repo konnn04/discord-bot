@@ -26,10 +26,23 @@ const prev: ActionCommand = {
       return;
     }
 
-    await pm.play(guildId, ctx.client);
-    await ctx.reply(
-      `⏮️ Đang phát lại: **${prevTrack.track.title}** — ${prevTrack.track.artist}`,
-    );
+    // Defer to avoid Discord's 3-second timeout for slash commands
+    await ctx.defer();
+
+    const result = await pm.playWithAutoSkip(guildId, ctx.client);
+
+    if (result.success) {
+      const current = qm.getCurrent(guildId);
+      await ctx.reply(
+        `⏮️ Đang phát: **${current?.track.title || prevTrack.track.title}** — ${current?.track.artist || prevTrack.track.artist}`,
+      );
+    } else {
+      pm.stop(guildId);
+      await pm.deleteNowPlayingPublic(guildId);
+      await ctx.reply(
+        `⚠️ Không thể phát bài trước đó${result.autoSkippedCount > 0 ? ` (đã tự động bỏ qua ${result.autoSkippedCount} bài lỗi)` : ''}.`,
+      );
+    }
   },
 };
 

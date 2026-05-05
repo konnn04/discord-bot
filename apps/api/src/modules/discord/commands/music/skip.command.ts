@@ -30,14 +30,35 @@ const skip: ActionCommand = {
       return;
     }
 
+    // Defer to avoid Discord's 3-second timeout for slash commands
+    await ctx.defer();
+
     const n = (ctx.getOption('n', 'integer') as number) || 1;
     const next = qm.skip(guildId, n);
 
     if (next) {
-      await pm.play(guildId, ctx.client);
-      await ctx.reply(
-        `⏭️ Đã bỏ qua ${n} bài. Đang phát: **${next.track.title}**`,
-      );
+      const result = await pm.playWithAutoSkip(guildId, ctx.client);
+
+      if (result.success) {
+        const nowPlaying = qm.getCurrent(guildId);
+        const extraInfo =
+          result.autoSkippedCount > 0
+            ? ` (đã tự động bỏ qua ${result.autoSkippedCount} bài bị lỗi)`
+            : '';
+        await ctx.reply(
+          `⏭️ Đã bỏ qua ${n} bài${extraInfo}. Đang phát: **${nowPlaying?.track.title || next.track.title}**`,
+        );
+      } else {
+        pm.stop(guildId);
+        await pm.deleteNowPlayingPublic(guildId);
+        const extraInfo =
+          result.autoSkippedCount > 0
+            ? ` — đã tự động bỏ qua ${result.autoSkippedCount} bài bị lỗi`
+            : '';
+        await ctx.reply(
+          `⚠️ Đã bỏ qua ${n} bài nhưng không thể phát bài tiếp theo${extraInfo}. Hết queue rồi!`,
+        );
+      }
     } else {
       pm.stop(guildId);
       await pm.deleteNowPlayingPublic(guildId);

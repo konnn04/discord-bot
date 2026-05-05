@@ -123,7 +123,70 @@ class QueueManager {
     return Math.max(0, q.tracks.length - q.current - 1);
   }
 
-  /** Get queue page for display (10 tracks per page) */
+  /**
+   * Get a page of remaining tracks (after current), plus the current track.
+   * Page 1 = tracks immediately after current.
+   */
+  getRemainingPage(
+    guildId: string,
+    page = 1,
+  ): {
+    currentTrack: QueueTrack | null;
+    tracks: QueueTrack[];
+    page: number;
+    totalPages: number;
+    totalRemaining: number;
+    totalRemainingDuration: number;
+  } {
+    const q = this.queues.get(guildId);
+    if (!q || q.tracks.length === 0) {
+      return {
+        currentTrack: null,
+        tracks: [],
+        page: 1,
+        totalPages: 0,
+        totalRemaining: 0,
+        totalRemainingDuration: 0,
+      };
+    }
+
+    const currentTrack =
+      q.current < q.tracks.length ? q.tracks[q.current] : null;
+    const remaining = q.tracks.slice(q.current + 1);
+    const totalRemaining = remaining.length;
+    const totalRemainingDuration = remaining.reduce(
+      (sum, t) => sum + (t.track.duration || 0),
+      0,
+    );
+
+    if (totalRemaining === 0) {
+      return {
+        currentTrack,
+        tracks: [],
+        page: 1,
+        totalPages: 0,
+        totalRemaining: 0,
+        totalRemainingDuration: 0,
+      };
+    }
+
+    const totalPages = Math.ceil(totalRemaining / PAGE_SIZE);
+    const safePage = Math.max(1, Math.min(page, totalPages));
+    const start = (safePage - 1) * PAGE_SIZE;
+    const end = Math.min(start + PAGE_SIZE, totalRemaining);
+    const tracks = remaining.slice(start, end);
+
+    return {
+      currentTrack,
+      tracks,
+      page: safePage,
+      totalPages,
+      totalRemaining,
+      totalRemainingDuration,
+    };
+  }
+
+  /** Get queue page for display (10 tracks per page, all tracks) */
   getPage(
     guildId: string,
     page = 1,
