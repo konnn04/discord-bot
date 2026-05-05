@@ -248,9 +248,6 @@ class PlayerManager {
     const current = qm.getCurrent(guildId);
     if (!current) return false;
 
-    // Guard: prevent re-entrant play() calls from causing double-playback
-    if (gp.switching) return true;
-
     const api = getMusicApi();
 
     try {
