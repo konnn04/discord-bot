@@ -660,9 +660,7 @@ class PlayerManager {
             embeds: [
               new EmbedBuilder()
                 .setColor(0x6b7280)
-                .setDescription(
-                  '👋 Đã rời kênh thoại do không có hoạt động.',
-                ),
+                .setDescription('👋 Đã rời kênh thoại do không có hoạt động.'),
             ],
           });
         }
