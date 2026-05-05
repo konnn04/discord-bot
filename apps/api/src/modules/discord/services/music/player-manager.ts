@@ -248,6 +248,9 @@ class PlayerManager {
     const current = qm.getCurrent(guildId);
     if (!current) return false;
 
+    // Guard: prevent re-entrant play() calls from causing double-playback
+    if (gp.switching) return true;
+
     const api = getMusicApi();
 
     try {
@@ -349,6 +352,10 @@ class PlayerManager {
     } catch {
       // Ignore send errors
     }
+  }
+
+  async deleteNowPlayingPublic(guildId: string): Promise<void> {
+    await this.deleteNowPlaying(guildId);
   }
 
   private async deleteNowPlaying(guildId: string): Promise<void> {
@@ -520,6 +527,9 @@ class PlayerManager {
 
     if (gp?.switching) return;
 
+    // Guard: if player has already moved on to a new track, ignore this stale event
+    if (gp?.player.state.status !== AudioPlayerStatus.Idle) return;
+
     const qm = getQueueManager();
 
     if (qm.hasNext(guildId)) {
@@ -597,6 +607,12 @@ class PlayerManager {
     if (gp) {
       gp.stopping = true;
       gp.player.stop(true);
+
+      if (!gp.autoLeaveTimeout) {
+        gp.autoLeaveTimeout = setTimeout(() => {
+          void this.leaveWithNotice(guildId);
+        }, getAutoLeaveMs(guildId));
+      }
     }
     getQueueManager().clear(guildId);
   }

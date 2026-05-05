@@ -18,6 +18,7 @@ const stop: ActionCommand = {
     }
 
     pm.stop(guildId);
+    await pm.deleteNowPlayingPublic(guildId);
     await ctx.reply('⏹️ Đã dừng phát nhạc và xóa queue.');
   },
 };

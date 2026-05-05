@@ -40,6 +40,7 @@ const skip: ActionCommand = {
       );
     } else {
       pm.stop(guildId);
+      await pm.deleteNowPlayingPublic(guildId);
       await ctx.reply(`⏭️ Đã bỏ qua ${n} bài. Hết queue rồi!`);
     }
   },
