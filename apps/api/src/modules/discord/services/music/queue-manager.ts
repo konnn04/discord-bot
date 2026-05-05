@@ -187,6 +187,24 @@ class QueueManager {
     return true;
   }
 
+  /** Remove a track at the given 1-based position (relative to current). Returns the removed track or null */
+  removeTrack(guildId: string, position: number): QueueTrack | null {
+    const q = this.queues.get(guildId);
+    if (!q || position < 1) return null;
+
+    const targetIndex = q.current + position;
+    if (targetIndex >= q.tracks.length) return null;
+    if (targetIndex === q.current) return null;
+
+    const removed = q.tracks.splice(targetIndex, 1)[0];
+
+    if (targetIndex < q.current) {
+      q.current--;
+    }
+
+    return removed;
+  }
+
   /** Clear queue tracks but keep the entry */
   clear(guildId: string): void {
     const q = this.queues.get(guildId);

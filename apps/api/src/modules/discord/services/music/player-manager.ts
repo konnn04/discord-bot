@@ -228,6 +228,11 @@ class PlayerManager {
       void this.onTrackEnd(guildId);
     });
 
+    player.on(AudioPlayerStatus.Playing, () => {
+      const gp = this.players.get(guildId);
+      if (gp) gp.switching = false;
+    });
+
     player.on('error', (error) => {
       console.error(
         `[PlayerManager] Audio error in guild ${guildId}:`,
@@ -301,7 +306,7 @@ class PlayerManager {
 
       gp.switching = true;
       gp.player.play(resource);
-      gp.switching = false;
+      // switching is reset by AudioPlayerStatus.Playing listener above
 
       if (gp.autoLeaveTimeout) {
         clearTimeout(gp.autoLeaveTimeout);
@@ -314,6 +319,7 @@ class PlayerManager {
 
       return true;
     } catch (error) {
+      gp.switching = false;
       console.error(
         `[PlayerManager] Failed to play in guild ${guildId}:`,
         error,
@@ -524,9 +530,6 @@ class PlayerManager {
 
     if (gp?.switching) return;
 
-    // Guard: if player has already moved on to a new track, ignore this stale event
-    if (gp?.player.state.status !== AudioPlayerStatus.Idle) return;
-
     const qm = getQueueManager();
 
     if (qm.hasNext(guildId)) {
@@ -603,6 +606,7 @@ class PlayerManager {
     const gp = this.players.get(guildId);
     if (gp) {
       gp.stopping = true;
+      gp.switching = false;
       gp.player.stop(true);
 
       if (!gp.autoLeaveTimeout) {
