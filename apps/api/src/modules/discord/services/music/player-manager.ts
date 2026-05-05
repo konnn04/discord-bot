@@ -156,6 +156,8 @@ export class PlayerManager {
         `[PlayerManager] Audio error in guild ${guildId}:`,
         error.message,
       );
+      // The player will transition to Idle after error — onTrackEnd handles recovery.
+      // Do NOT skip manually here to avoid double-skipping.
     });
 
     this.players.set(guildId, gp);
@@ -199,9 +201,18 @@ export class PlayerManager {
 
       void this.prefetchNextTrack(guildId);
 
-      const response = await fetch(streamUrl, {
-        headers: api.getStreamHeaders(),
-      });
+      const abortController = new AbortController();
+      const fetchTimeout = setTimeout(() => abortController.abort(), 5_000);
+
+      let response: Response;
+      try {
+        response = await fetch(streamUrl, {
+          headers: api.getStreamHeaders(),
+          signal: abortController.signal,
+        });
+      } finally {
+        clearTimeout(fetchTimeout);
+      }
 
       if (!response.ok || !response.body) {
         throw new Error(`Stream fetch failed: ${response.status}`);
@@ -209,6 +220,29 @@ export class PlayerManager {
 
       const { Readable } = await import('stream');
       const nodeStream = Readable.fromWeb(response.body as any);
+
+      nodeStream.on('error', (err) => {
+        console.error(
+          `[PlayerManager] Stream read error in guild ${guildId}:`,
+          err.message,
+        );
+        gp.player.stop(true);
+      });
+
+      let streamEnded = false;
+      nodeStream.on('end', () => {
+        streamEnded = true;
+      });
+      nodeStream.on('close', () => {
+        if (!streamEnded) {
+          console.warn(
+            `[PlayerManager] Stream closed prematurely in guild ${guildId}`,
+          );
+          if (!gp.stopping && !gp.switching) {
+            gp.player.stop(true);
+          }
+        }
+      });
 
       const resource = createAudioResource(nodeStream, {
         inputType: StreamType.WebmOpus,
@@ -224,7 +258,6 @@ export class PlayerManager {
 
       gp.switching = true;
       gp.player.play(resource);
-      // switching is reset by AudioPlayerStatus.Playing listener above
 
       if (gp.autoLeaveTimeout) {
         clearTimeout(gp.autoLeaveTimeout);

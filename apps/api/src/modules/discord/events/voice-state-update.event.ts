@@ -1,6 +1,7 @@
 import type { EventHandler } from 'shared/src/types/discord.types';
 import { VoiceState, EmbedBuilder } from 'discord.js';
 import { getPlayerManager } from '../services/music/player-manager';
+import { ColorResolvable } from 'discord.js';
 
 const voiceStateUpdateEvent: EventHandler = {
   name: 'voiceStateUpdate',
@@ -81,11 +82,15 @@ const voiceStateUpdateEvent: EventHandler = {
     if (!member.user.bot && deps?.guildSettings && newState.guild) {
       const settings = deps.guildSettings.get(newState.guild.id);
       if (settings?.features?.voiceWelcome) {
-        const sendToChannel = (channel: any, desc: string) => {
+        const sendToChannel = (
+          channel: any,
+          desc: string,
+          color: ColorResolvable = '#2ecc71',
+        ) => {
           if (channel?.isTextBased()) {
             const embed = new EmbedBuilder()
               .setDescription(desc)
-              .setColor('#2ecc71');
+              .setColor(color);
             channel.send({ embeds: [embed] }).catch(() => {});
           }
         };
@@ -94,14 +99,16 @@ const voiceStateUpdateEvent: EventHandler = {
         if (newChannelId && !oldChannelId) {
           sendToChannel(
             newState.channel,
-            `🎤 **${member.user.username}** vừa tham gia kênh.`,
+            ` **${member.user.username}** vừa tham gia kênh.`,
+            '#2ecc71',
           );
         }
         // Left a voice channel
         else if (oldChannelId && !newChannelId) {
           sendToChannel(
             oldState.channel,
-            `👋 **${member.user.username}** vừa rời kênh.`,
+            `🚪 **${member.user.username}** vừa rời kênh.`,
+            '#e74c3c',
           );
         }
         // Switched voice channels
@@ -113,10 +120,12 @@ const voiceStateUpdateEvent: EventHandler = {
           sendToChannel(
             newState.channel,
             `🔄 **${member.user.username}** vừa chuyển đến từ <#${oldChannelId}>.`,
+            '#f39c12',
           );
           sendToChannel(
             oldState.channel,
             `🔄 **${member.user.username}** vừa chuyển sang <#${newChannelId}>.`,
+            '#f39c12',
           );
         }
       }
