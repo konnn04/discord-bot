@@ -4,6 +4,9 @@ import { CommandLoaderService } from './services/command-loader.service';
 import { EventLoaderService } from './services/event-loader.service';
 import { CooldownService } from './services/cooldown.service';
 import { PermissionService } from './services/permission.service';
+import { VoiceTagService } from './services/voice-tag.service';
+import { LeetcodeSchedulerService } from './services/leetcode-scheduler.service';
+import { AnimeSchedulerService } from './services/anime-scheduler.service';
 import { MusicController } from './controllers/music.controller';
 
 import { MichosgcModule } from '../michosgc/michosgc.module';
@@ -17,12 +20,16 @@ import { MichosgcModule } from '../michosgc/michosgc.module';
     EventLoaderService,
     CooldownService,
     PermissionService,
+    VoiceTagService,
+    LeetcodeSchedulerService,
+    AnimeSchedulerService,
   ],
   exports: [
     DiscordService,
     CommandLoaderService,
     CooldownService,
     PermissionService,
+    VoiceTagService,
   ],
 })
 export class DiscordModule {}

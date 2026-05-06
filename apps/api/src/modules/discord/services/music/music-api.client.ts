@@ -176,6 +176,28 @@ export class MusicApiClient {
     return this.request<ResolveResult>(`/music/resolve/${spotifyId}`);
   }
 
+  /** Batch-resolve multiple Spotify tracks in parallel (server handles caching). */
+  async resolveMany(spotifyIds: string[]): Promise<Map<string, ResolveResult>> {
+    const results = new Map<string, ResolveResult>();
+    if (spotifyIds.length === 0) return results;
+
+    const resolved = await Promise.all(
+      spotifyIds.map((id) =>
+        this.resolve(id).catch((err) => {
+          console.warn(
+            `[MusicApi] Failed to resolve Spotify track ${id}: ${String(err)}`,
+          );
+          return null as ResolveResult | null;
+        }),
+      ),
+    );
+    resolved.forEach((r, i) => {
+      if (r) results.set(spotifyIds[i], r);
+    });
+
+    return results;
+  }
+
   /** Get recommendations based on a track */
   async getRecommendations(trackId: string): Promise<MusicTrack[]> {
     return this.request<MusicTrack[]>(`/music/recommendations/${trackId}`);
@@ -209,6 +231,19 @@ export class MusicApiClient {
   /** Get the headers needed for streaming requests */
   getStreamHeaders(): Record<string, string> {
     return { 'X-API-Key': this.apiKey };
+  }
+
+  /**
+   * One-shot play: POST /stream/play with a track URL (Spotify or YouTube).
+   * Server handles search/parse → resolve → stream internally.
+   */
+  async fetchPlayStream(trackUrl: string): Promise<Response> {
+    const url = `${this.baseUrl}/stream/play`;
+    return fetch(url, {
+      method: 'POST',
+      headers: { ...this.headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: trackUrl }),
+    });
   }
 
   /** Get lyrics by track name and artist */

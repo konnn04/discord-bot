@@ -9,9 +9,18 @@ Một bot Discord đa năng, module hóa được xây dựng bằng **NestJS**,
 ## Tính Năng Nổi Bật
 
 - **Kiến trúc Module**: Xây dựng với NestJS, tận dụng dependency injection giúp logic backend dễ mở rộng.
-- **Tải Lệnh & Sự kiện Động**: Tự động nhận dạng và đăng ký các command (lệnh) và event của Discord.
+- **Tải Lệnh & Sự kiện Động**: Tự động nhận dạng và đăng ký các slash command và event của Discord khi khởi động.
+- **Danh mục Lệnh Phong phú**:
+  - 🎵 **Âm nhạc (Music)** — Phát, bỏ qua, tạm dừng, tiếp tục, hàng đợi, lời bài hát, gợi ý, lịch sử. Đa nền tảng: YouTube & Spotify.
+  - 🛡️ **Quản lý (Moderation)** — Cấm, đá, timeout, cảnh cáo, xóa tin nhắn, quản lý role.
+  - 📊 **XP & Cấp độ** — Theo dõi hoạt động voice & chat, tự động thăng cấp, bảng xếp hạng, thẻ rank.
+  - 😄 **Emote / Anime** — GIF phản ứng (ôm, xoa đầu, tát, hôn…) qua nekos.best.
+  - 📝 **Confession** — Nhắn ẩn danh có kiểm duyệt.
+  - 🗓️ **Meeting** — Lên lịch & quản lý buổi họp voice channel.
+  - 🕵️ **Stalk** — Hiện diện GitHub, theo dõi LeetCode, danh sách anime (MyAnimeList).
+  - ⚙️ **Cài đặt** — Cấu hình riêng cho từng server & toàn cục, đồng bộ với web dashboard.
+  - 🎮 **Presence** — API hiện diện công khai (tương thích Lanyard) để hiển thị lên portfolio.
 - **Hệ thống Cấu hình Mạnh mẽ**: Lưu trữ cài đặt toàn cầu và cài đặt cho từng server bằng PostgreSQL (JSONB) kết hợp cache in-memory để truy xuất cực nhanh.
-- **Hệ thống Cấp độ (XP)**: Theo dõi hoạt động của người dùng ở cả kênh chat và voice, tự động thăng cấp và tạo bảng xếp hạng.
 - **Thông báo Tự động**: Lên lịch tự động thông qua `@nestjs/schedule` (ví dụ: Tự động quét và thông báo giftcode Hoyoverse).
 - **Web Dashboard**: Ứng dụng Frontend React + Vite được tích hợp sẵn giúp quản lý và cấu hình dễ dàng.
 - **Public Presence API**: API tương tự như Lanyard giúp hiển thị trạng thái Discord lên các trang portfolio cá nhân.
@@ -82,9 +91,12 @@ Chúng tôi luôn hoan nghênh sự đóng góp của mọi người! Vui lòng 
 
 ## Nguồn & API Bổ Sung (Credits)
 
-Dự án có sử dụng các API tuyệt vời từ cộng đồng:
-- [nekos.best](https://nekos.best/) - Sử dụng để tạo ảnh GIF tương tác kiểu anime (ôm, xoa đầu, đấm, v.v.).
-- [hoyo-codes](https://docs.hb.seria.moe/) bởi Seria - Sử dụng để lấy dữ liệu giftcode mới nhất của nhà Hoyoverse cho tính năng auto-tracker.
+Dự án có sử dụng các API và công cụ tuyệt vời từ cộng đồng:
+- [nekos.best](https://nekos.best/) — GIF phản ứng kiểu anime (ôm, xoa đầu, tát, hôn…).
+- [hoyo-codes](https://docs.hb.seria.moe/) bởi Seria — Dữ liệu giftcode Hoyoverse mới nhất cho auto-tracker.
+- [discord.js](https://discord.js.org/) / [@discordjs/voice](https://github.com/discordjs/voice) — Kết nối Discord gateway & voice streaming.
+- Custom Music Server — API nhạc tự host cho tìm kiếm, resolve YouTube/Spotify và stream âm thanh.
+- [LRCLIB](https://lrclib.net/) — Cơ sở dữ liệu lời bài hát đồng bộ.
 
 ## Giấy Phép
 

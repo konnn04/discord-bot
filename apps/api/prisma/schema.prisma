@@ -34,6 +34,10 @@ model User {
   username           String
   githubUsername     String?
   githubShowPresence Boolean         @default(false)
+  leetcodeUsername   String?
+  leetcodeShowPresence Boolean       @default(false)
+  leetcodeDailyDm    Boolean         @default(false)
+  leetcodeContestDm  Boolean         @default(false)
   guildMembers       GuildMember[]
   xpHistory    GuildMemberXp[]
 }
@@ -105,4 +109,109 @@ model MusicHistory {
   @@index([guildId])
   @@index([discordId, guildId])
   @@index([playedAt])
+}
+
+/// Maps voice/stage channels to their auto-created tag-everyone roles
+model VoiceChannelRole {
+  guildId   String
+  channelId String
+  roleId    String
+  createdAt DateTime @default(now())
+
+  @@id([guildId, channelId])
+  @@index([guildId])
+  @@index([roleId])
+}
+
+/// Tracks which guilds received the LeetCode daily on a given date
+model LeetcodeDailySent {
+  guildId String
+  date    String // "YYYY-MM-DD"
+
+  @@id([guildId, date])
+}
+
+/// Tracks which users received the LeetCode daily on a given date
+model LeetcodeDailySentUser {
+  userId String
+  date   String
+
+  @@id([userId, date])
+}
+
+/// Prevents duplicate contest notifications
+model LeetcodeContestSent {
+  slug       String   @id
+  guildId    String?
+  userId     String?
+  notifiedAt DateTime @default(now())
+
+  @@index([guildId])
+  @@index([userId])
+}
+
+/// User's tracked anime
+model AnimeTrack {
+  userId       String
+  animeId      Int
+  title        String
+  posterUrl    String
+  episodeCount Int?
+  nextEpisode  Int?      // last known next episode number
+  airingAt     DateTime? // when next episode airs
+  addedAt      DateTime  @default(now())
+
+  @@id([userId, animeId])
+  @@index([userId])
+}
+
+/// Prevents double-DM for same episode
+model AnimeEpisodeNotified {
+  userId   String
+  animeId  Int
+  episode  Int
+
+  @@id([userId, animeId, episode])
+}
+
+/// Stalker: who watches whom + what events to track
+model StalkerSubscription {
+  id        String   @id @default(cuid())
+  trackerId String   // who subscribed (the stalker)
+  targetId  String   // who is being watched
+  guildId   String
+  onOnline  Boolean  @default(false)
+  onVoice   Boolean  @default(false)
+  onGame    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@unique([trackerId, targetId, guildId])
+  @@index([trackerId])
+  @@index([targetId])
+}
+
+/// Opt-out list: users who don't want to be stalked
+model StalkerOptOut {
+  userId    String   @id
+  createdAt DateTime @default(now())
+}
+
+/// Confession channel config per guild
+model ConfessionConfig {
+  guildId   String   @id
+  channelId String
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+/// Anonymous confession log (authorId stored for abuse prevention, only visible to admins)
+model ConfessionLog {
+  id        String   @id @default(cuid())
+  guildId   String
+  authorId  String
+  content   String
+  postedAt  DateTime @default(now())
+
+  @@index([guildId])
+  @@index([guildId, postedAt])
 }

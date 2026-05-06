@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "githubUsername" TEXT;
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "githubShowPresence" BOOLEAN NOT NULL DEFAULT false;

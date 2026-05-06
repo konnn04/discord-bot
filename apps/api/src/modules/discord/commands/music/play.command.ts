@@ -58,25 +58,26 @@ const play: ActionCommand = {
 
         if (parsed.type === 'track') {
           const trackData = parsed.data as any;
-          let youtubeId = '';
-
-          if (trackData.source === 'youtube') {
-            youtubeId = trackData.sourceId;
-          } else if (trackData.source === 'spotify') {
-            // Resolve Spotify → YouTube
-            const resolved = await api.resolve(trackData.sourceId);
-            youtubeId = resolved.youtube.sourceId;
-          }
 
           tracksToAdd.push({
             track: trackData,
-            youtubeId,
+            youtubeId:
+              trackData.source === 'youtube' ? trackData.sourceId : undefined,
             requestedBy: ctx.author.username,
             requestedById: ctx.userId,
           });
           totalAddedCount = 1;
+
+          // Background resolve Spotify for history (server handles streaming via /stream/play)
+          if (trackData.source === 'spotify') {
+            api
+              .resolve(trackData.sourceId)
+              .then((r) => {
+                tracksToAdd[0].youtubeId = r.youtube.sourceId;
+              })
+              .catch(() => {});
+          }
         } else if (parsed.type === 'playlist' || parsed.type === 'album') {
-          // Could be array of tracks or object with .tracks
           const items = Array.isArray(parsed.data)
             ? parsed.data
             : (parsed.data as any).tracks || [];
@@ -90,6 +91,7 @@ const play: ActionCommand = {
 
           const limited = items.slice(0, 50);
 
+          // Add all tracks immediately — server resolves Spotify→YouTube at play time via /stream/play
           for (const item of limited) {
             tracksToAdd.push({
               track: item,
@@ -105,6 +107,24 @@ const play: ActionCommand = {
           }
 
           totalAddedCount = tracksToAdd.length;
+
+          // Background: resolve Spotify tracks for history/prefetch (non-blocking)
+          const spotifyIds = limited
+            .filter((t: any) => t.source === 'spotify')
+            .map((t: any) => t.sourceId);
+          if (spotifyIds.length > 0) {
+            api
+              .resolveMany(spotifyIds)
+              .then((results) => {
+                for (const t of tracksToAdd) {
+                  if (t.track.source === 'spotify' && !t.youtubeId) {
+                    const r = results.get(t.track.sourceId);
+                    if (r) t.youtubeId = r.youtube.sourceId;
+                  }
+                }
+              })
+              .catch(() => {});
+          }
         }
       } else {
         // Search by keyword
@@ -123,30 +143,18 @@ const play: ActionCommand = {
         return;
       }
 
-      // Check if we need to start playing or just add to queue
       const wasEmpty = !qm.getCurrent(guildId);
       const isCurrentlyPlaying = pm.isPlaying(guildId);
 
       qm.addTracks(guildId, textChannelId, tracksToAdd);
 
-      // If nothing was playing, set current to the first new track
       if (wasEmpty || !isCurrentlyPlaying) {
         const q = qm.get(guildId)!;
-        if (wasEmpty) {
-          q.current = q.tracks.length - tracksToAdd.length; // point to first added
-        }
+        q.current = q.tracks.length - tracksToAdd.length;
 
-        // Join and play
         pm.join(voiceChannel);
-        const success = await pm.play(guildId, ctx.client);
 
-        if (!success) {
-          await ctx.editReply(
-            '❌ Không thể phát bài hát này. Thử bài khác nhé.',
-          );
-          return;
-        }
-
+        // Reply ngay, không đợi stream sẵn sàng
         if (totalAddedCount === 1) {
           const t = tracksToAdd[0];
           const embed = new EmbedBuilder()
@@ -162,17 +170,36 @@ const play: ActionCommand = {
             .setFooter({ text: `Yêu cầu bởi ${t.requestedBy}` });
           await ctx.editReply({ embeds: [embed] });
         } else {
+          const nowPlaying = tracksToAdd[0];
           const embed = new EmbedBuilder()
             .setColor(0x10b981)
             .setTitle('📋 Đã thêm playlist vào queue')
             .setDescription(
-              `Đang phát **${tracksToAdd[0].track.title}** — ${tracksToAdd[0].track.artist || 'Không rõ'}\n` +
+              `Đang tải **${nowPlaying.track.title}** — ${nowPlaying.track.artist || 'Không rõ'}\n` +
                 `+${totalAddedCount - 1} bài khác đã được thêm vào queue.`,
             );
           await ctx.editReply({ embeds: [embed] });
         }
+
+        // Phát nhạc nền — nếu lỗi thì sửa lại reply
+        pm.playWithAutoSkip(guildId, ctx.client)
+          .then((result) => {
+            if (!result.success) {
+              const extraInfo =
+                result.autoSkippedCount > 0
+                  ? ` (đã thử ${result.autoSkippedCount + 1} bài nhưng đều bị lỗi)`
+                  : '';
+              ctx
+                .editReply(
+                  `❌ Không thể phát bài hát nào${extraInfo}. Thử bài khác nhé.`,
+                )
+                .catch(() => {});
+            }
+          })
+          .catch((err) => {
+            console.error('[play] Background playback error:', err);
+          });
       } else {
-        // Already playing, just added to queue
         if (totalAddedCount === 1) {
           const t = tracksToAdd[0];
           const pos = qm.get(guildId)!.tracks.length;

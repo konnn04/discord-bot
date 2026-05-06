@@ -39,6 +39,7 @@ export interface ActionCommand {
   permission?: PermissionLevel;
   isOnlySlashCommand?: boolean;
   optionalArgs?: OptionCommand[];
+  subcommands?: ActionCommand[];
   cooldown?: number;
   execute: (ctx: any, deps?: any) => Promise<void>;
 }

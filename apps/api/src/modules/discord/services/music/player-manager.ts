@@ -1,7 +1,3 @@
-/**
- * Manages voice connections, AudioPlayers, and playback per guild.
- * Handles: now-playing message with buttons, music history tracking.
- */
 import {
   joinVoiceChannel,
   createAudioPlayer,
@@ -20,18 +16,12 @@ import type {
   Client,
   Message,
 } from 'discord.js';
-import {
-  EmbedBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  ButtonInteraction,
-  MessageFlags,
-} from 'discord.js';
+import { EmbedBuilder, ButtonInteraction } from 'discord.js';
 import { PrismaClient } from '@prisma/client';
 import { getQueueManager } from './queue-manager';
 import { getMusicApi } from './music-api.client';
-import { formatDuration } from './utils';
+import { createNowPlayingEmbed, createMusicButtons } from './now-playing-ui';
+import { handleMusicButton } from './music-button.handler';
 
 interface GuildPlayer {
   connection: VoiceConnection;
@@ -41,6 +31,8 @@ interface GuildPlayer {
   autoLeaveTimeout: NodeJS.Timeout | null;
   nowPlayingMessage: Message | null;
   client: Client | null;
+  stopping: boolean;
+  switching: boolean;
 }
 
 let _prisma: any = null;
@@ -53,12 +45,10 @@ function getPrisma(): any {
   return _prisma;
 }
 
-/** Set prisma instance from outside (e.g. from deps) */
 export function setPlayerPrisma(prisma: any): void {
   _prisma = prisma;
 }
 
-/** Set guild settings from outside */
 export function setPlayerGuildSettings(settings: any): void {
   _guildSettings = settings;
 }
@@ -69,87 +59,6 @@ function getAutoLeaveMs(guildId: string): number {
   }
   return 120 * 1000;
 }
-
-// ====== Button Action Row ======
-
-function createMusicButtons(
-  isPaused: boolean,
-): ActionRowBuilder<ButtonBuilder> {
-  return new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId('music_prev')
-      .setEmoji('⏮️')
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId('music_pause')
-      .setEmoji(isPaused ? '▶️' : '⏸️')
-      .setStyle(isPaused ? ButtonStyle.Success : ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId('music_skip')
-      .setEmoji('⏭️')
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId('music_stop')
-      .setEmoji('⏹️')
-      .setStyle(ButtonStyle.Danger),
-    new ButtonBuilder()
-      .setCustomId('music_lyrics')
-      .setEmoji('🎤')
-      .setStyle(ButtonStyle.Primary),
-  );
-}
-
-function createNowPlayingEmbed(
-  guildId: string,
-  isPaused: boolean,
-  elapsed?: number,
-): EmbedBuilder | null {
-  const qm = getQueueManager();
-  const current = qm.getCurrent(guildId);
-  if (!current) return null;
-
-  const total = current.track.duration;
-  const e = elapsed ?? 0;
-  const vol = qm.getVolume(guildId);
-  const remaining = qm.remaining(guildId);
-  const statusIcon = isPaused ? '⏸️' : '▶️';
-
-  let timeString = '';
-  if (isPaused) {
-    timeString = `⏳ Đã dừng ở **${formatDuration(e)}** / ${formatDuration(total)}`;
-  } else {
-    const endTimestamp = Math.floor((Date.now() + (total - e) * 1000) / 1000);
-    timeString = `⏳ Kết thúc <t:${endTimestamp}:R>`;
-  }
-
-  const embed = new EmbedBuilder()
-    .setColor(0x7c3aed)
-    .setAuthor({ name: `${statusIcon} ${isPaused ? 'Tạm dừng' : 'Đang phát'}` })
-    .setTitle(current.track.title)
-    .setURL(current.track.url)
-    .setDescription(
-      `**${current.track.artist || 'Không rõ'}**${current.track.album ? ` • ${current.track.album}` : ''}\n\n` +
-        `${timeString}\n\n` +
-        `🔊 ${vol}% • 📋 Còn ${remaining} bài trong queue`,
-    )
-    .setThumbnail(current.track.thumbnail)
-    .setFooter({ text: `Yêu cầu bởi ${current.requestedBy}` })
-    .setTimestamp();
-
-  // Show next track
-  const q = qm.get(guildId);
-  if (q && q.current + 1 < q.tracks.length) {
-    const next = q.tracks[q.current + 1];
-    embed.addFields({
-      name: '📋 Tiếp theo',
-      value: `${next.track.title} — ${next.track.artist || 'Không rõ'} (${formatDuration(next.track.duration)})`,
-    });
-  }
-
-  return embed;
-}
-
-// ====== Music History ======
 
 async function recordHistory(
   discordId: string,
@@ -183,12 +92,9 @@ async function recordHistory(
   }
 }
 
-// ====== Player Manager ======
-
-class PlayerManager {
+export class PlayerManager {
   private players = new Map<string, GuildPlayer>();
 
-  /** Join a voice channel and set up a player */
   join(channel: VoiceBasedChannel): GuildPlayer {
     const guildId = channel.guild.id;
 
@@ -217,9 +123,10 @@ class PlayerManager {
       autoLeaveTimeout: null,
       nowPlayingMessage: null,
       client: null,
+      stopping: false,
+      switching: false,
     };
 
-    // Handle connection state changes
     connection.on(VoiceConnectionStatus.Disconnected, async () => {
       try {
         await Promise.race([
@@ -235,9 +142,13 @@ class PlayerManager {
       this.cleanup(guildId);
     });
 
-    // Handle player idle (track ended)
     player.on(AudioPlayerStatus.Idle, () => {
       void this.onTrackEnd(guildId);
+    });
+
+    player.on(AudioPlayerStatus.Playing, () => {
+      const gp = this.players.get(guildId);
+      if (gp) gp.switching = false;
     });
 
     player.on('error', (error) => {
@@ -245,56 +156,59 @@ class PlayerManager {
         `[PlayerManager] Audio error in guild ${guildId}:`,
         error.message,
       );
-      void this.onTrackEnd(guildId);
+      // The player will transition to Idle after error — onTrackEnd handles recovery.
+      // Do NOT skip manually here to avoid double-skipping.
     });
 
     this.players.set(guildId, gp);
     return gp;
   }
 
-  /** Play the current track from the queue */
   async play(guildId: string, client?: Client): Promise<boolean> {
     const gp = this.players.get(guildId);
     if (!gp) return false;
     if (client) gp.client = client;
 
+    // Set switching BEFORE any async work so onTrackEnd doesn't race.
+    // Reset only after new track confirms Playing.
+    gp.switching = true;
+
+    // Force-stop current audio to prevent old-stream events from interfering
+    // with the new stream during skip/switching.
+    gp.player.stop(true);
+
     const qm = getQueueManager();
     const current = qm.getCurrent(guildId);
-    if (!current) return false;
+    if (!current) {
+      gp.switching = false;
+      return false;
+    }
 
     const api = getMusicApi();
 
     try {
-      // JIT Resolve if youtubeId is missing
+      // Resolve youtubeId in background for history/prefetch (non-blocking)
       if (!current.youtubeId) {
         if (current.track.source === 'youtube') {
           current.youtubeId = current.track.sourceId;
         } else if (current.track.source === 'spotify') {
-          try {
-            const resolved = await api.resolve(current.track.sourceId);
-            current.youtubeId = resolved.youtube.sourceId;
-          } catch (error) {
-            console.error(
-              `Failed to resolve Spotify track ${current.track.title}:`,
-              error,
-            );
-            throw new Error('Không thể tìm thấy bài hát này trên YouTube.');
-          }
+          api
+            .resolve(current.track.sourceId)
+            .then((resolved) => {
+              current.youtubeId = resolved.youtube.sourceId;
+            })
+            .catch((err) => {
+              console.warn(
+                `[PlayerManager] Background resolve failed for "${current.track.title}": ${String(err)}`,
+              );
+            });
         }
       }
 
-      if (!current.youtubeId) {
-        throw new Error('Thiếu YouTube ID để phát nhạc.');
-      }
-
-      const streamUrl = api.getProxyStreamUrl(current.youtubeId);
-
-      // Resolve the next track in the background while this one plays
       void this.prefetchNextTrack(guildId);
 
-      const response = await fetch(streamUrl, {
-        headers: api.getStreamHeaders(),
-      });
+      // One-shot: server parses URL → resolves → streams in one call
+      const response = await api.fetchPlayStream(current.track.url);
 
       if (!response.ok || !response.body) {
         throw new Error(`Stream fetch failed: ${response.status}`);
@@ -302,6 +216,29 @@ class PlayerManager {
 
       const { Readable } = await import('stream');
       const nodeStream = Readable.fromWeb(response.body as any);
+
+      nodeStream.on('error', (err) => {
+        console.error(
+          `[PlayerManager] Stream read error in guild ${guildId}:`,
+          err.message,
+        );
+        gp.player.stop(true);
+      });
+
+      let streamEnded = false;
+      nodeStream.on('end', () => {
+        streamEnded = true;
+      });
+      nodeStream.on('close', () => {
+        if (!streamEnded) {
+          console.warn(
+            `[PlayerManager] Stream closed prematurely in guild ${guildId}`,
+          );
+          if (!gp.stopping && !gp.switching) {
+            gp.player.stop(true);
+          }
+        }
+      });
 
       const resource = createAudioResource(nodeStream, {
         inputType: StreamType.WebmOpus,
@@ -313,22 +250,22 @@ class PlayerManager {
 
       gp.resource = resource;
       gp.playStartedAt = Date.now();
+      gp.stopping = false;
+
       gp.player.play(resource);
 
-      // Clear auto-leave timer
       if (gp.autoLeaveTimeout) {
         clearTimeout(gp.autoLeaveTimeout);
         gp.autoLeaveTimeout = null;
       }
 
-      // Record history
       void recordHistory(current.requestedById, guildId, current.track);
 
-      // Send now-playing message with buttons
       await this.sendNowPlaying(guildId);
 
       return true;
     } catch (error) {
+      gp.switching = false;
       console.error(
         `[PlayerManager] Failed to play in guild ${guildId}:`,
         error,
@@ -337,7 +274,6 @@ class PlayerManager {
     }
   }
 
-  /** Send or update the now-playing message with interactive buttons */
   private async sendNowPlaying(guildId: string): Promise<void> {
     const gp = this.players.get(guildId);
     if (!gp?.client) return;
@@ -346,208 +282,128 @@ class PlayerManager {
     const queue = qm.get(guildId);
     if (!queue) return;
 
-    // Delete old now-playing message
-    await this.deleteNowPlaying(guildId);
-
     const embed = createNowPlayingEmbed(guildId, false, 0);
     if (!embed) return;
 
     const buttons = createMusicButtons(false);
 
+    if (gp.nowPlayingMessage) {
+      const shouldRecreate = await this._isNotLastMessage(gp);
+      if (!shouldRecreate) {
+        try {
+          await gp.nowPlayingMessage.edit({
+            embeds: [embed],
+            components: [buttons],
+          });
+          return;
+        } catch {
+          // Edit failed — fall through to send new
+        }
+      }
+      await this.deleteNowPlaying(guildId);
+    }
+
     try {
       const ch = await gp.client.channels.fetch(queue.textChannelId);
       if (ch && ch.isTextBased()) {
-        const msg = await (ch as TextChannel).send({
+        const textCh = ch as TextChannel;
+        const msg = await textCh.send({
           embeds: [embed],
           components: [buttons],
         });
         gp.nowPlayingMessage = msg;
       }
     } catch {
-      // Silently fail
+      // Ignore send errors
     }
   }
 
-  /** Delete the current now-playing message */
+  private async _isNotLastMessage(gp: GuildPlayer): Promise<boolean> {
+    if (!gp.nowPlayingMessage || !gp.client) return true;
+    try {
+      const ch = await gp.client.channels.fetch(gp.nowPlayingMessage.channelId);
+      if (!ch || !('lastMessageId' in ch)) return true;
+      return (ch as TextChannel).lastMessageId !== gp.nowPlayingMessage.id;
+    } catch {
+      return true;
+    }
+  }
+
+  async deleteNowPlayingPublic(guildId: string): Promise<void> {
+    await this.deleteNowPlaying(guildId);
+  }
+
+  /** Expose GuildPlayer for external handlers (e.g. music button handler) */
+  getGuildPlayer(guildId: string): GuildPlayer | undefined {
+    return this.players.get(guildId);
+  }
+
   private async deleteNowPlaying(guildId: string): Promise<void> {
     const gp = this.players.get(guildId);
     if (!gp?.nowPlayingMessage) return;
 
     try {
       await gp.nowPlayingMessage.delete();
+      gp.nowPlayingMessage = null;
     } catch {
-      // Message already deleted — that's fine
+      gp.nowPlayingMessage = null;
     }
-    gp.nowPlayingMessage = null;
   }
 
-  /** Handle button interactions from now-playing message */
   async handleButton(interaction: ButtonInteraction): Promise<void> {
-    const guildId = interaction.guildId;
-    if (!guildId) return;
-
-    const gp = this.players.get(guildId);
-    if (!gp) {
-      await interaction.reply({
-        content: '❌ Không có phiên nhạc nào.',
-        flags: MessageFlags.Ephemeral,
-      });
-      return;
-    }
-
-    // Check if user is in the same voice channel
-    const member = interaction.member as any;
-    const userVoiceChannelId = member?.voice?.channelId;
-    if (!userVoiceChannelId) {
-      await interaction.reply({
-        content: '❌ Bạn cần ở trong kênh thoại.',
-        flags: MessageFlags.Ephemeral,
-      });
-      return;
-    }
-
-    const qm = getQueueManager();
-
-    switch (interaction.customId) {
-      case 'music_pause': {
-        if (this.isPaused(guildId)) {
-          this.resume(guildId);
-          // Update button appearance
-          const embed = createNowPlayingEmbed(
-            guildId,
-            false,
-            this.getElapsed(guildId),
-          );
-          const buttons = createMusicButtons(false);
-          if (embed) {
-            await interaction.update({
-              embeds: [embed],
-              components: [buttons],
-            });
-          } else {
-            await interaction.deferUpdate();
-          }
-        } else {
-          this.pause(guildId);
-          const embed = createNowPlayingEmbed(
-            guildId,
-            true,
-            this.getElapsed(guildId),
-          );
-          const buttons = createMusicButtons(true);
-          if (embed) {
-            await interaction.update({
-              embeds: [embed],
-              components: [buttons],
-            });
-          } else {
-            await interaction.deferUpdate();
-          }
-        }
-        break;
-      }
-
-      case 'music_skip': {
-        const next = qm.skip(guildId, 1);
-        if (next) {
-          await interaction.deferUpdate();
-          await this.play(guildId, gp.client || undefined);
-        } else {
-          this.stop(guildId);
-          await this.deleteNowPlaying(guildId);
-          await interaction.reply({
-            content: '⏹️ Hết queue rồi!',
-          });
-        }
-        break;
-      }
-
-      case 'music_prev': {
-        const prevTrack = qm.prev(guildId);
-        if (prevTrack) {
-          await interaction.deferUpdate();
-          await this.play(guildId, gp.client || undefined);
-        } else {
-          await interaction.reply({
-            content: '❌ Không có bài trước đó.',
-            flags: MessageFlags.Ephemeral,
-          });
-        }
-        break;
-      }
-
-      case 'music_stop': {
-        this.stop(guildId);
-        await this.deleteNowPlaying(guildId);
-        await interaction.reply({
-          content: '⏹️ Đã dừng phát nhạc.',
-        });
-        break;
-      }
-
-      case 'music_lyrics': {
-        const current = qm.getCurrent(guildId);
-        if (!current) {
-          await interaction.reply({
-            content: '❌ Không có bài đang phát.',
-            flags: MessageFlags.Ephemeral,
-          });
-          return;
-        }
-
-        await interaction.deferReply();
-
-        try {
-          const api = getMusicApi();
-          const trackName = current.track.title;
-          const artistName = current.track.artist || trackName;
-
-          const result = await api.getLyrics(trackName, artistName);
-          if (!result || !result.plainLyrics) {
-            await interaction.editReply('❌ Không tìm thấy lời bài hát này.');
-            return;
-          }
-
-          const { truncate } = await import('./utils');
-          const lyricsText = truncate(result.plainLyrics, 3900);
-
-          const embed = new EmbedBuilder()
-            .setColor(0x7c3aed)
-            .setTitle(`📝 ${result.trackName}`)
-            .setDescription(lyricsText)
-            .setFooter({
-              text: `${result.artistName}${result.albumName ? ` • ${result.albumName}` : ''}`,
-            });
-
-          await interaction.editReply({ embeds: [embed] });
-        } catch (error: any) {
-          console.error('[MusicButton] Lyrics Error:', error);
-          await interaction.editReply(
-            `❌ ${error.message || 'Không thể lấy lời bài hát.'}`,
-          );
-        }
-        break;
-      }
-
-      default:
-        await interaction.deferUpdate();
-    }
+    return handleMusicButton(this, interaction);
   }
 
-  /** Handle track end — auto-play next or notify */
   private async onTrackEnd(guildId: string): Promise<void> {
+    const gp = this.players.get(guildId);
+
+    if (gp?.stopping) return;
+
+    if (gp?.switching) return;
+
     const qm = getQueueManager();
 
     if (qm.hasNext(guildId)) {
       qm.skip(guildId, 1, true);
-      const gp = this.players.get(guildId);
-      await this.play(guildId, gp?.client || undefined);
-    } else {
-      // Queue ended
-      await this.deleteNowPlaying(guildId);
-      const gp = this.players.get(guildId);
+      const result = await this.playWithAutoSkip(
+        guildId,
+        gp?.client || undefined,
+      );
+      if (!result.success) {
+        // All remaining tracks are broken — stop and notify
+        await this.deleteNowPlaying(guildId);
 
-      // Send "queue ended" message
+        if (gp?.client) {
+          const queue = getQueueManager().get(guildId);
+          if (queue) {
+            try {
+              const ch = await gp.client.channels.fetch(queue.textChannelId);
+              if (ch && ch.isTextBased()) {
+                const msg =
+                  result.autoSkippedCount > 0
+                    ? `⚠️ Đã tự động bỏ qua ${result.autoSkippedCount} bài bị lỗi. Hết queue rồi!`
+                    : '⚠️ Không thể phát bài tiếp theo. Hết queue rồi!';
+                await (ch as TextChannel).send({
+                  embeds: [
+                    new EmbedBuilder().setColor(0xf59e0b).setDescription(msg),
+                  ],
+                });
+              }
+            } catch {
+              // Ignore send errors
+            }
+          }
+        }
+
+        if (gp) {
+          gp.autoLeaveTimeout = setTimeout(() => {
+            void this.leaveWithNotice(guildId);
+          }, getAutoLeaveMs(guildId));
+        }
+      }
+    } else {
+      await this.deleteNowPlaying(guildId);
+
       if (gp?.client) {
         const queue = getQueueManager().get(guildId);
         if (queue) {
@@ -565,21 +421,19 @@ class PlayerManager {
               });
             }
           } catch {
-            /* ignore */
+            // Ignore send errors
           }
         }
       }
 
-      // Start auto-leave timer
       if (gp) {
         gp.autoLeaveTimeout = setTimeout(() => {
-          this.leave(guildId);
+          void this.leaveWithNotice(guildId);
         }, getAutoLeaveMs(guildId));
       }
     }
   }
 
-  /** Pause playback */
   pause(guildId: string): boolean {
     const gp = this.players.get(guildId);
     if (!gp) return false;
@@ -590,7 +444,6 @@ class PlayerManager {
     return false;
   }
 
-  /** Resume playback */
   resume(guildId: string): boolean {
     const gp = this.players.get(guildId);
     if (!gp) return false;
@@ -601,13 +454,11 @@ class PlayerManager {
     return false;
   }
 
-  /** Check if paused */
   isPaused(guildId: string): boolean {
     const gp = this.players.get(guildId);
     return gp?.player.state.status === AudioPlayerStatus.Paused;
   }
 
-  /** Check if playing */
   isPlaying(guildId: string): boolean {
     const gp = this.players.get(guildId);
     if (!gp) return false;
@@ -617,21 +468,28 @@ class PlayerManager {
     );
   }
 
-  /** Stop playback but stay in voice */
   stop(guildId: string): void {
     const gp = this.players.get(guildId);
     if (gp) {
+      gp.stopping = true;
+      gp.switching = false;
       gp.player.stop(true);
+
+      if (!gp.autoLeaveTimeout) {
+        gp.autoLeaveTimeout = setTimeout(() => {
+          void this.leaveWithNotice(guildId);
+        }, getAutoLeaveMs(guildId));
+      }
     }
     getQueueManager().clear(guildId);
   }
 
-  /** Leave voice channel and clean up */
   leave(guildId: string): void {
     void this.deleteNowPlaying(guildId);
     const gp = this.players.get(guildId);
     if (gp) {
       if (gp.autoLeaveTimeout) clearTimeout(gp.autoLeaveTimeout);
+      gp.stopping = true;
       gp.player.stop(true);
       gp.connection.destroy();
     }
@@ -639,7 +497,30 @@ class PlayerManager {
     getQueueManager().remove(guildId);
   }
 
-  /** Set volume */
+  private async leaveWithNotice(guildId: string): Promise<void> {
+    const gp = this.players.get(guildId);
+    const queue = getQueueManager().get(guildId);
+
+    if (gp?.client && queue) {
+      try {
+        const ch = await gp.client.channels.fetch(queue.textChannelId);
+        if (ch && ch.isTextBased()) {
+          await (ch as TextChannel).send({
+            embeds: [
+              new EmbedBuilder()
+                .setColor(0x6b7280)
+                .setDescription('👋 Đã rời kênh thoại do không có hoạt động.'),
+            ],
+          });
+        }
+      } catch {
+        // Ignore send errors
+      }
+    }
+
+    this.leave(guildId);
+  }
+
   setVolume(guildId: string, vol: number): void {
     const qm = getQueueManager();
     qm.setVolume(guildId, vol);
@@ -649,14 +530,12 @@ class PlayerManager {
     }
   }
 
-  /** Get elapsed time in seconds */
   getElapsed(guildId: string): number {
     const gp = this.players.get(guildId);
     if (!gp || !gp.playStartedAt) return 0;
     return Math.floor((Date.now() - gp.playStartedAt) / 1000);
   }
 
-  /** Clean up internal state */
   private cleanup(guildId: string): void {
     void this.deleteNowPlaying(guildId);
     const gp = this.players.get(guildId);
@@ -668,7 +547,6 @@ class PlayerManager {
     getQueueManager().remove(guildId);
   }
 
-  /** Check if bot is in a voice channel for this guild */
   isConnected(guildId: string): boolean {
     const gp = this.players.get(guildId);
     return (
@@ -676,17 +554,15 @@ class PlayerManager {
     );
   }
 
-  /** Handle bot being alone in voice */
   handleAloneInChannel(guildId: string): void {
     const gp = this.players.get(guildId);
     if (!gp || gp.autoLeaveTimeout) return;
     gp.player.pause();
     gp.autoLeaveTimeout = setTimeout(() => {
-      this.leave(guildId);
+      void this.leaveWithNotice(guildId);
     }, getAutoLeaveMs(guildId));
   }
 
-  /** Cancel auto-leave */
   cancelAutoLeave(guildId: string): void {
     const gp = this.players.get(guildId);
     if (gp?.autoLeaveTimeout) {
@@ -699,26 +575,68 @@ class PlayerManager {
   }
 
   /**
-   * Prefetches the YouTube ID for the next track in the queue.
-   * This drastically reduces the lag (3-5s) when skipping or auto-advancing to the next song,
-   * by resolving the metadata in the background while the current track plays.
+   * Try to play the current track. If it fails, auto-skip and retry
+   * up to maxRetries times. Returns the number of tracks auto-skipped,
+   * or -1 if all tracks are exhausted.
    */
+  async playWithAutoSkip(
+    guildId: string,
+    client?: Client,
+    maxRetries = 20,
+  ): Promise<{
+    success: boolean;
+    autoSkippedCount: number;
+    lastError?: string;
+  }> {
+    const qm = getQueueManager();
+    let autoSkippedCount = 0;
+    let lastError: string | undefined;
+
+    while (autoSkippedCount <= maxRetries) {
+      const current = qm.getCurrent(guildId);
+      if (!current) {
+        // No more tracks — don't stop, let the caller decide
+        return { success: false, autoSkippedCount, lastError };
+      }
+
+      const ok = await this.play(guildId, client);
+      if (ok) {
+        return { success: true, autoSkippedCount };
+      }
+
+      // Play failed — log and skip to next
+      lastError = `Không thể phát: **${current.track.title}**`;
+      console.warn(
+        `[PlayerManager] Auto-skipping broken track in guild ${guildId}: ${current.track.title}`,
+      );
+
+      const next = qm.skip(guildId, 1);
+      autoSkippedCount++;
+
+      if (!next) {
+        // Queue exhausted after auto-skip — don't stop, let the caller decide
+        return { success: false, autoSkippedCount, lastError };
+      }
+    }
+
+    // Exceeded max retries — don't stop, let the caller decide
+    return { success: false, autoSkippedCount, lastError };
+  }
+
   private prefetchNextTrack(guildId: string): void {
     const qm = getQueueManager();
     const queue = qm.get(guildId);
     if (!queue || queue.tracks.length === 0) return;
 
-    // Determine the next track index
     const nextIndex = queue.current + 1;
     if (nextIndex >= queue.tracks.length) {
       if (queue.loopMode === 'queue') {
-        // Loop mode: prefetch the first track
         const firstTrack = queue.tracks[0];
         if (firstTrack && !firstTrack.youtubeId) {
           this.resolveTrack(firstTrack).catch(() => {});
         }
       }
-      return; // No next track
+      return;
     }
 
     const nextTrack = queue.tracks[nextIndex];
@@ -727,9 +645,6 @@ class PlayerManager {
     }
   }
 
-  /**
-   * Helper to silently resolve a track's youtubeId
-   */
   private async resolveTrack(item: any): Promise<void> {
     if (item.youtubeId) return;
 
@@ -742,14 +657,14 @@ class PlayerManager {
       const api = getMusicApi();
       const resolved = await api.resolve(item.track.sourceId);
       item.youtubeId = resolved.youtube.sourceId;
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    } catch (error) {
-      // Ignore errors for background prefetch
+    } catch (err) {
+      console.warn(
+        `[PlayerManager] Prefetch resolve failed for "${item.track.title}" (${item.track.sourceId}): ${String(err)}`,
+      );
     }
   }
 }
 
-/** Singleton */
 let _instance: PlayerManager | null = null;
 export function getPlayerManager(): PlayerManager {
   if (!_instance) _instance = new PlayerManager();

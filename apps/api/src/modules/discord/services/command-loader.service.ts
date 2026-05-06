@@ -68,7 +68,23 @@ export class CommandLoaderService {
           // Ensure category is set
           command.category = command.category || category;
 
+          // Register parent command
           this.actionCommands.set(command.name, command);
+
+          // Register subcommands
+          if (command.subcommands && command.subcommands.length > 0) {
+            command.isOnlySlashCommand = true; // subcommands cannot work via prefix
+            for (const sub of command.subcommands) {
+              // Inherit category/permission from parent if not set
+              sub.category = sub.category || command.category;
+              if (sub.permission === undefined)
+                sub.permission = command.permission;
+              const key = `${command.name}:${sub.name}`;
+              this.actionCommands.set(key, sub);
+            }
+          }
+
+          // Build slash command
 
           // Build slash command
           try {

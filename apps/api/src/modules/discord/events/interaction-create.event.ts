@@ -40,9 +40,18 @@ const interactionCreateEvent: EventHandler = {
     if (!interaction.isChatInputCommand()) return;
     if (!deps?.commandLoader) return;
 
-    const command = deps.commandLoader.getCommand(interaction.commandName);
+    const ctx = new ContextAdapter(interaction);
+
+    // Resolve command: if subcommand, look up "parent:child"
+    let commandName = interaction.commandName;
+    const subName = ctx.getSubcommand();
+    if (subName) {
+      commandName = `${interaction.commandName}:${subName}`;
+    }
+
+    const command = deps.commandLoader.getCommand(commandName);
     if (!command) {
-      console.warn(`[WARN] Command "${interaction.commandName}" not found`);
+      console.warn(`[WARN] Command "${commandName}" not found`);
       return;
     }
 
@@ -81,10 +90,9 @@ const interactionCreateEvent: EventHandler = {
     }
 
     try {
-      const ctx = new ContextAdapter(interaction);
       await command.execute(ctx, deps);
     } catch (error) {
-      console.error(`[ERROR] Command "${command.name}" failed:`, error);
+      console.error(`[ERROR] Command "${commandName}" failed:`, error);
       try {
         if (interaction.deferred || interaction.replied) {
           await interaction.editReply({
@@ -97,7 +105,7 @@ const interactionCreateEvent: EventHandler = {
           });
         }
       } catch {
-        // Silently fail if we can't send error message
+        /* ignore */
       }
     }
   },

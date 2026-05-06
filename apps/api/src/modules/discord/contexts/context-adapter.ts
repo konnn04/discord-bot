@@ -16,6 +16,8 @@ import {
   InteractionResponse,
   Channel,
   MessageFlags,
+  ModalBuilder,
+  ModalSubmitInteraction,
 } from 'discord.js';
 
 export type InteractionSource =
@@ -365,8 +367,10 @@ export function createContext(
 
 export class ContextAdapter extends BaseContext {
   private context: BaseContext;
+  private _rawInteraction: InteractionSource | null;
   public readonly isInteraction: boolean;
   public readonly isMessage: boolean;
+  public readonly subcommand: string | null;
 
   constructor(source: InteractionSource | Message, commandName?: string) {
     const ctx = createContext(source, commandName);
@@ -374,6 +378,20 @@ export class ContextAdapter extends BaseContext {
     this.context = ctx;
     this.isInteraction = ctx instanceof InteractionContext;
     this.isMessage = ctx instanceof MessageContext;
+    this._rawInteraction = this.isInteraction
+      ? (source as InteractionSource)
+      : null;
+
+    // Extract subcommand name from slasg command interaction
+    if (this._rawInteraction?.isChatInputCommand?.()) {
+      try {
+        this.subcommand = this._rawInteraction.options.getSubcommand() || null;
+      } catch {
+        this.subcommand = null;
+      }
+    } else {
+      this.subcommand = null;
+    }
   }
 
   get guild() {
@@ -412,14 +430,52 @@ export class ContextAdapter extends BaseContext {
   }
 
   async reply(content: string | InteractionReplyOptions | MessagePayload) {
-    return await this.context.reply(content);
+    return this.context.reply(content);
   }
 
   async defer(ephemeral?: boolean) {
-    return await this.context.defer(ephemeral);
+    return this.context.defer(ephemeral);
   }
 
   async editReply(content: string | InteractionReplyOptions | MessagePayload) {
-    return await this.context.editReply(content);
+    return this.context.editReply(content);
+  }
+
+  // ── Slash-only features ──────────────────────────────────────
+
+  /** Raw interaction object. Null for prefix commands. */
+  get rawInteraction(): InteractionSource | null {
+    return this._rawInteraction;
+  }
+
+  /** Show a Discord modal. Only works in interaction context. */
+  async showModal(modal: ModalBuilder): Promise<void> {
+    if (!this._rawInteraction?.isRepliable?.()) {
+      throw new Error(
+        'showModal() chỉ dùng được với slash command interaction.',
+      );
+    }
+    await (this._rawInteraction as ChatInputCommandInteraction).showModal(
+      modal,
+    );
+  }
+
+  /** Wait for modal submit. Accepts filter + timeout, returns null on timeout. */
+  async awaitModalSubmit(options: {
+    time: number;
+    filter: (i: ModalSubmitInteraction) => boolean;
+  }): Promise<ModalSubmitInteraction | null> {
+    if (!this._rawInteraction) return null;
+    return this._rawInteraction
+      .awaitModalSubmit({
+        time: options.time,
+        filter: options.filter,
+      })
+      .catch(() => null);
+  }
+
+  /** Get the subcommand name, if this command uses subcommands. */
+  getSubcommand(): string | null {
+    return this.subcommand;
   }
 }

@@ -23,13 +23,107 @@ export function formatSlashCommand(
     .setName(command.name)
     .setDescription(command.description);
 
-  if (command.optionalArgs) {
+  if (command.subcommands) {
+    for (const sub of command.subcommands) {
+      builder.addSubcommand((subBuilder) => {
+        subBuilder.setName(sub.name).setDescription(sub.description);
+        if (sub.optionalArgs) {
+          for (const opt of sub.optionalArgs) {
+            addSubOption(subBuilder, opt);
+          }
+        }
+        return subBuilder;
+      });
+    }
+  } else if (command.optionalArgs) {
     for (const opt of command.optionalArgs) {
       addOption(builder, opt);
     }
   }
 
   return builder;
+}
+
+function addSubOption(subBuilder: any, opt: OptionCommand): void {
+  const type = opt.type
+    ? OPTION_TYPE_MAP[opt.type]
+    : ApplicationCommandOptionType.String;
+
+  switch (type) {
+    case ApplicationCommandOptionType.String:
+      subBuilder.addStringOption((o: any) => {
+        o.setName(opt.name)
+          .setDescription(opt.description)
+          .setRequired(opt.required ?? false);
+        if (opt.maxLength) o.setMaxLength(opt.maxLength);
+        if (opt.minLength) o.setMinLength(opt.minLength);
+        if (opt.choices)
+          o.addChoices(
+            ...opt.choices.map((c) => ({
+              name: c.name,
+              value: String(c.value),
+            })),
+          );
+        return o;
+      });
+      break;
+    case ApplicationCommandOptionType.Integer:
+      subBuilder.addIntegerOption((o: any) => {
+        o.setName(opt.name)
+          .setDescription(opt.description)
+          .setRequired(opt.required ?? false);
+        if (opt.maxValue !== undefined) o.setMaxValue(opt.maxValue);
+        if (opt.minValue !== undefined) o.setMinValue(opt.minValue);
+        if (opt.choices)
+          o.addChoices(
+            ...opt.choices.map((c) => ({
+              name: c.name,
+              value: Number(c.value),
+            })),
+          );
+        return o;
+      });
+      break;
+    case ApplicationCommandOptionType.Boolean:
+      subBuilder.addBooleanOption((o: any) =>
+        o
+          .setName(opt.name)
+          .setDescription(opt.description)
+          .setRequired(opt.required ?? false),
+      );
+      break;
+    case ApplicationCommandOptionType.User:
+      subBuilder.addUserOption((o: any) =>
+        o
+          .setName(opt.name)
+          .setDescription(opt.description)
+          .setRequired(opt.required ?? false),
+      );
+      break;
+    case ApplicationCommandOptionType.Channel:
+      subBuilder.addChannelOption((o: any) =>
+        o
+          .setName(opt.name)
+          .setDescription(opt.description)
+          .setRequired(opt.required ?? false),
+      );
+      break;
+    case ApplicationCommandOptionType.Role:
+      subBuilder.addRoleOption((o: any) =>
+        o
+          .setName(opt.name)
+          .setDescription(opt.description)
+          .setRequired(opt.required ?? false),
+      );
+      break;
+    default:
+      subBuilder.addStringOption((o: any) =>
+        o
+          .setName(opt.name)
+          .setDescription(opt.description)
+          .setRequired(opt.required ?? false),
+      );
+  }
 }
 
 function addOption(builder: SlashCommandBuilder, opt: OptionCommand): void {

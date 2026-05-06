@@ -1,19 +1,64 @@
 import type { EventHandler } from 'shared/src/types/discord.types';
 import { VoiceState, EmbedBuilder } from 'discord.js';
 import { getPlayerManager } from '../services/music/player-manager';
+import { ColorResolvable } from 'discord.js';
 
 const voiceStateUpdateEvent: EventHandler = {
   name: 'voiceStateUpdate',
 
   execute(oldState: VoiceState, newState: VoiceState, deps: any) {
     const meetingTracker = deps?.meetingTracker;
+    const voiceTagService = deps?.voiceTagService;
     const member = newState.member || oldState.member;
     if (!member) return;
 
     const oldChannelId = oldState.channelId;
     const newChannelId = newState.channelId;
 
-    // ====== Meeting Tracker Logic ======
+    // Voice tag role assignment (buffered, non-blocking)
+    if (voiceTagService && !member.user.bot) {
+      if (oldChannelId && newChannelId && oldChannelId !== newChannelId) {
+        voiceTagService
+          .onMemberLeave(newState.guild, member, oldChannelId)
+          .catch(() => {});
+        voiceTagService
+          .onMemberJoin(newState.guild, member, newChannelId)
+          .catch(() => {});
+      } else if (newChannelId && !oldChannelId) {
+        voiceTagService
+          .onMemberJoin(newState.guild, member, newChannelId)
+          .catch(() => {});
+      } else if (oldChannelId && !newChannelId) {
+        voiceTagService
+          .onMemberLeave(newState.guild, member, oldChannelId)
+          .catch(() => {});
+      }
+    }
+
+    // Stalker: notify subscribers when target joins voice
+    if (deps?.prisma && !member.user.bot && newChannelId && !oldChannelId) {
+      const voiceCh = newState.channel;
+      const chName = voiceCh?.name || 'unknown';
+      const guildName = newState.guild.name;
+
+      deps.prisma.client.stalkerSubscription
+        .findMany({ where: { targetId: member.id, onVoice: true } })
+        .then((subs: any[]) => {
+          for (const sub of subs) {
+            newState.client.users
+              .fetch(sub.trackerId)
+              .then((u: any) =>
+                u.send(
+                  `🎯 **Stalker Alert:** <@${member.id}> vừa vào kênh voice **#${chName}** tại **${guildName}**!`,
+                ),
+              )
+              .catch(() => {});
+          }
+        })
+        .catch(() => {});
+    }
+
+    // Meeting Tracker Logic
     if (meetingTracker && !member.user.bot) {
       // User left a tracked channel
       if (oldChannelId && oldChannelId !== newChannelId) {
@@ -81,11 +126,15 @@ const voiceStateUpdateEvent: EventHandler = {
     if (!member.user.bot && deps?.guildSettings && newState.guild) {
       const settings = deps.guildSettings.get(newState.guild.id);
       if (settings?.features?.voiceWelcome) {
-        const sendToChannel = (channel: any, desc: string) => {
+        const sendToChannel = (
+          channel: any,
+          desc: string,
+          color: ColorResolvable = '#2ecc71',
+        ) => {
           if (channel?.isTextBased()) {
             const embed = new EmbedBuilder()
               .setDescription(desc)
-              .setColor('#2ecc71');
+              .setColor(color);
             channel.send({ embeds: [embed] }).catch(() => {});
           }
         };
@@ -94,14 +143,16 @@ const voiceStateUpdateEvent: EventHandler = {
         if (newChannelId && !oldChannelId) {
           sendToChannel(
             newState.channel,
-            `🎤 **${member.user.username}** vừa tham gia kênh.`,
+            `👋 **<@${member.id}>** vừa tham gia kênh.`,
+            '#2ecc71',
           );
         }
         // Left a voice channel
         else if (oldChannelId && !newChannelId) {
           sendToChannel(
             oldState.channel,
-            `👋 **${member.user.username}** vừa rời kênh.`,
+            `🚪 **<@${member.id}>** vừa rời kênh.`,
+            '#e74c3c',
           );
         }
         // Switched voice channels
@@ -112,11 +163,13 @@ const voiceStateUpdateEvent: EventHandler = {
         ) {
           sendToChannel(
             newState.channel,
-            `🔄 **${member.user.username}** vừa chuyển đến từ <#${oldChannelId}>.`,
+            `**<@${member.id}>** vừa vào kênh <#${newChannelId}>.`,
+            '#f39c12',
           );
           sendToChannel(
             oldState.channel,
-            `🔄 **${member.user.username}** vừa chuyển sang <#${newChannelId}>.`,
+            `**<@${member.id}>** chuyển sang kênh khác rồi.`,
+            '#f39c12',
           );
         }
       }
