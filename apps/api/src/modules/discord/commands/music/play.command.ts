@@ -58,24 +58,26 @@ const play: ActionCommand = {
 
         if (parsed.type === 'track') {
           const trackData = parsed.data as any;
-          let youtubeId = '';
-
-          if (trackData.source === 'youtube') {
-            youtubeId = trackData.sourceId;
-          } else if (trackData.source === 'spotify') {
-            const resolved = await api.resolve(trackData.sourceId);
-            youtubeId = resolved.youtube.sourceId;
-          }
 
           tracksToAdd.push({
             track: trackData,
-            youtubeId,
+            youtubeId:
+              trackData.source === 'youtube' ? trackData.sourceId : undefined,
             requestedBy: ctx.author.username,
             requestedById: ctx.userId,
           });
           totalAddedCount = 1;
+
+          // Background resolve Spotify for history (server handles streaming via /stream/play)
+          if (trackData.source === 'spotify') {
+            api
+              .resolve(trackData.sourceId)
+              .then((r) => {
+                tracksToAdd[0].youtubeId = r.youtube.sourceId;
+              })
+              .catch(() => {});
+          }
         } else if (parsed.type === 'playlist' || parsed.type === 'album') {
-          // Could be array of tracks or object with .tracks
           const items = Array.isArray(parsed.data)
             ? parsed.data
             : (parsed.data as any).tracks || [];
@@ -89,29 +91,11 @@ const play: ActionCommand = {
 
           const limited = items.slice(0, 50);
 
-          // Collect Spotify IDs for batch parallel resolve
-          const spotifyIds = limited
-            .filter((t: any) => t.source === 'spotify')
-            .map((t: any) => t.sourceId);
-
-          // Resolve all Spotify tracks in parallel
-          const resolveResults =
-            spotifyIds.length > 0
-              ? await api.resolveMany(spotifyIds)
-              : new Map();
-
+          // Add all tracks immediately — server resolves Spotify→YouTube at play time via /stream/play
           for (const item of limited) {
-            let ytId: string | undefined;
-            if (item.source === 'youtube') {
-              ytId = item.sourceId;
-            } else if (item.source === 'spotify') {
-              const resolved = resolveResults.get(item.sourceId);
-              ytId = resolved?.youtube.sourceId;
-            }
-
             tracksToAdd.push({
               track: item,
-              youtubeId: ytId,
+              youtubeId: item.source === 'youtube' ? item.sourceId : undefined,
               requestedBy: ctx.author.username,
               requestedById: ctx.userId,
             });
@@ -123,6 +107,24 @@ const play: ActionCommand = {
           }
 
           totalAddedCount = tracksToAdd.length;
+
+          // Background: resolve Spotify tracks for history/prefetch (non-blocking)
+          const spotifyIds = limited
+            .filter((t: any) => t.source === 'spotify')
+            .map((t: any) => t.sourceId);
+          if (spotifyIds.length > 0) {
+            api
+              .resolveMany(spotifyIds)
+              .then((results) => {
+                for (const t of tracksToAdd) {
+                  if (t.track.source === 'spotify' && !t.youtubeId) {
+                    const r = results.get(t.track.sourceId);
+                    if (r) t.youtubeId = r.youtube.sourceId;
+                  }
+                }
+              })
+              .catch(() => {});
+          }
         }
       } else {
         // Search by keyword
@@ -151,22 +153,10 @@ const play: ActionCommand = {
         q.current = q.tracks.length - tracksToAdd.length;
 
         pm.join(voiceChannel);
-        const result = await pm.playWithAutoSkip(guildId, ctx.client);
 
-        if (!result.success) {
-          const extraInfo =
-            result.autoSkippedCount > 0
-              ? ` (đã thử ${result.autoSkippedCount + 1} bài nhưng đều bị lỗi)`
-              : '';
-          await ctx.editReply(
-            `❌ Không thể phát bài hát nào${extraInfo}. Thử bài khác nhé.`,
-          );
-          return;
-        }
-
+        // Reply ngay, không đợi stream sẵn sàng
         if (totalAddedCount === 1) {
-          const current = qm.getCurrent(guildId);
-          const t = current || tracksToAdd[0];
+          const t = tracksToAdd[0];
           const embed = new EmbedBuilder()
             .setColor(0x10b981)
             .setAuthor({ name: '🎵 Đang phát' })
@@ -180,21 +170,35 @@ const play: ActionCommand = {
             .setFooter({ text: `Yêu cầu bởi ${t.requestedBy}` });
           await ctx.editReply({ embeds: [embed] });
         } else {
-          const current = qm.getCurrent(guildId);
-          const nowPlaying = current || tracksToAdd[0];
-          const skipNote =
-            result.autoSkippedCount > 0
-              ? `\n⚠️ Đã tự động bỏ qua ${result.autoSkippedCount} bài bị lỗi.`
-              : '';
+          const nowPlaying = tracksToAdd[0];
           const embed = new EmbedBuilder()
             .setColor(0x10b981)
             .setTitle('📋 Đã thêm playlist vào queue')
             .setDescription(
-              `Đang phát **${nowPlaying.track.title}** — ${nowPlaying.track.artist || 'Không rõ'}\n` +
-                `+${totalAddedCount - 1} bài khác đã được thêm vào queue.${skipNote}`,
+              `Đang tải **${nowPlaying.track.title}** — ${nowPlaying.track.artist || 'Không rõ'}\n` +
+                `+${totalAddedCount - 1} bài khác đã được thêm vào queue.`,
             );
           await ctx.editReply({ embeds: [embed] });
         }
+
+        // Phát nhạc nền — nếu lỗi thì sửa lại reply
+        pm.playWithAutoSkip(guildId, ctx.client)
+          .then((result) => {
+            if (!result.success) {
+              const extraInfo =
+                result.autoSkippedCount > 0
+                  ? ` (đã thử ${result.autoSkippedCount + 1} bài nhưng đều bị lỗi)`
+                  : '';
+              ctx
+                .editReply(
+                  `❌ Không thể phát bài hát nào${extraInfo}. Thử bài khác nhé.`,
+                )
+                .catch(() => {});
+            }
+          })
+          .catch((err) => {
+            console.error('[play] Background playback error:', err);
+          });
       } else {
         if (totalAddedCount === 1) {
           const t = tracksToAdd[0];

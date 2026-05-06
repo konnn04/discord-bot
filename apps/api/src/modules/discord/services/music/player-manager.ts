@@ -176,34 +176,28 @@ export class PlayerManager {
     const api = getMusicApi();
 
     try {
+      // Resolve youtubeId in background for history/prefetch (non-blocking)
       if (!current.youtubeId) {
         if (current.track.source === 'youtube') {
           current.youtubeId = current.track.sourceId;
         } else if (current.track.source === 'spotify') {
-          try {
-            const resolved = await api.resolve(current.track.sourceId);
-            current.youtubeId = resolved.youtube.sourceId;
-          } catch (error) {
-            console.error(
-              `Failed to resolve Spotify track ${current.track.title}:`,
-              error,
-            );
-            throw new Error('Không thể tìm thấy bài hát này trên YouTube.');
-          }
+          api
+            .resolve(current.track.sourceId)
+            .then((resolved) => {
+              current.youtubeId = resolved.youtube.sourceId;
+            })
+            .catch((err) => {
+              console.warn(
+                `[PlayerManager] Background resolve failed for "${current.track.title}": ${String(err)}`,
+              );
+            });
         }
       }
 
-      if (!current.youtubeId) {
-        throw new Error('Thiếu YouTube ID để phát nhạc.');
-      }
-
-      const streamUrl = api.getProxyStreamUrl(current.youtubeId);
-
       void this.prefetchNextTrack(guildId);
 
-      const response = await fetch(streamUrl, {
-        headers: api.getStreamHeaders(),
-      });
+      // One-shot: server parses URL → resolves → streams in one call
+      const response = await api.fetchPlayStream(current.track.url);
 
       if (!response.ok || !response.body) {
         throw new Error(`Stream fetch failed: ${response.status}`);
@@ -653,9 +647,10 @@ export class PlayerManager {
       const api = getMusicApi();
       const resolved = await api.resolve(item.track.sourceId);
       item.youtubeId = resolved.youtube.sourceId;
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    } catch (error) {
-      // Ignore resolve errors
+    } catch (err) {
+      console.warn(
+        `[PlayerManager] Prefetch resolve failed for "${item.track.title}" (${item.track.sourceId}): ${String(err)}`,
+      );
     }
   }
 }
