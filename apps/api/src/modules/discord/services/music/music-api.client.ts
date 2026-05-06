@@ -176,6 +176,25 @@ export class MusicApiClient {
     return this.request<ResolveResult>(`/music/resolve/${spotifyId}`);
   }
 
+  /** Batch-resolve multiple Spotify tracks in parallel */
+  async resolveMany(
+    spotifyIds: string[],
+  ): Promise<Map<string, ResolveResult>> {
+    const results = new Map<string, ResolveResult>();
+    if (spotifyIds.length === 0) return results;
+
+    const resolved = await Promise.all(
+      spotifyIds.map((id) =>
+        this.resolve(id).catch(() => null as ResolveResult | null),
+      ),
+    );
+    resolved.forEach((r, i) => {
+      if (r) results.set(spotifyIds[i], r);
+    });
+
+    return results;
+  }
+
   /** Get recommendations based on a track */
   async getRecommendations(trackId: string): Promise<MusicTrack[]> {
     return this.request<MusicTrack[]>(`/music/recommendations/${trackId}`);

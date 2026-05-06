@@ -63,7 +63,6 @@ const play: ActionCommand = {
           if (trackData.source === 'youtube') {
             youtubeId = trackData.sourceId;
           } else if (trackData.source === 'spotify') {
-            // Resolve Spotify → YouTube
             const resolved = await api.resolve(trackData.sourceId);
             youtubeId = resolved.youtube.sourceId;
           }
@@ -90,10 +89,29 @@ const play: ActionCommand = {
 
           const limited = items.slice(0, 50);
 
+          // Collect Spotify IDs for batch parallel resolve
+          const spotifyIds = limited
+            .filter((t: any) => t.source === 'spotify')
+            .map((t: any) => t.sourceId);
+
+          // Resolve all Spotify tracks in parallel
+          const resolveResults =
+            spotifyIds.length > 0
+              ? await api.resolveMany(spotifyIds)
+              : new Map();
+
           for (const item of limited) {
+            let ytId: string | undefined;
+            if (item.source === 'youtube') {
+              ytId = item.sourceId;
+            } else if (item.source === 'spotify') {
+              const resolved = resolveResults.get(item.sourceId);
+              ytId = resolved?.youtube.sourceId;
+            }
+
             tracksToAdd.push({
               track: item,
-              youtubeId: item.source === 'youtube' ? item.sourceId : undefined,
+              youtubeId: ytId,
               requestedBy: ctx.author.username,
               requestedById: ctx.userId,
             });
