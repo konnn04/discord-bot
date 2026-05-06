@@ -12,7 +12,7 @@ import {
   ActionRowBuilder,
 } from 'discord.js';
 
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 10;
 const STATUS_EMOJI: Record<string, string> = {
   RELEASING: '📺',
   FINISHED: '✅',
