@@ -9,9 +9,18 @@ A fully-featured, modular Discord bot built with **NestJS**, **Prisma (PostgreSQ
 ## Features
 
 - **Modular Architecture**: Built with NestJS, leveraging dependency injection for scalable backend logic.
-- **Dynamic Command & Event Loading**: Automatically registers Discord commands and events.
+- **Dynamic Command & Event Loading**: Automatically registers Discord slash commands and events at startup.
+- **Rich Command Categories**:
+  - 🎵 **Music** — Play, skip, pause, resume, queue, lyrics, recommendations, history. Multi-platform: YouTube & Spotify.
+  - 🛡️ **Moderation** — Ban, kick, timeout, warn, purge messages, role management.
+  - 📊 **XP & Leveling** — Tracks voice & text channel activity with auto-leveling, leaderboards, and rank cards.
+  - 😄 **Emote / Anime** — Reaction GIFs (hug, pat, slap, kiss…) via nekos.best.
+  - 📝 **Confession** — Anonymous confessions with approval workflow.
+  - 🗓️ **Meeting** — Schedule and manage voice channel meetings.
+  - 🕵️ **Stalk** — GitHub presence, LeetCode tracking, anime list (MyAnimeList).
+  - ⚙️ **Settings** — Per-guild & global config with web dashboard sync.
+  - 🎮 **Presence** — Public presence API (Lanyard-compatible) for portfolio display.
 - **Robust Configuration System**: Stores global and per-guild settings in PostgreSQL (JSONB) with in-memory caching for zero-latency lookups.
-- **Leveling & XP System**: Tracks user activity in voice and text channels with automatic leveling and leaderboards.
 - **Automated Notifications**: Configurable scheduled tasks via `@nestjs/schedule` (e.g., Hoyoverse giftcode auto-fetcher).
 - **Web Dashboard**: An integrated React + Vite frontend application for easy administration and configuration.
 - **Public Presence API**: A Lanyard-like API to display user Discord status seamlessly on personal portfolios.
@@ -82,9 +91,12 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for deta
 
 ## Third-Party APIs & Credits
 
-This project relies on the following excellent community APIs:
-- [nekos.best](https://nekos.best/) - Used for generating anime-style GIF reactions (hug, pat, slap, etc.).
-- [hoyo-codes](https://docs.hb.seria.moe/) by Seria - Used for fetching the latest Hoyoverse giftcodes for the automated tracker.
+This project relies on the following excellent community APIs and tools:
+- [nekos.best](https://nekos.best/) — Anime-style GIF reactions (hug, pat, slap, etc.).
+- [hoyo-codes](https://docs.hb.seria.moe/) by Seria — Latest Hoyoverse giftcodes for the automated tracker.
+- [discord.js](https://discord.js.org/) / [@discordjs/voice](https://github.com/discordjs/voice) — Discord gateway & voice streaming.
+- Custom Music Server — Self-hosted music API for YouTube/Spotify search, resolve, and audio streaming.
+- [LRCLIB](https://lrclib.net/) — Synced lyrics database.
 
 ## License
 
