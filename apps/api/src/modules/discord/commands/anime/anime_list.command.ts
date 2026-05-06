@@ -95,9 +95,8 @@ function detailEmbed(anime: AnimeInfo, isFollowed: boolean): EmbedBuilder {
 function pageButtons(
   page: number,
   totalPages: number,
-  selectedAnimeId: number | null,
 ): ActionRowBuilder<ButtonBuilder> {
-  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId('anime_page_first')
       .setEmoji('⏮️')
@@ -119,21 +118,24 @@ function pageButtons(
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(page >= totalPages),
   );
+}
 
-  if (selectedAnimeId) {
-    row.addComponents(
-      new ButtonBuilder()
-        .setCustomId(`anime_follow_${selectedAnimeId}`)
-        .setEmoji('❤️')
-        .setStyle(ButtonStyle.Success),
-      new ButtonBuilder()
-        .setCustomId('anime_back')
-        .setEmoji('🔙')
-        .setStyle(ButtonStyle.Secondary),
-    );
-  }
-
-  return row;
+function detailButtons(
+  selectedAnimeId: number,
+  isFollowed: boolean,
+): ActionRowBuilder<ButtonBuilder> {
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`anime_follow_${selectedAnimeId}`)
+      .setEmoji(isFollowed ? '💔' : '❤️')
+      .setLabel(isFollowed ? 'Bỏ theo dõi' : 'Theo dõi')
+      .setStyle(isFollowed ? ButtonStyle.Danger : ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId('anime_back')
+      .setEmoji('🔙')
+      .setLabel('Quay lại')
+      .setStyle(ButtonStyle.Secondary),
+  );
 }
 
 function selectMenu(
@@ -196,10 +198,16 @@ const animeList: ActionCommand = {
         return listEmbed(pageSlice(), currentPage, totalPages);
       };
 
-      const buildComponents = () => [
-        selectMenu(pageSlice()),
-        pageButtons(currentPage, totalPages, selectedAnimeId),
-      ];
+      const buildComponents = () => {
+        const rows: ActionRowBuilder<any>[] = [
+          selectMenu(pageSlice()),
+          pageButtons(currentPage, totalPages),
+        ];
+        if (selectedAnimeId) {
+          rows.push(detailButtons(selectedAnimeId, isFollowed));
+        }
+        return rows;
+      };
 
       const msg = await ctx.editReply({
         embeds: [buildEmbed()],
