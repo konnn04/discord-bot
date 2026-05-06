@@ -34,6 +34,10 @@ model User {
   username           String
   githubUsername     String?
   githubShowPresence Boolean         @default(false)
+  leetcodeUsername   String?
+  leetcodeShowPresence Boolean       @default(false)
+  leetcodeDailyDm    Boolean         @default(false)
+  leetcodeContestDm  Boolean         @default(false)
   guildMembers       GuildMember[]
   xpHistory    GuildMemberXp[]
 }
@@ -117,4 +121,31 @@ model VoiceChannelRole {
   @@id([guildId, channelId])
   @@index([guildId])
   @@index([roleId])
+}
+
+/// Tracks which guilds received the LeetCode daily on a given date
+model LeetcodeDailySent {
+  guildId String
+  date    String // "YYYY-MM-DD"
+
+  @@id([guildId, date])
+}
+
+/// Tracks which users received the LeetCode daily on a given date
+model LeetcodeDailySentUser {
+  userId String
+  date   String
+
+  @@id([userId, date])
+}
+
+/// Prevents duplicate contest notifications
+model LeetcodeContestSent {
+  slug       String   @id
+  guildId    String?
+  userId     String?
+  notifiedAt DateTime @default(now())
+
+  @@index([guildId])
+  @@index([userId])
 }

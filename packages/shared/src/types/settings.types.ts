@@ -40,6 +40,8 @@ export interface GuildSettings {
     meetingTracking: boolean;
     moderation: boolean;
     tagMembersInVoice: boolean;
+    dailyLeetCode: boolean;
+    leetcodeContest: boolean;
   };
 
   // Welcome configuration
@@ -91,6 +93,15 @@ export interface GuildSettings {
     defaultVolume: number;
     autoLeaveTimeout: number; // seconds
   };
+
+  // LeetCode Settings
+  dailyLeetCode: {
+    channelId: string | null;
+  };
+
+  leetcodeContest: {
+    channelId: string | null;
+  };
 }
 
 /** Default global settings */
@@ -132,6 +143,8 @@ export function createDefaultGuildSettings(guildId: string): GuildSettings {
       meetingTracking: false,
       moderation: false,
       tagMembersInVoice: false,
+      dailyLeetCode: false,
+      leetcodeContest: false,
     },
     welcome: {
       channelId: null,
@@ -170,6 +183,12 @@ export function createDefaultGuildSettings(guildId: string): GuildSettings {
     music: {
       defaultVolume: 80,
       autoLeaveTimeout: 120, // 2 minutes
+    },
+    dailyLeetCode: {
+      channelId: null,
+    },
+    leetcodeContest: {
+      channelId: null,
     },
   };
 }

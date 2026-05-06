@@ -213,7 +213,37 @@ export class PresenceService {
         }
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (_e) {
-        // ignore github errors
+        /* ignore github errors */
+      }
+    }
+
+    let leetcodeData: any = null;
+    if (dbUser?.leetcodeUsername && dbUser.leetcodeShowPresence) {
+      try {
+        const { getLeetcodeApi } =
+          await import('../discord/services/leetcode-api.client');
+        const lc = await getLeetcodeApi().getUser(dbUser.leetcodeUsername);
+        leetcodeData = {
+          username: lc.username,
+          realName: lc.profile.realName,
+          avatar: lc.profile.userAvatar,
+          ranking: lc.profile.ranking,
+          acTotal:
+            lc.submitStats.acSubmissionNum.find((s) => s.difficulty === 'All')
+              ?.count ?? 0,
+          acEasy:
+            lc.submitStats.acSubmissionNum.find((s) => s.difficulty === 'Easy')
+              ?.count ?? 0,
+          acMedium:
+            lc.submitStats.acSubmissionNum.find(
+              (s) => s.difficulty === 'Medium',
+            )?.count ?? 0,
+          acHard:
+            lc.submitStats.acSubmissionNum.find((s) => s.difficulty === 'Hard')
+              ?.count ?? 0,
+        };
+      } catch {
+        /* ignore leetcode errors */
       }
     }
 
@@ -250,6 +280,7 @@ export class PresenceService {
         listening_to_spotify: listeningToSpotify,
         spotify: spotifyData,
         github: githubData,
+        leetcode: leetcodeData,
         showcase_guilds: showcaseGuilds,
       },
       success: true,
