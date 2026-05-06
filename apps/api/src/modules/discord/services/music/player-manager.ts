@@ -169,9 +169,20 @@ export class PlayerManager {
     if (!gp) return false;
     if (client) gp.client = client;
 
+    // Set switching BEFORE any async work so onTrackEnd doesn't race.
+    // Reset only after new track confirms Playing.
+    gp.switching = true;
+
+    // Force-stop current audio to prevent old-stream events from interfering
+    // with the new stream during skip/switching.
+    gp.player.stop(true);
+
     const qm = getQueueManager();
     const current = qm.getCurrent(guildId);
-    if (!current) return false;
+    if (!current) {
+      gp.switching = false;
+      return false;
+    }
 
     const api = getMusicApi();
 
@@ -241,7 +252,6 @@ export class PlayerManager {
       gp.playStartedAt = Date.now();
       gp.stopping = false;
 
-      gp.switching = true;
       gp.player.play(resource);
 
       if (gp.autoLeaveTimeout) {
