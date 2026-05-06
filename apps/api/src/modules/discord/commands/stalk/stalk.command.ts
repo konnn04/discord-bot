@@ -128,11 +128,28 @@ const stalk: ActionCommand = {
     if (finalOnline) modes.push('Online');
     if (finalVoice) modes.push('Voice');
     if (finalGame) modes.push('Game');
+    const modeStr = modes.join(', ');
 
     await ctx.reply(
-      `👀 Đang theo dõi **${target.username}** (${modes.join(', ')})\n` +
+      `👀 Đang theo dõi **${target.username}** (${modeStr})\n` +
         'Bot sẽ DM bạn khi có hoạt động!',
     );
+
+    // DM confirmation
+    try {
+      const guildName = ctx.guild?.name || 'server';
+      await ctx.author.send(
+        `✅ **Stalker Activated**\n` +
+          `Bạn đang theo dõi **${target.username}** tại **${guildName}**\n` +
+          `Chế độ: ${modeStr}\n\n` +
+          `Bạn sẽ nhận DM khi:\n` +
+          `${finalOnline ? '• Người đó online\n' : ''}` +
+          `${finalVoice ? '• Người đó vào kênh voice\n' : ''}` +
+          `${finalGame ? '• Người đó đổi game\n' : ''}`,
+      );
+    } catch {
+      /* DMs closed — skip */
+    }
   },
 };
 

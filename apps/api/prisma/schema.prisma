@@ -195,3 +195,23 @@ model StalkerOptOut {
   userId    String   @id
   createdAt DateTime @default(now())
 }
+
+/// Confession channel config per guild
+model ConfessionConfig {
+  guildId   String   @id
+  channelId String
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+/// Anonymous confession log (authorId stored for abuse prevention, only visible to admins)
+model ConfessionLog {
+  id        String   @id @default(cuid())
+  guildId   String
+  authorId  String
+  content   String
+  postedAt  DateTime @default(now())
+
+  @@index([guildId])
+  @@index([guildId, postedAt])
+}

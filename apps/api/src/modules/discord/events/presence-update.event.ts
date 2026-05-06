@@ -39,6 +39,9 @@ const presenceUpdateEvent: EventHandler = {
 
     // DM each subscriber
     const client = newPresence.client;
+    const guildName = newPresence.guild?.name;
+    const guildSuffix = guildName ? ` tại **${guildName}**` : '';
+
     for (const sub of subs) {
       try {
         const tracker = await client.users
@@ -47,7 +50,7 @@ const presenceUpdateEvent: EventHandler = {
         if (!tracker) continue;
 
         await tracker.send(
-          `🎯 **Stalker Alert:** <@${user.id}> vừa vào chơi **${gameActivity.name}**!`,
+          `🎯 **Stalker Alert:** <@${user.id}> vừa vào chơi **${gameActivity.name}**${guildSuffix}!`,
         );
       } catch {
         /* DMs closed */

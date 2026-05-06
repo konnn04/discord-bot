@@ -37,6 +37,10 @@ const voiceStateUpdateEvent: EventHandler = {
 
     // Stalker: notify subscribers when target joins voice
     if (deps?.prisma && !member.user.bot && newChannelId && !oldChannelId) {
+      const voiceCh = newState.channel;
+      const chName = voiceCh?.name || 'unknown';
+      const guildName = newState.guild.name;
+
       deps.prisma.client.stalkerSubscription
         .findMany({ where: { targetId: member.id, onVoice: true } })
         .then((subs: any[]) => {
@@ -45,7 +49,7 @@ const voiceStateUpdateEvent: EventHandler = {
               .fetch(sub.trackerId)
               .then((u: any) =>
                 u.send(
-                  `🎯 **Stalker Alert:** <@${member.id}> vừa vào kênh thoại!`,
+                  `🎯 **Stalker Alert:** <@${member.id}> vừa vào kênh voice **#${chName}** tại **${guildName}**!`,
                 ),
               )
               .catch(() => {});
