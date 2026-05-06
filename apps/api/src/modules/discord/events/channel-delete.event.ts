@@ -8,7 +8,7 @@ const channelDeleteEvent: EventHandler = {
   async execute(channel: DMChannel | GuildChannel, deps?: any) {
     if (channel.isDMBased()) return;
 
-    // ====== Meeting Tracker Cleanup ======
+    // Meeting tracker cleanup
     const meetingTracker = deps?.meetingTracker;
     if (meetingTracker) {
       const session = meetingTracker.getSession(channel.id);
@@ -24,7 +24,14 @@ const channelDeleteEvent: EventHandler = {
       }
     }
 
-    // ====== Music Player Cleanup ======
+    // Voice tag role cleanup
+    if (channel.isVoiceBased()) {
+      deps?.voiceTagService
+        ?.onChannelDelete(channel.guild, channel.id)
+        .catch(() => {});
+    }
+
+    // Music player cleanup
     if (channel.isVoiceBased()) {
       const pm = getPlayerManager();
       const guildId = channel.guild.id;

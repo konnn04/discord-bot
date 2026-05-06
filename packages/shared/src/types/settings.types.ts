@@ -39,6 +39,7 @@ export interface GuildSettings {
     xpTracking: boolean;
     meetingTracking: boolean;
     moderation: boolean;
+    tagMembersInVoice: boolean;
   };
 
   // Welcome configuration
@@ -130,6 +131,7 @@ export function createDefaultGuildSettings(guildId: string): GuildSettings {
       xpTracking: true,
       meetingTracking: false,
       moderation: false,
+      tagMembersInVoice: false,
     },
     welcome: {
       channelId: null,

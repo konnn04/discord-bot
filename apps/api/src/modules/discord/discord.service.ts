@@ -16,6 +16,7 @@ import { GlobalSettingsService } from '../settings/global-settings.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { XpBufferService } from '../xp/services/xp-buffer/xp-buffer.service';
 import { MichosgcService } from '../michosgc/michosgc.service';
+import { VoiceTagService } from './services/voice-tag.service';
 import { MeetingTracker } from './utils/meeting-tracker';
 import {
   setPlayerPrisma,
@@ -41,6 +42,7 @@ export class DiscordService implements OnModuleInit, OnModuleDestroy {
     private globalSettings: GlobalSettingsService,
     private xpBuffer: XpBufferService,
     private michosgc: MichosgcService,
+    private voiceTagService: VoiceTagService,
     private prisma: PrismaService,
   ) {
     this.client = new Client({
@@ -59,7 +61,6 @@ export class DiscordService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleInit() {
-    // Create dependencies object to inject into commands and events
     const deps = {
       commandLoader: this.commandLoader,
       eventLoader: this.eventLoader,
@@ -71,6 +72,7 @@ export class DiscordService implements OnModuleInit, OnModuleDestroy {
       prisma: this.prisma,
       meetingTracker: this.meetingTracker,
       discordClient: this.client,
+      voiceTagService: this.voiceTagService,
     };
 
     // Load commands and events, automatically injecting dependencies
@@ -87,12 +89,10 @@ export class DiscordService implements OnModuleInit, OnModuleDestroy {
       this.logger.log(`Discord bot ready as ${this.client.user?.tag}`);
       this.logger.log(`Serving ${this.client.guilds.cache.size} guild(s)`);
 
-      // Sync guilds with database
       this.syncGuilds().catch((err) =>
         this.logger.error('Failed to sync guilds:', err),
       );
 
-      // Register slash commands after bot is ready
       if (
         process.env.NODE_ENV !== 'production' ||
         process.env.REGISTER_SLASH === 'true'
@@ -102,20 +102,24 @@ export class DiscordService implements OnModuleInit, OnModuleDestroy {
         });
       }
 
-      // Pass client instance to services
       this.xpBuffer.setClient(this.client);
       this.michosgc.setClient(this.client);
+      this.voiceTagService.setClient(this.client);
 
       // Pass prisma and settings to managers
       setPlayerPrisma(this.prisma);
       setPlayerGuildSettings(this.guildSettings);
       setQueueGuildSettings(this.guildSettings);
 
-      // Start voice XP interval (runs every 60s)
       this.voiceXpInterval = setInterval(() => this.grantVoiceXp(), 60 * 1000);
+
+      this.voiceTagService
+        .reconcileAll(this.client)
+        .catch((err) =>
+          this.logger.error('[VoiceTag] Startup reconciliation failed:', err),
+        );
     });
 
-    // Listen for new guilds to sync them immediately
     this.client.on('guildCreate', async (guild) => {
       this.logger.log(`Joined new guild: ${guild.name} (${guild.id})`);
       try {
@@ -139,6 +143,8 @@ export class DiscordService implements OnModuleInit, OnModuleDestroy {
     if (this.voiceXpInterval) {
       clearInterval(this.voiceXpInterval);
     }
+    this.voiceTagService.onDestroy();
+    await this.voiceTagService['flushTaskBuffer']().catch(() => {});
     await this.client.destroy();
   }
 

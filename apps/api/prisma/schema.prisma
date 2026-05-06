@@ -106,3 +106,15 @@ model MusicHistory {
   @@index([discordId, guildId])
   @@index([playedAt])
 }
+
+/// Maps voice/stage channels to their auto-created tag-everyone roles
+model VoiceChannelRole {
+  guildId   String
+  channelId String
+  roleId    String
+  createdAt DateTime @default(now())
+
+  @@id([guildId, channelId])
+  @@index([guildId])
+  @@index([roleId])
+}

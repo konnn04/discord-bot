@@ -8,11 +8,32 @@ const voiceStateUpdateEvent: EventHandler = {
 
   execute(oldState: VoiceState, newState: VoiceState, deps: any) {
     const meetingTracker = deps?.meetingTracker;
+    const voiceTagService = deps?.voiceTagService;
     const member = newState.member || oldState.member;
     if (!member) return;
 
     const oldChannelId = oldState.channelId;
     const newChannelId = newState.channelId;
+
+    // Voice tag role assignment (buffered, non-blocking)
+    if (voiceTagService && !member.user.bot) {
+      if (oldChannelId && newChannelId && oldChannelId !== newChannelId) {
+        voiceTagService
+          .onMemberLeave(newState.guild, member, oldChannelId)
+          .catch(() => {});
+        voiceTagService
+          .onMemberJoin(newState.guild, member, newChannelId)
+          .catch(() => {});
+      } else if (newChannelId && !oldChannelId) {
+        voiceTagService
+          .onMemberJoin(newState.guild, member, newChannelId)
+          .catch(() => {});
+      } else if (oldChannelId && !newChannelId) {
+        voiceTagService
+          .onMemberLeave(newState.guild, member, oldChannelId)
+          .catch(() => {});
+      }
+    }
 
     // ====== Meeting Tracker Logic ======
     if (meetingTracker && !member.user.bot) {
@@ -99,7 +120,7 @@ const voiceStateUpdateEvent: EventHandler = {
         if (newChannelId && !oldChannelId) {
           sendToChannel(
             newState.channel,
-            ` **${member.user.username}** vừa tham gia kênh.`,
+            `👋 **<@${member.id}>** vừa tham gia kênh.`,
             '#2ecc71',
           );
         }
@@ -107,7 +128,7 @@ const voiceStateUpdateEvent: EventHandler = {
         else if (oldChannelId && !newChannelId) {
           sendToChannel(
             oldState.channel,
-            `🚪 **${member.user.username}** vừa rời kênh.`,
+            `🚪 **<@${member.id}>** vừa rời kênh.`,
             '#e74c3c',
           );
         }
@@ -119,12 +140,12 @@ const voiceStateUpdateEvent: EventHandler = {
         ) {
           sendToChannel(
             newState.channel,
-            `🔄 **${member.user.username}** vừa chuyển đến từ <#${oldChannelId}>.`,
+            `**<@${member.id}>** vừa vào kênh <#${newChannelId}>.`,
             '#f39c12',
           );
           sendToChannel(
             oldState.channel,
-            `🔄 **${member.user.username}** vừa chuyển sang <#${newChannelId}>.`,
+            `**<@${member.id}>** chuyển sang kênh khác rồi.`,
             '#f39c12',
           );
         }
