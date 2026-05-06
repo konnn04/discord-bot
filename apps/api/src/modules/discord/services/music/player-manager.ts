@@ -201,18 +201,9 @@ export class PlayerManager {
 
       void this.prefetchNextTrack(guildId);
 
-      const abortController = new AbortController();
-      const fetchTimeout = setTimeout(() => abortController.abort(), 5_000);
-
-      let response: Response;
-      try {
-        response = await fetch(streamUrl, {
-          headers: api.getStreamHeaders(),
-          signal: abortController.signal,
-        });
-      } finally {
-        clearTimeout(fetchTimeout);
-      }
+      const response = await fetch(streamUrl, {
+        headers: api.getStreamHeaders(),
+      });
 
       if (!response.ok || !response.body) {
         throw new Error(`Stream fetch failed: ${response.status}`);
