@@ -6,6 +6,7 @@ import { CooldownService } from './services/cooldown.service';
 import { PermissionService } from './services/permission.service';
 import { VoiceTagService } from './services/voice-tag.service';
 import { LeetcodeSchedulerService } from './services/leetcode-scheduler.service';
+import { AnimeSchedulerService } from './services/anime-scheduler.service';
 import { MusicController } from './controllers/music.controller';
 
 import { MichosgcModule } from '../michosgc/michosgc.module';
@@ -21,6 +22,7 @@ import { MichosgcModule } from '../michosgc/michosgc.module';
     PermissionService,
     VoiceTagService,
     LeetcodeSchedulerService,
+    AnimeSchedulerService,
   ],
   exports: [
     DiscordService,

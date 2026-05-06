@@ -149,3 +149,49 @@ model LeetcodeContestSent {
   @@index([guildId])
   @@index([userId])
 }
+
+/// User's tracked anime
+model AnimeTrack {
+  userId       String
+  animeId      Int
+  title        String
+  posterUrl    String
+  episodeCount Int?
+  nextEpisode  Int?      // last known next episode number
+  airingAt     DateTime? // when next episode airs
+  addedAt      DateTime  @default(now())
+
+  @@id([userId, animeId])
+  @@index([userId])
+}
+
+/// Prevents double-DM for same episode
+model AnimeEpisodeNotified {
+  userId   String
+  animeId  Int
+  episode  Int
+
+  @@id([userId, animeId, episode])
+}
+
+/// Stalker: who watches whom + what events to track
+model StalkerSubscription {
+  id        String   @id @default(cuid())
+  trackerId String   // who subscribed (the stalker)
+  targetId  String   // who is being watched
+  guildId   String
+  onOnline  Boolean  @default(false)
+  onVoice   Boolean  @default(false)
+  onGame    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@unique([trackerId, targetId, guildId])
+  @@index([trackerId])
+  @@index([targetId])
+}
+
+/// Opt-out list: users who don't want to be stalked
+model StalkerOptOut {
+  userId    String   @id
+  createdAt DateTime @default(now())
+}

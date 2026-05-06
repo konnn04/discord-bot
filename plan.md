@@ -1,5 +1,9 @@
 # FoxyBot Feature Plan
 
+> **ContextAdapter upgraded** (✅ done 2026-05-06):  
+> `ContextAdapter` now exposes `rawInteraction`, `showModal()`, `awaitModalSubmit()`, `getSubcommand()`.  
+> `ActionCommand` supports `subcommands[]` — auto-registered as `parent:child` keys, auto-marked `isOnlySlashCommand:true`.
+
 ## Legend
 - `[G]` = Guild setting (`/setting_xxx`) — 1 channel per guild, admin-only
 - `[U]` = User setting (`/my_xxx`) — DM or ephemeral, anyone
@@ -149,3 +153,50 @@ export class XxxScheduler {
 - **All URL commands** must validate hostname = `leetcode.com` or show a clear button linking to the problem.
 - **Time zone**: All cron use UTC; VN is UTC+7. 8AM VN = 1:00 UTC, 5PM VN = 10:00 UTC.
 - **Embed colors**: Easy=green, Medium=orange, Hard=red. Anime=purple, Confession=blurple.
+
+---
+
+## 🔧 Refactor Review (post ContextAdapter v2)
+
+### ✅ No changes needed
+| File | Reason |
+|------|--------|
+| All `setting_*.command.ts` | Boolean + channel picker — works perfectly fine |
+| All `my_*.command.ts` | Simple boolean toggles — no modal needed |
+| `random_leetcode.command.ts` | Plain text reply — no interaction needed |
+| `my_leetcode.command.ts` | Follows `my_github` pattern — already clean |
+| `stalk/*.command.ts` | Boolean options approach — works for all 3 modes |
+| `voice-tag.service.ts` | Independent service — doesn't use ContextAdapter |
+| All scheduler services | Cron-based — no user interaction |
+
+### ⚠️ Optional improvements (low priority)
+| File | Suggested change | Effort |
+|------|------------------|--------|
+| `anime_list.command.ts` | Could split into `/anime list` subcommand + `/anime track` | 30min |
+| `queue.command.ts` | Add button pagination inside embed (reuse `paginate.ts`) | Already done |
+| `play.command.ts` | Could use `rawInteraction` for autocomplete search suggestions | 1h |
+| `stalk.command.ts` | Could switch from boolean options to Modal with `showModal()` | 15min |
+
+### 🔴 Should fix (can cause issues)
+- None identified — all existing commands compile and follow the correct pattern.
+
+### 💡 New patterns available for future commands
+```
+// Subcommands pattern
+const command: ActionCommand = {
+  name: 'mycmd',
+  description: '...',
+  subcommands: [
+    { name: 'sub1', description: '...', execute: async (ctx, deps) => {} },
+    { name: 'sub2', description: '...', execute: async (ctx, deps) => {} },
+  ],
+};
+
+// Modal pattern (in command execute)
+const modal = new ModalBuilder().setCustomId('my_modal').setTitle('...');
+await ctx.showModal(modal);
+const submitted = await ctx.awaitModalSubmit({ time: 60_000, filter: ... });
+if (!submitted) return;
+const value = submitted.fields.getTextInputValue('field_name');
+await submitted.reply({ content: 'Done!', flags: 64 });
+```

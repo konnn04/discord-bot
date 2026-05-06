@@ -35,7 +35,26 @@ const voiceStateUpdateEvent: EventHandler = {
       }
     }
 
-    // ====== Meeting Tracker Logic ======
+    // Stalker: notify subscribers when target joins voice
+    if (deps?.prisma && !member.user.bot && newChannelId && !oldChannelId) {
+      deps.prisma.client.stalkerSubscription
+        .findMany({ where: { targetId: member.id, onVoice: true } })
+        .then((subs: any[]) => {
+          for (const sub of subs) {
+            newState.client.users
+              .fetch(sub.trackerId)
+              .then((u: any) =>
+                u.send(
+                  `🎯 **Stalker Alert:** <@${member.id}> vừa vào kênh thoại!`,
+                ),
+              )
+              .catch(() => {});
+          }
+        })
+        .catch(() => {});
+    }
+
+    // Meeting Tracker Logic
     if (meetingTracker && !member.user.bot) {
       // User left a tracked channel
       if (oldChannelId && oldChannelId !== newChannelId) {
