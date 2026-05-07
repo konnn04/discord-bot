@@ -31,10 +31,11 @@ const myStalk: ActionCommand = {
 
     const lines = subs.map((s, i) => {
       const modes: string[] = [];
-      if (s.onOnline) modes.push('🟢');
-      if (s.onVoice) modes.push('🔊');
-      if (s.onGame) modes.push('🎮');
-      return `**${i + 1}.** <@${s.targetId}> — ${modes.join(' ') || 'Không có'}`;
+      if (s.onOnline) modes.push('🟢Online');
+      if (s.onVoice) modes.push('🔊Voice');
+      if (s.onGame) modes.push('🎮Game');
+      if (s.onMessage) modes.push('💬Chat');
+      return `**${i + 1}.** <@${s.targetId}> — ${modes.join(' ') || 'đã tắt hết'}`;
     });
 
     const embed = new EmbedBuilder()

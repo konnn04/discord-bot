@@ -176,14 +176,16 @@ model AnimeEpisodeNotified {
 
 /// Stalker: who watches whom + what events to track
 model StalkerSubscription {
-  id        String   @id @default(cuid())
-  trackerId String   // who subscribed (the stalker)
-  targetId  String   // who is being watched
-  guildId   String
-  onOnline  Boolean  @default(false)
-  onVoice   Boolean  @default(false)
-  onGame    Boolean  @default(false)
-  createdAt DateTime @default(now())
+  id                  String    @id @default(cuid())
+  trackerId           String    // who subscribed (the stalker)
+  targetId            String    // who is being watched
+  guildId             String
+  onOnline            Boolean   @default(false)
+  onVoice             Boolean   @default(false)
+  onGame              Boolean   @default(false)
+  onMessage           Boolean   @default(false)
+  lastMessageNotifyAt DateTime? // 1-min cooldown for message notifications
+  createdAt           DateTime  @default(now())
 
   @@unique([trackerId, targetId, guildId])
   @@index([trackerId])
@@ -214,4 +216,26 @@ model ConfessionLog {
 
   @@index([guildId])
   @@index([guildId, postedAt])
+}
+
+/// User-created reminders
+model Reminder {
+  id         String   @id @default(cuid())
+  userId     String
+  channelId  String
+  message    String
+  remindAt   DateTime
+  createdAt  DateTime @default(now())
+
+  @@index([remindAt])
+}
+
+/// Spotify OAuth tokens for user-specific features (playlists, liked songs)
+model SpotifyToken {
+  userId       String   @id
+  accessToken  String
+  refreshToken String
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }

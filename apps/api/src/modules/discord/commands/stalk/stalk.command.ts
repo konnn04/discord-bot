@@ -2,10 +2,84 @@ import { PermissionLevel } from 'shared/src/types/discord.types';
 import type { ActionCommand } from 'shared/src/types/discord.types';
 import { ContextAdapter } from '../../contexts/context-adapter';
 import type { PrismaService } from '../../../prisma/prisma.service';
+import {
+  EmbedBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ActionRowBuilder,
+} from 'discord.js';
+
+type StalkModes = {
+  onOnline: boolean;
+  onVoice: boolean;
+  onGame: boolean;
+  onMessage: boolean;
+};
+
+const MODE_DEFS = [
+  {
+    key: 'onOnline',
+    emoji: '🟢',
+    label: 'Online',
+    desc: 'Thông báo khi online',
+  },
+  {
+    key: 'onVoice',
+    emoji: '🔊',
+    label: 'Voice',
+    desc: 'Thông báo khi vào kênh voice',
+  },
+  { key: 'onGame', emoji: '🎮', label: 'Game', desc: 'Thông báo khi đổi game' },
+  {
+    key: 'onMessage',
+    emoji: '💬',
+    label: 'Message',
+    desc: 'Thông báo khi nhắn tin',
+  },
+] as const;
+
+function modeButtons(modes: StalkModes): ActionRowBuilder<ButtonBuilder> {
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    ...MODE_DEFS.map((m) => {
+      const on = modes[m.key];
+      return new ButtonBuilder()
+        .setCustomId(`stalk_${m.key}`)
+        .setEmoji(m.emoji)
+        .setStyle(on ? ButtonStyle.Success : ButtonStyle.Secondary);
+    }),
+    new ButtonBuilder()
+      .setCustomId('stalk_clear')
+      .setEmoji('🗑️')
+      .setLabel('Bỏ theo dõi')
+      .setStyle(ButtonStyle.Danger),
+  );
+}
+
+function statusEmbed(
+  targetTag: string,
+  modes: StalkModes,
+  guildName: string,
+): EmbedBuilder {
+  const lines = MODE_DEFS.map((m) => {
+    const on = modes[m.key];
+    return `${on ? '✅' : '❌'} ${m.emoji} **${m.label}**: ${m.desc}`;
+  });
+
+  return new EmbedBuilder()
+    .setColor(0xf43f5e)
+    .setTitle('👀 Theo dõi')
+    .setDescription(
+      `Đang theo dõi **${targetTag}** tại **${guildName}**\n\n` +
+        lines.join('\n') +
+        '\n\n*Bấm nút bên dưới để bật/tắt từng chế độ*\n' +
+        '*Theo dõi hoạt động ở mọi server bot có thể thấy*',
+    );
+}
 
 const stalk: ActionCommand = {
   name: 'stalk',
-  description: 'Theo dõi hoạt động của một người (Game, Voice, Online)',
+  description:
+    'Theo dõi hoạt động của một người (Game, Voice, Online, Message)',
   category: 'stalker',
   permission: PermissionLevel.EVERYONE,
   optionalArgs: [
@@ -14,30 +88,6 @@ const stalk: ActionCommand = {
       description: 'Người bạn muốn theo dõi',
       type: 'USER',
       required: true,
-    },
-    {
-      name: 'online',
-      description: 'Thông báo khi online',
-      type: 'BOOLEAN',
-      required: false,
-    },
-    {
-      name: 'voice',
-      description: 'Thông báo khi vào voice',
-      type: 'BOOLEAN',
-      required: false,
-    },
-    {
-      name: 'game',
-      description: 'Thông báo khi đổi game',
-      type: 'BOOLEAN',
-      required: false,
-    },
-    {
-      name: 'clear',
-      description: 'Bỏ theo dõi người này',
-      type: 'BOOLEAN',
-      required: false,
     },
   ],
 
@@ -51,16 +101,10 @@ const stalk: ActionCommand = {
     }
 
     const target = ctx.getOption('user', 'user');
-    const clear = ctx.getOption('clear', 'boolean') as boolean | null;
-    const onOnline = ctx.getOption('online', 'boolean') as boolean | null;
-    const onVoice = ctx.getOption('voice', 'boolean') as boolean | null;
-    const onGame = ctx.getOption('game', 'boolean') as boolean | null;
-
     if (!target || target.bot) {
       await ctx.reply('❌ Không thể theo dõi bot.');
       return;
     }
-
     if (target.id === ctx.userId) {
       await ctx.reply('❌ Bạn không thể tự theo dõi chính mình.');
       return;
@@ -74,81 +118,133 @@ const stalk: ActionCommand = {
       return;
     }
 
-    if (clear) {
-      await prisma.client.stalkerSubscription.deleteMany({
-        where: {
+    // Get or create subscription
+    let sub = await prisma.client.stalkerSubscription.findUnique({
+      where: {
+        trackerId_targetId_guildId: {
           trackerId: ctx.userId,
           targetId: target.id,
           guildId: ctx.guildId,
+        },
+      },
+    });
+
+    if (!sub) {
+      sub = await prisma.client.stalkerSubscription.create({
+        data: {
+          trackerId: ctx.userId,
+          targetId: target.id,
+          guildId: ctx.guildId,
+          onOnline: true,
+          onVoice: true,
+          onGame: true,
+          onMessage: true,
         },
       });
-      await ctx.reply(`✅ Đã bỏ theo dõi **${target.username}**.`);
-      return;
     }
 
-    const existing = await prisma.client.stalkerSubscription.findUnique({
-      where: {
-        trackerId_targetId_guildId: {
-          trackerId: ctx.userId,
-          targetId: target.id,
-          guildId: ctx.guildId,
-        },
-      },
+    const guildName = ctx.guild?.name || 'server';
+    const modes: StalkModes = {
+      onOnline: sub.onOnline,
+      onVoice: sub.onVoice,
+      onGame: sub.onGame,
+      onMessage: sub.onMessage,
+    };
+
+    await ctx.defer();
+
+    const msg = await ctx.editReply({
+      embeds: [statusEmbed(target.username, modes, guildName)],
+      components: [modeButtons(modes)],
     });
 
-    const finalOnline = onOnline ?? existing?.onOnline ?? true;
-    const finalVoice = onVoice ?? existing?.onVoice ?? true;
-    const finalGame = onGame ?? existing?.onGame ?? true;
+    const attachCollector = (message: typeof msg) => {
+      const col = message.createMessageComponentCollector({ time: 120_000 });
 
-    if (!finalOnline && !finalVoice && !finalGame) {
-      await ctx.reply('❌ Phải chọn ít nhất 1 chế độ.');
-      return;
-    }
+      col.on('collect', async (i) => {
+        if (i.user.id !== ctx.userId) {
+          await i.reply({
+            content: '❌ Nút này không dành cho bạn.',
+            flags: 64,
+          });
+          return;
+        }
 
-    await prisma.client.stalkerSubscription.upsert({
-      where: {
-        trackerId_targetId_guildId: {
-          trackerId: ctx.userId,
-          targetId: target.id,
-          guildId: ctx.guildId,
-        },
-      },
-      update: { onOnline: finalOnline, onVoice: finalVoice, onGame: finalGame },
-      create: {
-        trackerId: ctx.userId,
-        targetId: target.id,
-        guildId: ctx.guildId,
-        onOnline: finalOnline,
-        onVoice: finalVoice,
-        onGame: finalGame,
-      },
-    });
+        const cid = i.customId;
 
-    const modes: string[] = [];
-    if (finalOnline) modes.push('Online');
-    if (finalVoice) modes.push('Voice');
-    if (finalGame) modes.push('Game');
-    const modeStr = modes.join(', ');
+        if (cid === 'stalk_clear') {
+          await prisma.client.stalkerSubscription.deleteMany({
+            where: {
+              trackerId: ctx.userId,
+              targetId: target.id,
+              guildId: ctx.guildId!,
+            },
+          });
+          await i.update({
+            embeds: [
+              new EmbedBuilder()
+                .setColor(0x6b7280)
+                .setTitle('👀 Theo dõi')
+                .setDescription(`✅ Đã bỏ theo dõi **${target.username}**.`),
+            ],
+            components: [],
+          });
+          return;
+        }
 
-    await ctx.reply(
-      `👀 Đang theo dõi **${target.username}** (${modeStr})\n` +
-        'Bot sẽ DM bạn khi có hoạt động!',
-    );
+        // Toggle mode
+        const modeKey = cid.replace('stalk_', '') as keyof StalkModes;
+        if (modeKey in modes) {
+          modes[modeKey] = !modes[modeKey];
+
+          // Don't allow all-off
+          if (
+            !modes.onOnline &&
+            !modes.onVoice &&
+            !modes.onGame &&
+            !modes.onMessage
+          ) {
+            modes[modeKey] = true;
+          }
+
+          await prisma.client.stalkerSubscription.update({
+            where: { id: sub.id },
+            data: { [modeKey]: modes[modeKey] },
+          });
+
+          await i.update({
+            embeds: [statusEmbed(target.username, modes, guildName)],
+            components: [modeButtons(modes)],
+          });
+          col.stop();
+          attachCollector(msg);
+        }
+      });
+
+      col.on('end', async () => {
+        try {
+          await msg.edit({ components: [] }).catch(() => {});
+        } catch {
+          /* deleted */
+        }
+      });
+    };
+
+    attachCollector(msg);
 
     // DM confirmation
     try {
-      const guildName = ctx.guild?.name || 'server';
+      const active = MODE_DEFS.filter((m) => modes[m.key]);
       await ctx.author.send(
         `✅ **Stalker Activated**\n` +
           `Bạn đang theo dõi **${target.username}** tại **${guildName}**\n` +
-          `Chế độ: ${modeStr}\n\n` +
+          `Chế độ: ${active.map((m) => m.label).join(', ') || 'không có'}\n\n` +
           `Bạn sẽ nhận DM khi:\n` +
-          `${finalOnline ? '• Người đó online\n' : ''}` +
-          `${finalVoice ? '• Người đó vào kênh voice\n' : ''}` +
-          `${finalGame ? '• Người đó đổi game\n' : ''}`,
+          active.map((m) => `• ${m.desc}`).join('\n') ||
+          '• (đã tắt tất cả chế độ)',
       );
     } catch {
-      /* DMs closed — skip */
+      /* DMs closed */
     }
   },
 };

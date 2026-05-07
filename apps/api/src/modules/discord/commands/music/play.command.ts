@@ -149,8 +149,12 @@ const play: ActionCommand = {
       qm.addTracks(guildId, textChannelId, tracksToAdd);
 
       if (wasEmpty || !isCurrentlyPlaying) {
-        const q = qm.get(guildId)!;
-        q.current = q.tracks.length - tracksToAdd.length;
+        // Only set current index when queue was truly empty.
+        // If queue already has tracks but player stopped, don't touch index.
+        if (wasEmpty) {
+          const q = qm.get(guildId)!;
+          q.current = q.tracks.length - tracksToAdd.length;
+        }
 
         pm.join(voiceChannel);
 
