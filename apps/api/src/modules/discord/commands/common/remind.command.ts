@@ -49,13 +49,26 @@ const remind: ActionCommand = {
   category: 'common',
   permission: PermissionLevel.EVERYONE,
   optionalArgs: [
-    { name: 'time', description: 'Thời gian: 30m, 2h, 1h30m, 14:30, "tomorrow 9:00"', type: 'STRING', required: true },
-    { name: 'message', description: 'Nội dung nhắc nhở', type: 'STRING', required: true },
+    {
+      name: 'time',
+      description: 'Thời gian: 30m, 2h, 1h30m, 14:30, "tomorrow 9:00"',
+      type: 'STRING',
+      required: true,
+    },
+    {
+      name: 'message',
+      description: 'Nội dung nhắc nhở',
+      type: 'STRING',
+      required: true,
+    },
   ],
 
   async execute(ctx: ContextAdapter, deps?: any) {
     const prisma = deps?.prisma as PrismaService | undefined;
-    if (!prisma) { await ctx.reply('❌ Hệ thống chưa sẵn sàng.'); return; }
+    if (!prisma) {
+      await ctx.reply('❌ Hệ thống chưa sẵn sàng.');
+      return;
+    }
 
     const timeStr = (ctx.getOption('time', 'string') as string) || '';
     const message = (ctx.getOption('message', 'string') as string) || '';
@@ -67,11 +80,13 @@ const remind: ActionCommand = {
 
     const remindAt = parseTime(timeStr);
     if (!remindAt) {
-      await ctx.reply('❌ Không hiểu thời gian. VD: `30m`, `2h`, `1h30m`, `14:30`, `tomorrow 9:00`');
+      await ctx.reply(
+        '❌ Không hiểu thời gian. VD: `30m`, `2h`, `1h30m`, `14:30`, `tomorrow 9:00`',
+      );
       return;
     }
 
-    const r = await prisma.client.reminder.create({
+    await prisma.client.reminder.create({
       data: {
         userId: ctx.userId,
         channelId: ctx.channelId!,
@@ -81,7 +96,9 @@ const remind: ActionCommand = {
     });
 
     const ts = Math.floor(remindAt.getTime() / 1000);
-    await ctx.reply(`⏰ Đã đặt nhắc nhở: **${message}** — sẽ thông báo <t:${ts}:R>`);
+    await ctx.reply(
+      `⏰ Đã đặt nhắc nhở: **${message}** — sẽ thông báo <t:${ts}:R>`,
+    );
   },
 };
 

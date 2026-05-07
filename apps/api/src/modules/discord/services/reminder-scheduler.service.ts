@@ -29,16 +29,27 @@ export class ReminderSchedulerService {
 
     for (const r of due) {
       try {
-        const ch = await this.discordClient.channels.fetch(r.channelId).catch(() => null);
+        const ch = await this.discordClient.channels
+          .fetch(r.channelId)
+          .catch(() => null);
         if (ch && ch.isTextBased() && 'send' in ch) {
-          await (ch as any).send(`⏰ <@${r.userId}> nhắc nhở: **${r.message}**`);
+          await (ch as any).send(
+            `⏰ <@${r.userId}> nhắc nhở: **${r.message}**`,
+          );
         } else {
           // Fallback: DM
-          const user = await this.discordClient.users.fetch(r.userId).catch(() => null);
-          if (user) await user.send(`⏰ Nhắc nhở: **${r.message}**`).catch(() => {});
+          const user = await this.discordClient.users
+            .fetch(r.userId)
+            .catch(() => null);
+          if (user)
+            await user.send(`⏰ Nhắc nhở: **${r.message}**`).catch(() => {});
         }
-      } catch {/* channel gone, skip */}
-      await this.prisma.client.reminder.delete({ where: { id: r.id } }).catch(() => {});
+      } catch {
+        /* channel gone, skip */
+      }
+      await this.prisma.client.reminder
+        .delete({ where: { id: r.id } })
+        .catch(() => {});
     }
   }
 }

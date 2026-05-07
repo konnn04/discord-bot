@@ -19,6 +19,7 @@ import { MichosgcService } from '../michosgc/michosgc.service';
 import { VoiceTagService } from './services/voice-tag.service';
 import { LeetcodeSchedulerService } from './services/leetcode-scheduler.service';
 import { AnimeSchedulerService } from './services/anime-scheduler.service';
+import { ReminderSchedulerService } from './services/reminder-scheduler.service';
 import { MeetingTracker } from './utils/meeting-tracker';
 import {
   setPlayerPrisma,
@@ -47,6 +48,7 @@ export class DiscordService implements OnModuleInit, OnModuleDestroy {
     private voiceTagService: VoiceTagService,
     private leetcodeScheduler: LeetcodeSchedulerService,
     private animeScheduler: AnimeSchedulerService,
+    private reminderScheduler: ReminderSchedulerService,
     private prisma: PrismaService,
   ) {
     this.client = new Client({
@@ -111,6 +113,7 @@ export class DiscordService implements OnModuleInit, OnModuleDestroy {
       this.voiceTagService.setClient(this.client);
       this.leetcodeScheduler.setClient(this.client);
       this.animeScheduler.setClient(this.client);
+      this.reminderScheduler.setClient(this.client);
 
       // Pass prisma and settings to managers
       setPlayerPrisma(this.prisma);
