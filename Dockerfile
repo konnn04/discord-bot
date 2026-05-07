@@ -50,5 +50,5 @@ RUN pnpm --filter api exec prisma generate
 # Expose API port
 EXPOSE 3000
 
-# Start the NestJS app
-CMD ["pnpm", "--filter", "api", "start:prod"]
+# Start: push schema then run NestJS
+CMD sh -c "pnpm --filter api exec prisma db push --accept-data-loss && pnpm --filter api start:prod"

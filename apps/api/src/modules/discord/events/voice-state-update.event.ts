@@ -1,6 +1,7 @@
 import type { EventHandler } from 'shared/src/types/discord.types';
 import { VoiceState, EmbedBuilder } from 'discord.js';
 import { getPlayerManager } from '../services/music/player-manager';
+import { isStalkRateLimited } from '../services/stalk-rate-limit';
 import { ColorResolvable } from 'discord.js';
 
 const voiceStateUpdateEvent: EventHandler = {
@@ -35,23 +36,32 @@ const voiceStateUpdateEvent: EventHandler = {
       }
     }
 
-    // Stalker: notify subscribers when target joins voice
+    // Stalker: notify subscribers when target joins voice (cross-guild)
     if (deps?.prisma && !member.user.bot && newChannelId && !oldChannelId) {
       const voiceCh = newState.channel;
       const chName = voiceCh?.name || 'unknown';
-      const guildName = newState.guild.name;
+      const eventGuildId = newState.guild.id;
+      const eventGuildName = newState.guild.name;
+      const client = newState.client;
 
       deps.prisma.client.stalkerSubscription
         .findMany({ where: { targetId: member.id, onVoice: true } })
         .then((subs: any[]) => {
           for (const sub of subs) {
-            newState.client.users
+            if (isStalkRateLimited(sub.id, 'voice')) continue;
+            client.users
               .fetch(sub.trackerId)
-              .then((u: any) =>
+              .then((u: any) => {
+                const same = client.guilds.cache
+                  .get(eventGuildId)
+                  ?.members.cache.has(sub.trackerId);
+                const guildLabel = same
+                  ? `**${eventGuildName}**`
+                  : '**server khác**';
                 u.send(
-                  `🎯 **Stalker Alert:** <@${member.id}> vừa vào kênh voice **#${chName}** tại **${guildName}**!`,
-                ),
-              )
+                  `🔊 **Stalker Alert:** <@${member.id}> vừa vào kênh voice **#${chName}** tại ${guildLabel}!`,
+                ).catch(() => {});
+              })
               .catch(() => {});
           }
         })

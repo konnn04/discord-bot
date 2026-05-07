@@ -154,7 +154,6 @@ const play: ActionCommand = {
 
         pm.join(voiceChannel);
 
-        // Reply ngay, không đợi stream sẵn sàng
         if (totalAddedCount === 1) {
           const t = tracksToAdd[0];
           const embed = new EmbedBuilder()

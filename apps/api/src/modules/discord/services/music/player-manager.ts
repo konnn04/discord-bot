@@ -370,7 +370,8 @@ export class PlayerManager {
         gp?.client || undefined,
       );
       if (!result.success) {
-        // All remaining tracks are broken — stop and notify
+        // All remaining tracks are broken — stop and clear stale queue
+        qm.clear(guildId);
         await this.deleteNowPlaying(guildId);
 
         if (gp?.client) {
@@ -403,6 +404,9 @@ export class PlayerManager {
       }
     } else {
       await this.deleteNowPlaying(guildId);
+
+      // Clear stale queue so new /play calls don't resurrect old tracks
+      qm.clear(guildId);
 
       if (gp?.client) {
         const queue = getQueueManager().get(guildId);
@@ -588,6 +592,13 @@ export class PlayerManager {
     autoSkippedCount: number;
     lastError?: string;
   }> {
+    // Guard: if another play is already starting (switching=true set synchronously
+    // in play()), don't interfere — let the in-flight call handle playback.
+    const gp = this.players.get(guildId);
+    if (gp?.switching) {
+      return { success: true, autoSkippedCount: 0 };
+    }
+
     const qm = getQueueManager();
     let autoSkippedCount = 0;
     let lastError: string | undefined;

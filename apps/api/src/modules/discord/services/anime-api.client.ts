@@ -98,6 +98,7 @@ class AnimeApiClient {
           status
           season seasonYear format
           genres averageScore siteUrl
+          description
           nextAiringEpisode {
             id episode airingAt timeUntilAiring
           }
@@ -105,6 +106,37 @@ class AnimeApiClient {
       }`;
     const data = await this.query<{ Media: AnimeInfo }>(gql, { id });
     return data.Media;
+  }
+
+  /** Batch fetch multiple anime by ID in a single API call */
+  async getAnimeBatch(ids: number[]): Promise<Map<number, AnimeInfo>> {
+    const result = new Map<number, AnimeInfo>();
+    if (ids.length === 0) return result;
+
+    const gql = `
+      query ($ids: [Int]) {
+        Page(page: 1, perPage: 50) {
+          media(id_in: $ids, type: ANIME) {
+            id
+            title { romaji english native }
+            coverImage { large medium }
+            episodes
+            duration
+            status
+            season seasonYear format
+            genres averageScore siteUrl
+            description
+            nextAiringEpisode {
+              id episode airingAt timeUntilAiring
+            }
+          }
+        }
+      }`;
+    const data = await this.query<{ Page: { media: AnimeInfo[] } }>(gql, { ids });
+    for (const a of data.Page.media) {
+      result.set(a.id, a);
+    }
+    return result;
   }
 
   /** Check specific anime's broadcast schedule */

@@ -42,6 +42,8 @@ export interface ActionCommand {
   subcommands?: ActionCommand[];
   cooldown?: number;
   execute: (ctx: any, deps?: any) => Promise<void>;
+  /** Slash command autocomplete handler */
+  autocomplete?: (ctx: any, deps?: any) => Promise<void>;
 }
 
 /** Definition for a bot event handler */

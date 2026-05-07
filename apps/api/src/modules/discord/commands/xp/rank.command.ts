@@ -1,11 +1,125 @@
-import { EmbedBuilder, User } from 'discord.js';
+import { AttachmentBuilder, User } from 'discord.js';
 import type { ActionCommand } from 'shared/src/types/discord.types';
 import { PermissionLevel } from 'shared/src/types/discord.types';
 import { ContextAdapter } from '../../contexts/context-adapter';
+import { createCanvas, loadImage } from '@napi-rs/canvas';
+
+const CARD_W = 900;
+const CARD_H = 280;
+
+/** Generate rank card image buffer */
+async function drawRankCard(opts: {
+  tag: string;
+  avatarUrl: string;
+  level: number;
+  xp: number;
+  xpCurrent: number;
+  xpNeeded: number;
+  rank: number;
+  progress: number; // 0-100
+  serverName: string;
+  serverIconUrl?: string;
+}): Promise<Buffer> {
+  const canvas = createCanvas(CARD_W, CARD_H);
+  const ctx = canvas.getContext('2d');
+
+  // ── Background gradient ──
+  const bg = ctx.createLinearGradient(0, 0, CARD_W, CARD_H);
+  bg.addColorStop(0, '#1a1a2e');
+  bg.addColorStop(1, '#16213e');
+  ctx.fillStyle = bg;
+  ctx.beginPath();
+  ctx.roundRect(0, 0, CARD_W, CARD_H, 20);
+  ctx.fill();
+
+  // ── Avatar ──
+  try {
+    const avatar = await loadImage(opts.avatarUrl);
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(110, CARD_H / 2, 80, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.clip();
+    ctx.drawImage(avatar, 30, CARD_H / 2 - 80, 160, 160);
+    ctx.restore();
+    // Border
+    ctx.beginPath();
+    ctx.arc(110, CARD_H / 2, 82, 0, Math.PI * 2);
+    ctx.strokeStyle = '#e94560';
+    ctx.lineWidth = 4;
+    ctx.stroke();
+  } catch {
+    /* avatar load failed — skip */
+  }
+
+  // ── Rank badge (top-right) ──
+  ctx.fillStyle = '#e94560';
+  ctx.beginPath();
+  ctx.roundRect(CARD_W - 170, 15, 150, 45, 12);
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 24px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(`#${opts.rank}`, CARD_W - 95, 47);
+
+  // ── Username ──
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 30px sans-serif';
+  ctx.textAlign = 'left';
+  const name = opts.tag.length > 22 ? opts.tag.slice(0, 21) + '…' : opts.tag;
+  ctx.fillText(name, 210, 105);
+
+  // ── Level ──
+  ctx.fillStyle = '#e94560';
+  ctx.font = 'bold 22px sans-serif';
+  ctx.fillText(`Cấp ${opts.level}`, 210, 145);
+
+  // ── XP text ──
+  ctx.fillStyle = '#a0a0b8';
+  ctx.font = '16px sans-serif';
+  ctx.fillText(`${opts.xpCurrent} / ${opts.xpNeeded} XP`, 210, 175);
+
+  // ── Progress bar background ──
+  const barX = 210;
+  const barY = 195;
+  const barW = 650;
+  const barH = 24;
+  ctx.fillStyle = 'rgba(255,255,255,0.1)';
+  ctx.beginPath();
+  ctx.roundRect(barX, barY, barW, barH, 12);
+  ctx.fill();
+
+  // ── Progress bar fill ──
+  const progress = Math.min(100, Math.max(0, opts.progress));
+  const fillW = (barW * progress) / 100;
+  if (fillW > 0) {
+    const pg = ctx.createLinearGradient(barX, 0, barX + barW, 0);
+    pg.addColorStop(0, '#e94560');
+    pg.addColorStop(1, '#ff6b6b');
+    ctx.fillStyle = pg;
+    ctx.beginPath();
+    ctx.roundRect(barX, barY, fillW, barH, 12);
+    ctx.fill();
+  }
+
+  // ── Progress % ──
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 14px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(`${progress.toFixed(0)}%`, barX + barW / 2, barY + 17);
+
+  // ── Server name (bottom-left) ──
+  ctx.fillStyle = '#6c6c80';
+  ctx.font = '16px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(opts.serverName.slice(0, 30), 210, 255);
+
+  return canvas.toBuffer('image/png');
+}
 
 const rank: ActionCommand = {
   name: 'rank',
-  description: 'Xem cấp độ và điểm kinh nghiệm (XP) hiện tại của bạn',
+  description: 'Xem thẻ rank của bạn hoặc người khác',
   category: 'xp',
   permission: PermissionLevel.EVERYONE,
   optionalArgs: [
@@ -31,109 +145,80 @@ const rank: ActionCommand = {
 
     const targetUser =
       (ctx.getOption('user', 'user') as User | null) || ctx.author;
-
     if (targetUser.bot) {
       await ctx.reply('🤖 Bot không có rank nha!');
       return;
     }
 
-    const discordId = targetUser.id;
-    const username = targetUser.username;
-    const avatarUrl = targetUser.displayAvatarURL();
+    await ctx.defer();
 
-    // Look up internal User by Discord ID first
     const dbUser = await deps.prisma.user.findUnique({
-      where: { discordId },
+      where: { discordId: targetUser.id },
     });
-
     if (!dbUser) {
-      await ctx.reply(
-        `❌ **${username}** chưa có điểm XP nào trong server này.`,
+      await ctx.editReply(
+        `❌ **${targetUser.username}** chưa có XP trong server này.`,
       );
       return;
     }
 
-    // Fetch member data using internal user ID
     const member = await deps.prisma.guildMember.findUnique({
       where: { userId_guildId: { userId: dbUser.id, guildId } },
     });
-
-    if (!member) {
-      await ctx.reply(
-        `❌ **${username}** chưa có điểm XP nào trong server này.`,
+    if (!member || member.xp === 0) {
+      await ctx.editReply(
+        `❌ **${targetUser.username}** chưa có XP trong server này.`,
       );
       return;
     }
 
-    // Get server rank (count users with strictly more XP, then add 1)
-    const rankPosition =
+    const rankPos =
       (await deps.prisma.guildMember.count({
-        where: {
-          guildId,
-          xp: { gt: member.xp },
-        },
+        where: { guildId, xp: { gt: member.xp } },
       })) + 1;
 
-    // Get leveling formula
-    let formula = 'exponential';
-    let baseXp = 100;
-
-    if (deps?.globalSettings) {
-      const g = deps.globalSettings.get();
-      formula = g.bot?.levelUpFormula || 'exponential'; // fallback
-      baseXp = g.bot?.baseXpForLevelUp || 100;
-    } else {
-      // Direct DB fallback if globalSettingsRef isn't a service (it is)
-      const globalRecord = await deps.prisma.globalSetting.findUnique({
-        where: { id: 'global' },
-      });
-      formula = globalRecord?.settings?.xp?.levelUpFormula || 'exponential';
-      baseXp = globalRecord?.settings?.xp?.baseXpForLevelUp || 100;
-    }
-
-    // Calculate XP needed for next level
-    let requiredXp = 0;
-    let currentLevelBaseXp = 0;
-
+    // XP calculation
+    const formula =
+      deps.globalSettings?.get()?.xp?.levelUpFormula || 'exponential';
+    const baseXp = deps.globalSettings?.get()?.xp?.baseXpForLevelUp || 100;
+    let currentBase = 0;
     if (formula === 'exponential') {
-      for (let i = 1; i <= member.level; i++) {
-        currentLevelBaseXp += baseXp * Math.pow(1.5, i - 1);
-      }
-      requiredXp = currentLevelBaseXp + baseXp * Math.pow(1.5, member.level);
+      for (let i = 1; i <= member.level; i++)
+        currentBase += baseXp * Math.pow(1.5, i - 1);
     } else {
-      // Linear
-      currentLevelBaseXp = member.level * baseXp;
-      requiredXp = (member.level + 1) * baseXp;
+      currentBase = member.level * baseXp;
     }
+    const nextBase =
+      formula === 'exponential'
+        ? currentBase + baseXp * Math.pow(1.5, member.level)
+        : (member.level + 1) * baseXp;
+    const xpInLvl = member.xp - currentBase;
+    const xpNeed = nextBase - currentBase;
+    const progress = Math.min(100, Math.max(0, (xpInLvl / xpNeed) * 100));
 
-    const xpInCurrentLevel = member.xp - currentLevelBaseXp;
-    const xpNeededForNextLevel = requiredXp - currentLevelBaseXp;
-    const progress = Math.min(
-      100,
-      Math.max(0, (xpInCurrentLevel / xpNeededForNextLevel) * 100),
-    );
+    const serverName = ctx.guild?.name || 'Server';
+    const avatarUrl = targetUser.displayAvatarURL({
+      extension: 'png',
+      size: 256,
+    });
+    const serverIcon = ctx.guild?.iconURL({ extension: 'png', size: 128 });
 
-    // Create progress bar
-    const barLength = 20;
-    const filled = Math.round((progress / 100) * barLength);
-    const empty = barLength - filled;
-    const progressBar = '█'.repeat(filled) + '░'.repeat(empty);
+    const buf = await drawRankCard({
+      tag: targetUser.username,
+      avatarUrl,
+      level: member.level,
+      xp: member.xp,
+      xpCurrent: xpInLvl,
+      xpNeeded: xpNeed,
+      rank: rankPos,
+      progress,
+      serverName,
+      serverIconUrl: serverIcon || undefined,
+    });
 
-    const embed = new EmbedBuilder()
-      .setColor(0xffd700) // Gold
-      .setAuthor({ name: username, iconURL: avatarUrl || undefined })
-      .setTitle(`Rank #${rankPosition}`)
-      .addFields(
-        { name: '🌟 Level', value: `**${member.level}**`, inline: true },
-        { name: '✨ XP', value: `**${member.xp}**`, inline: true },
-        {
-          name: '📊 Tiến trình',
-          value: `${xpInCurrentLevel} / ${xpNeededForNextLevel} XP\n\`${progressBar}\` ${progress.toFixed(1)}%`,
-        },
-      )
-      .setTimestamp();
-
-    await ctx.reply({ embeds: [embed] });
+    await ctx.editReply({
+      files: [new AttachmentBuilder(buf, { name: 'rank.png' })],
+    });
   },
 };
 

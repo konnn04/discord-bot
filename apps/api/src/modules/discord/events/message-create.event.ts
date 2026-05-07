@@ -1,6 +1,7 @@
 import type { EventHandler } from 'shared/src/types/discord.types';
 import { Message } from 'discord.js';
 import { ContextAdapter } from '../contexts/context-adapter';
+import { isStalkRateLimited } from '../services/stalk-rate-limit';
 
 const messageCreateEvent: EventHandler = {
   name: 'messageCreate',
@@ -8,6 +9,58 @@ const messageCreateEvent: EventHandler = {
   async execute(message: Message, deps: any) {
     // Ignore bots
     if (message.author.bot) return;
+
+    // —— Stalker: message tracking (non-command messages only) ——
+    if (deps?.prisma && message.guildId) {
+      void (async () => {
+        // Check if message starts with a prefix → not a natural conversation
+        let prefix = 'f!';
+        if (deps?.guildSettings) {
+          prefix = deps.guildSettings.getPrefix(message.guildId!);
+        } else if (deps?.globalSettings) {
+          prefix = deps.globalSettings.get().bot.defaultPrefix;
+        }
+        if (message.content.startsWith(prefix)) return;
+
+        const prisma = deps.prisma;
+
+        // Find subscriptions with onMessage=true for this user
+        const subs = await prisma.client.stalkerSubscription.findMany({
+          where: { targetId: message.author.id, onMessage: true },
+        });
+
+        for (const sub of subs) {
+          // 5-min rate limit via in-memory Map (lighter than DB write)
+          if (isStalkRateLimited(sub.id, 'message')) continue;
+
+          // Cross-guild context
+          const eventGuild = message.guild;
+          const same = eventGuild?.members.cache.has(sub.trackerId);
+          const guildLabel = same
+            ? `**${eventGuild!.name}**`
+            : '**server khác**';
+
+          try {
+            const tracker = await message.client.users
+              .fetch(sub.trackerId)
+              .catch(() => null);
+            if (!tracker) continue;
+
+            const channelMention = `<#${message.channelId}>`;
+            const preview =
+              message.content.slice(0, 100) +
+              (message.content.length > 100 ? '...' : '');
+            await tracker.send(
+              `💬 **Stalker Alert:** <@${message.author.id}> vừa nhắn tại ${channelMention} ở ${guildLabel}:\n` +
+                `> ${preview}`,
+            );
+          } catch {
+            /* DMs closed */
+          }
+        }
+      })();
+    }
+
     if (!deps?.commandLoader) return;
 
     // Determine prefix for this guild
