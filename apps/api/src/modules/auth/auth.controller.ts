@@ -10,6 +10,7 @@ import {
 import { AuthService } from './auth.service';
 import { AuthGuard } from './auth.guard';
 import { PrismaService } from '../prisma/prisma.service';
+import { discordClientRef } from '../discord/discord.service';
 import type { Request, Response } from 'express';
 
 @Controller('auth')
@@ -155,8 +156,23 @@ export class AuthController {
         },
       });
 
+      // DM user on success
+      const client = discordClientRef.client;
+      if (client) {
+        try {
+          const user = await client.users.fetch(state).catch(() => null);
+          if (user) {
+            await user.send(
+              '✅ **Đăng nhập Spotify thành công!**\nDùng `/spotify` để mở menu hoặc `/spotify_my` để xem playlist của bạn.',
+            );
+          }
+        } catch {
+          /* DMs closed */
+        }
+      }
+
       return res.send(
-        '<h3>✅ Đăng nhập Spotify thành công! Quay lại Discord và dùng /spotify_my.</h3>',
+        '<h3>✅ Đăng nhập Spotify thành công! Quay lại Discord.</h3>',
       );
     } catch (err: any) {
       return res.send(`<h3>❌ Lỗi: ${err.message}</h3>`);

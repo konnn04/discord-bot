@@ -27,6 +27,9 @@ import {
 } from './services/music/player-manager';
 import { setQueueGuildSettings } from './services/music/queue-manager';
 
+/** Shared ref so other modules (e.g. auth) can DM users */
+export const discordClientRef: { client: Client | null } = { client: null };
+
 @Injectable()
 export class DiscordService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(DiscordService.name);
@@ -119,6 +122,9 @@ export class DiscordService implements OnModuleInit, OnModuleDestroy {
       setPlayerPrisma(this.prisma);
       setPlayerGuildSettings(this.guildSettings);
       setQueueGuildSettings(this.guildSettings);
+
+      // Share client ref for auth callbacks
+      discordClientRef.client = this.client;
 
       this.voiceXpInterval = setInterval(() => this.grantVoiceXp(), 60 * 1000);
 

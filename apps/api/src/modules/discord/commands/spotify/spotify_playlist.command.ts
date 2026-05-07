@@ -10,7 +10,7 @@ import {
   type QueueTrack,
 } from '../../services/music/queue-manager';
 import { getPlayerManager } from '../../services/music/player-manager';
-import { isUrl } from '../../services/music/utils';
+import { isUrl, formatDuration } from '../../services/music/utils';
 import {
   EmbedBuilder,
   ButtonBuilder,
@@ -22,9 +22,34 @@ import {
 
 const PAGE_SIZE = 10;
 
+function afterAddEmbed(
+  playlistName: string,
+  thumbnail: string | undefined,
+  total: number,
+  preview: MusicTrack[],
+): EmbedBuilder {
+  const previewLines = preview
+    .slice(0, 5)
+    .map(
+      (t, i) => `**${i + 1}.** ${t.artist || '???'} — ${t.title.slice(0, 45)}`,
+    );
+  return new EmbedBuilder()
+    .setColor(0x1db954)
+    .setAuthor({ name: '🎧 Đã thêm vào hàng chờ' })
+    .setTitle(playlistName)
+    .setThumbnail(thumbnail || null)
+    .setDescription(
+      `📋 **${total}** bài đã được thêm.\n\n` +
+        (previewLines.length > 0
+          ? `**Xem trước:**\n${previewLines.join('\n')}\n`
+          : '') +
+        (total > 5 ? `\n*...và ${total - 5} bài khác*` : ''),
+    );
+}
+
 const spotifyPlaylist: ActionCommand = {
   name: 'spotify_playlist',
-  description: 'Tìm playlist Spotify hoặc mở bằng link và phát',
+  description: 'Mở playlist Spotify bằng link hoặc tìm kiếm & phát',
   category: 'music',
   permission: PermissionLevel.EVERYONE,
   optionalArgs: [
@@ -59,9 +84,8 @@ const spotifyPlaylist: ActionCommand = {
 
     try {
       if (isUrl(query)) {
-        // Parse URL
         const parsed = await api.parseUrl(query, 'playlist');
-        const items = Array.isArray(parsed.data)
+        const items: MusicTrack[] = Array.isArray(parsed.data)
           ? parsed.data
           : (parsed.data as any)?.tracks || [];
         if (items.length === 0) {
@@ -69,7 +93,7 @@ const spotifyPlaylist: ActionCommand = {
           return;
         }
 
-        const limited = items.slice(0, 50) as MusicTrack[];
+        const limited = items.slice(0, 50);
         const qm = getQueueManager();
         const pm = getPlayerManager();
         const guildId = ctx.guildId!;
@@ -91,74 +115,77 @@ const spotifyPlaylist: ActionCommand = {
           void pm.playWithAutoSkip(guildId, ctx.client);
         }
 
-        const name = (parsed.data as any)?.name || 'Playlist';
+        const name = (parsed.data as any)?.name || 'Playlist Spotify';
+        const thumb = limited[0]?.thumbnail;
         await ctx.editReply({
-          embeds: [
-            new EmbedBuilder()
-              .setColor(0x1db954)
-              .setAuthor({ name: '🎧 Đã thêm playlist' })
-              .setTitle(name)
-              .setDescription(`Đã thêm ${tracks.length} bài vào queue.`),
-          ],
+          embeds: [afterAddEmbed(name, thumb, tracks.length, limited)],
         });
         return;
       }
 
-      // Search playlists via parseUrl (music server can handle keyword→playlist search)
-      // Fallback: search tracks and show as "playlist-like" results
+      // Search tracks — user picks one to play
       const results = await api.search(query, 'spotify', 20);
       if (results.length === 0) {
         await ctx.editReply('❌ Không tìm thấy.');
         return;
       }
 
-      // Show as track results — user can pick one to play
       const pages = Math.ceil(results.length / PAGE_SIZE);
       let page = 1;
       const slice = () =>
         results.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-      const embed = new EmbedBuilder()
-        .setColor(0x1db954)
-        .setTitle(`🎧 Spotify: "${query.slice(0, 30)}"`)
-        .setDescription(
-          slice()
-            .map(
-              (t, i) =>
-                `**${(page - 1) * PAGE_SIZE + i + 1}.** **${t.artist || '???'}** — ${t.title.slice(0, 45)}`,
-            )
-            .join('\n'),
-        )
-        .setFooter({ text: `Trang ${page}/${pages}` });
+      const buildEmbed = () => {
+        const lines = slice().map((t, i) => {
+          const num = (page - 1) * PAGE_SIZE + i + 1;
+          const dur = t.duration ? ` • ${formatDuration(t.duration)}` : '';
+          return `**${num}.** **${t.artist || '???'}** — ${t.title.slice(0, 45)}${dur}`;
+        });
+        return new EmbedBuilder()
+          .setColor(0x1db954)
+          .setTitle(`🎧 Spotify: "${query.slice(0, 30)}"`)
+          .setDescription(lines.join('\n'))
+          .setFooter({
+            text: `Trang ${page}/${pages} • Chọn bài để thêm vào queue`,
+          });
+      };
 
-      const sel = new StringSelectMenuBuilder()
-        .setCustomId('spl_sel')
-        .setPlaceholder('Chọn bài...');
-      slice().forEach((t) =>
-        sel.addOptions(
-          new StringSelectMenuOptionBuilder()
-            .setLabel(`${t.artist || '???'} — ${t.title}`.slice(0, 100))
-            .setValue(t.sourceId),
-        ),
-      );
-      const btns = new ActionRowBuilder<ButtonBuilder>().addComponents(
-        new ButtonBuilder()
-          .setCustomId('spl_prev')
-          .setEmoji('◀️')
-          .setStyle(ButtonStyle.Primary)
-          .setDisabled(page <= 1),
-        new ButtonBuilder()
-          .setCustomId('spl_next')
-          .setEmoji('▶️')
-          .setStyle(ButtonStyle.Primary)
-          .setDisabled(page >= pages),
-      );
+      const buildSelect = () => {
+        const s = new StringSelectMenuBuilder()
+          .setCustomId('spl_sel')
+          .setPlaceholder('Chọn bài để phát...');
+        slice().forEach((t) =>
+          s.addOptions(
+            new StringSelectMenuOptionBuilder()
+              .setLabel(`${t.artist || '???'} — ${t.title}`.slice(0, 100))
+              .setValue(t.sourceId)
+              .setDescription(t.duration ? formatDuration(t.duration) : ''),
+          ),
+        );
+        return s;
+      };
+
+      const buildBtns = () =>
+        new ActionRowBuilder<ButtonBuilder>().addComponents(
+          new ButtonBuilder()
+            .setCustomId('spl_prev')
+            .setEmoji('◀️')
+            .setStyle(ButtonStyle.Primary)
+            .setDisabled(page <= 1),
+          new ButtonBuilder()
+            .setCustomId('spl_next')
+            .setEmoji('▶️')
+            .setStyle(ButtonStyle.Primary)
+            .setDisabled(page >= pages),
+        );
 
       const msg = await ctx.editReply({
-        embeds: [embed],
+        embeds: [buildEmbed()],
         components: [
-          new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(sel),
-          btns,
+          new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+            buildSelect(),
+          ),
+          buildBtns(),
         ],
       });
 
@@ -184,10 +211,11 @@ const spotifyPlaylist: ActionCommand = {
                 requestedBy: ctx.author.username,
                 requestedById: ctx.userId,
               };
+              const beforeCount = qm.get(guildId)?.tracks.length || 0;
               qm.addTrack(guildId, ctx.channelId!, qt);
-              if (!qm.getCurrent(guildId)) {
+              if (!beforeCount) {
                 const q = qm.get(guildId)!;
-                q.current = q.tracks.length - 1;
+                q.current = 0;
                 pm.join(vc);
                 void pm.playWithAutoSkip(guildId, ctx.client);
               }
@@ -195,8 +223,13 @@ const spotifyPlaylist: ActionCommand = {
                 embeds: [
                   new EmbedBuilder()
                     .setColor(0x1db954)
-                    .setTitle('🎧 Đã thêm')
-                    .setDescription(`**${track.artist} — ${track.title}**`),
+                    .setAuthor({ name: '🎧 Đã thêm vào hàng chờ' })
+                    .setTitle(`${track.artist || '???'} — ${track.title}`)
+                    .setThumbnail(track.thumbnail)
+                    .setURL(track.url)
+                    .setDescription(
+                      `⏱ ${formatDuration(track.duration)}${beforeCount > 0 ? `\n📋 Vị trí #${beforeCount + 1} trong queue` : '\n▶️ Đang phát ngay'}`,
+                    ),
                 ],
                 components: [],
               });
@@ -204,35 +237,12 @@ const spotifyPlaylist: ActionCommand = {
             }
           }
           await i.update({
-            embeds: [
-              new EmbedBuilder()
-                .setColor(0x1db954)
-                .setTitle(`Trang ${page}`)
-                .setDescription(
-                  slice()
-                    .map(
-                      (t, i) =>
-                        `**${(page - 1) * PAGE_SIZE + i + 1}.** ${t.artist} — ${t.title.slice(0, 45)}`,
-                    )
-                    .join('\n'),
-                ),
-            ],
+            embeds: [buildEmbed()],
             components: [
               new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
-                new StringSelectMenuBuilder()
-                  .setCustomId('spl_sel')
-                  .setPlaceholder('Chọn...')
-                  .addOptions(
-                    slice().map((t: MusicTrack) =>
-                      new StringSelectMenuOptionBuilder()
-                        .setLabel(
-                          `${t.artist || '???'} — ${t.title}`.slice(0, 100),
-                        )
-                        .setValue(t.sourceId),
-                    ),
-                  ),
+                buildSelect(),
               ),
-              btns,
+              buildBtns(),
             ],
           });
           col.stop();
