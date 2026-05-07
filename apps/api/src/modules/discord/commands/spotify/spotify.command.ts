@@ -23,6 +23,9 @@ async function spotifyGet(token: string, path: string): Promise<any> {
   const res = await fetch(`https://api.spotify.com/v1${path}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
+  if (res.status === 401 || res.status === 403) {
+    throw new Error('SPOTIFY_AUTH');
+  }
   if (!res.ok) throw new Error(`Spotify ${res.status}`);
   return res.json();
 }
@@ -241,7 +244,21 @@ const spotify: ActionCommand = {
             components: [],
           });
         } catch (e: any) {
-          await i.editReply(`❌ Lỗi: ${e.message}`);
+          if (e.message === 'SPOTIFY_AUTH') {
+            await i.editReply({
+              embeds: [
+                new EmbedBuilder()
+                  .setColor(0xef4444)
+                  .setTitle('🔐 Cần đăng nhập lại')
+                  .setDescription(
+                    'Token Spotify hết hạn hoặc thiếu quyền.\nDùng `/spotify_logout` rồi `/spotify_login` lại nhé!',
+                  ),
+              ],
+              components: [],
+            });
+          } else {
+            await i.editReply(`❌ Lỗi: ${e.message}`);
+          }
         }
       }
 
@@ -278,7 +295,21 @@ const spotify: ActionCommand = {
             components: [],
           });
         } catch (e: any) {
-          await i.editReply(`❌ Lỗi: ${e.message}`);
+          if (e.message === 'SPOTIFY_AUTH') {
+            await i.editReply({
+              embeds: [
+                new EmbedBuilder()
+                  .setColor(0xef4444)
+                  .setTitle('🔐 Cần đăng nhập lại')
+                  .setDescription(
+                    'Token Spotify hết hạn hoặc thiếu quyền.\nDùng `/spotify_logout` rồi `/spotify_login` lại nhé!',
+                  ),
+              ],
+              components: [],
+            });
+          } else {
+            await i.editReply(`❌ Lỗi: ${e.message}`);
+          }
         }
       }
 
@@ -405,7 +436,21 @@ const spotify: ActionCommand = {
             });
           });
         } catch (e: any) {
-          await i.editReply(`❌ Lỗi: ${e.message}`);
+          if (e.message === 'SPOTIFY_AUTH') {
+            await i.editReply({
+              embeds: [
+                new EmbedBuilder()
+                  .setColor(0xef4444)
+                  .setTitle('🔐 Cần đăng nhập lại')
+                  .setDescription(
+                    'Token Spotify hết hạn hoặc thiếu quyền.\nDùng `/spotify_logout` rồi `/spotify_login` lại nhé!',
+                  ),
+              ],
+              components: [],
+            });
+          } else {
+            await i.editReply(`❌ Lỗi: ${e.message}`);
+          }
         }
       }
 
@@ -469,7 +514,21 @@ const spotify: ActionCommand = {
             components: [],
           });
         } catch (e: any) {
-          await i.editReply(`❌ Lỗi: ${e.message}`);
+          if (e.message === 'SPOTIFY_AUTH') {
+            await i.editReply({
+              embeds: [
+                new EmbedBuilder()
+                  .setColor(0xef4444)
+                  .setTitle('🔐 Cần đăng nhập lại')
+                  .setDescription(
+                    'Token Spotify hết hạn hoặc thiếu quyền.\nDùng `/spotify_logout` rồi `/spotify_login` lại nhé!',
+                  ),
+              ],
+              components: [],
+            });
+          } else {
+            await i.editReply(`❌ Lỗi: ${e.message}`);
+          }
         }
       }
     });

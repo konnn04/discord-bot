@@ -204,8 +204,31 @@ const spotifySearch: ActionCommand = {
                   `**${track.artist || 'Không rõ'}**\n⏱ ${formatDuration(track.duration)}`,
                 ),
             ],
-            components: [],
+            components: wasEmpty
+              ? []
+              : [
+                  new ActionRowBuilder<ButtonBuilder>().addComponents(
+                    new ButtonBuilder()
+                      .setCustomId('sp_playnow')
+                      .setEmoji('▶️')
+                      .setLabel('Phát ngay')
+                      .setStyle(ButtonStyle.Success),
+                  ),
+                ],
           });
+          return;
+        }
+
+        if (cid === 'sp_playnow') {
+          const vc = ctx.voiceChannel;
+          if (!vc) {
+            await i.reply({ content: '❌ Bạn cần vào kênh thoại.', flags: 64 });
+            return;
+          }
+          const pm = getPlayerManager();
+          pm.join(vc);
+          void pm.playWithAutoSkip(ctx.guildId!, ctx.client);
+          await i.update({ components: [] });
           return;
         }
       });

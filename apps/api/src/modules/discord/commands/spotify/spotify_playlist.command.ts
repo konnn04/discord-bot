@@ -198,7 +198,21 @@ const spotifyPlaylist: ActionCommand = {
           }
           if (i.customId === 'spl_prev') page--;
           else if (i.customId === 'spl_next') page++;
-          else if (i.customId === 'spl_sel') {
+          else if (i.customId === 'spl_playnow') {
+            const vc = ctx.voiceChannel;
+            if (!vc) {
+              await i.reply({
+                content: '❌ Bạn cần vào kênh thoại.',
+                flags: 64,
+              });
+              return;
+            }
+            const pm = getPlayerManager();
+            pm.join(vc);
+            void pm.playWithAutoSkip(ctx.guildId!, ctx.client);
+            await i.update({ components: [] });
+            return;
+          } else if (i.customId === 'spl_sel') {
             const sourceId = (i as any).values?.[0];
             const track = results.find((t) => t.sourceId === sourceId);
             if (track) {
@@ -231,7 +245,18 @@ const spotifyPlaylist: ActionCommand = {
                       `⏱ ${formatDuration(track.duration)}${beforeCount > 0 ? `\n📋 Vị trí #${beforeCount + 1} trong queue` : '\n▶️ Đang phát ngay'}`,
                     ),
                 ],
-                components: [],
+                components:
+                  beforeCount > 0
+                    ? [
+                        new ActionRowBuilder<ButtonBuilder>().addComponents(
+                          new ButtonBuilder()
+                            .setCustomId('spl_playnow')
+                            .setEmoji('▶️')
+                            .setLabel('Phát ngay')
+                            .setStyle(ButtonStyle.Success),
+                        ),
+                      ]
+                    : [],
               });
               return;
             }
