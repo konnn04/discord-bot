@@ -18,6 +18,9 @@ import {
   StringSelectMenuBuilder,
   StringSelectMenuOptionBuilder,
   ActionRowBuilder,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
 } from 'discord.js';
 
 const PAGE_SIZE = 10;
@@ -65,6 +68,11 @@ function pageButtons(
       .setEmoji('⏭️')
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(page >= totalPages),
+    new ButtonBuilder()
+      .setCustomId('sp_refine')
+      .setEmoji('✏️')
+      .setLabel('Tìm lại')
+      .setStyle(ButtonStyle.Secondary),
   );
 }
 
@@ -111,7 +119,6 @@ const spotifySearch: ActionCommand = {
       await ctx.reply('❌ Music server chưa cấu hình.');
       return;
     }
-
     const vc = ctx.voiceChannel;
     if (!vc) {
       await ctx.reply('❌ Bạn cần vào kênh thoại.');
@@ -120,14 +127,13 @@ const spotifySearch: ActionCommand = {
 
     await ctx.defer();
 
-    const results = await api.search(query, 'spotify', 30);
-    if (results.length === 0) {
+    const allTracks = await api.search(query, 'spotify', 30);
+    if (allTracks.length === 0) {
       await ctx.editReply('❌ Không tìm thấy.');
       return;
     }
 
-    const allTracks = results;
-    const totalPages = Math.ceil(allTracks.length / PAGE_SIZE);
+    let totalPages = Math.ceil(allTracks.length / PAGE_SIZE);
     let page = 1;
 
     const slice = () =>
@@ -163,6 +169,46 @@ const spotifySearch: ActionCommand = {
           });
           col.stop();
           attachCollector(msg);
+          return;
+        }
+
+        // ── Live search refine: open modal → re-search ──
+        if (cid === 'sp_refine') {
+          const modal = new ModalBuilder()
+            .setCustomId('sp_refine_modal')
+            .setTitle('Tìm kiếm Spotify');
+          const input = new TextInputBuilder()
+            .setCustomId('sp_query')
+            .setLabel('Từ khóa')
+            .setStyle(TextInputStyle.Short)
+            .setValue(query)
+            .setMaxLength(100);
+          modal.addComponents(
+            new ActionRowBuilder<TextInputBuilder>().addComponents(input),
+          );
+          await i.showModal(modal);
+
+          const submitted = await i
+            .awaitModalSubmit({ time: 60_000 })
+            .catch(() => null);
+          if (submitted) {
+            const newQuery = submitted.fields.getTextInputValue('sp_query');
+            if (!newQuery) return;
+            await submitted.deferUpdate();
+            const newResults = await api.search(newQuery, 'spotify', 30);
+            if (newResults.length === 0) {
+              await submitted.editReply({ content: '❌ Không tìm thấy.' });
+              return;
+            }
+            allTracks.length = 0;
+            allTracks.push(...newResults);
+            totalPages = Math.ceil(allTracks.length / PAGE_SIZE);
+            page = 1;
+            await submitted.editReply({
+              embeds: [listEmbed(slice(), page, totalPages, newQuery)],
+              components: [selectMenu(slice()), pageButtons(page, totalPages)],
+            });
+          }
           return;
         }
 

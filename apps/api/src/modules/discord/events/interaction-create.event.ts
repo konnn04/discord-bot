@@ -2,6 +2,7 @@ import type { EventHandler } from 'shared/src/types/discord.types';
 import { Interaction, MessageFlags } from 'discord.js';
 import { ContextAdapter } from '../contexts/context-adapter';
 import { getPlayerManager } from '../services/music/player-manager';
+import { getMusicApi } from '../services/music/music-api.client';
 
 const interactionCreateEvent: EventHandler = {
   name: 'interactionCreate',
@@ -34,6 +35,30 @@ const interactionCreateEvent: EventHandler = {
         }
         return;
       }
+    }
+
+    // ====== Autocomplete Interactions ======
+    if (interaction.isAutocomplete()) {
+      if (!deps?.commandLoader) return;
+      const cmd = deps.commandLoader.getCommand(interaction.commandName);
+      const focused = interaction.options.getFocused();
+      if (cmd?.autocomplete && focused && String(focused).length >= 2) {
+        try {
+          const api = getMusicApi();
+          const results = await api.search(String(focused), 'spotify', 10);
+          await interaction.respond(
+            results.map((t) => ({
+              name: `${t.artist || ''} — ${t.title}`.slice(0, 100),
+              value: `${t.artist || ''} — ${t.title}`.slice(0, 100),
+            })),
+          );
+        } catch {
+          await interaction.respond([]);
+        }
+      } else {
+        await interaction.respond([]);
+      }
+      return;
     }
 
     // ====== Slash Command Interactions ======

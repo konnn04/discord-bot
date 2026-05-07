@@ -10,7 +10,7 @@ import {
   type QueueTrack,
 } from '../../services/music/queue-manager';
 import { getPlayerManager } from '../../services/music/player-manager';
-import { isUrl, formatDuration } from '../../services/music/utils';
+import { isUrl } from '../../services/music/utils';
 import {
   EmbedBuilder,
   ButtonBuilder,
@@ -123,43 +123,82 @@ const spotifyPlaylist: ActionCommand = {
         return;
       }
 
-      // Search tracks — user picks one to play
-      const results = await api.search(query, 'spotify', 20);
-      if (results.length === 0) {
-        await ctx.editReply('❌ Không tìm thấy.');
+      // Search SPOTIFY PLAYLISTS (not tracks!) using client credentials
+      const cId = process.env.SPOTIFY_CLIENT_ID;
+      const cSec = process.env.SPOTIFY_CLIENT_SECRET;
+      if (!cId || !cSec) {
+        await ctx.editReply(
+          '❌ Spotify chưa được cấu hình (thiếu SPOTIFY_CLIENT_ID/SECRET).',
+        );
         return;
       }
 
-      const pages = Math.ceil(results.length / PAGE_SIZE);
+      const authRes = await fetch('https://accounts.spotify.com/api/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          Authorization:
+            'Basic ' + Buffer.from(`${cId}:${cSec}`).toString('base64'),
+        },
+        body: 'grant_type=client_credentials',
+      });
+      const auth = await authRes.json();
+      if (!auth.access_token) {
+        await ctx.editReply('❌ Không thể xác thực Spotify.');
+        return;
+      }
+
+      const searchRes = await fetch(
+        `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=playlist&limit=20`,
+        { headers: { Authorization: `Bearer ${auth.access_token}` } },
+      );
+      const searchData = await searchRes.json();
+      const playlists: any[] = searchData.playlists?.items || [];
+
+      if (playlists.length === 0) {
+        await ctx.editReply('❌ Không tìm thấy playlist nào.');
+        return;
+      }
+
+      const plList = playlists.map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        tracks: p.tracks?.total || 0,
+        url: p.external_urls?.spotify || '',
+        image: p.images?.[0]?.url,
+        owner: p.owner?.display_name,
+        desc: p.description?.slice(0, 80) || '',
+      }));
+
+      const pages = Math.ceil(plList.length / PAGE_SIZE);
       let page = 1;
       const slice = () =>
-        results.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+        plList.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
       const buildEmbed = () => {
-        const lines = slice().map((t, i) => {
+        const lines = slice().map((p, i) => {
           const num = (page - 1) * PAGE_SIZE + i + 1;
-          const dur = t.duration ? ` • ${formatDuration(t.duration)}` : '';
-          return `**${num}.** **${t.artist || '???'}** — ${t.title.slice(0, 45)}${dur}`;
+          return `**${num}.** [${p.name}](${p.url}) — ${p.tracks} bài\n> ${p.owner ? `bởi ${p.owner} • ` : ''}${p.desc || 'Không có mô tả'}`;
         });
         return new EmbedBuilder()
           .setColor(0x1db954)
-          .setTitle(`🎧 Spotify: "${query.slice(0, 30)}"`)
+          .setTitle(`📋 Playlist Spotify: "${query.slice(0, 30)}"`)
           .setDescription(lines.join('\n'))
           .setFooter({
-            text: `Trang ${page}/${pages} • Chọn bài để thêm vào queue`,
+            text: `Trang ${page}/${pages} • Chọn playlist để thêm tất cả bài vào queue`,
           });
       };
 
       const buildSelect = () => {
         const s = new StringSelectMenuBuilder()
           .setCustomId('spl_sel')
-          .setPlaceholder('Chọn bài để phát...');
-        slice().forEach((t) =>
+          .setPlaceholder('Chọn playlist...');
+        slice().forEach((p: any) =>
           s.addOptions(
             new StringSelectMenuOptionBuilder()
-              .setLabel(`${t.artist || '???'} — ${t.title}`.slice(0, 100))
-              .setValue(t.sourceId)
-              .setDescription(t.duration ? formatDuration(t.duration) : ''),
+              .setLabel(p.name.slice(0, 100))
+              .setValue(p.id)
+              .setDescription(`${p.tracks} bài • ${p.owner || 'Spotify'}`),
           ),
         );
         return s;
@@ -198,69 +237,57 @@ const spotifyPlaylist: ActionCommand = {
           }
           if (i.customId === 'spl_prev') page--;
           else if (i.customId === 'spl_next') page++;
-          else if (i.customId === 'spl_playnow') {
-            const vc = ctx.voiceChannel;
-            if (!vc) {
-              await i.reply({
-                content: '❌ Bạn cần vào kênh thoại.',
-                flags: 64,
-              });
-              return;
-            }
-            const pm = getPlayerManager();
-            pm.join(vc);
-            void pm.playWithAutoSkip(ctx.guildId!, ctx.client);
-            await i.update({ components: [] });
-            return;
-          } else if (i.customId === 'spl_sel') {
-            const sourceId = (i as any).values?.[0];
-            const track = results.find((t) => t.sourceId === sourceId);
-            if (track) {
-              const qm = getQueueManager();
-              const pm = getPlayerManager();
-              const guildId = ctx.guildId!;
-              const qt: QueueTrack = {
-                track,
-                youtubeId: undefined,
-                requestedBy: ctx.author.username,
-                requestedById: ctx.userId,
-              };
-              const beforeCount = qm.get(guildId)?.tracks.length || 0;
-              qm.addTrack(guildId, ctx.channelId!, qt);
-              if (!beforeCount) {
-                const q = qm.get(guildId)!;
-                q.current = 0;
-                pm.join(vc);
-                void pm.playWithAutoSkip(guildId, ctx.client);
-              }
-              await i.update({
+          else if (i.customId === 'spl_sel') {
+            const plId = (i as any).values?.[0];
+            const pl = plList.find((p: any) => p.id === plId);
+            if (!pl) return;
+
+            await i.deferUpdate();
+
+            // Fetch playlist tracks via music server
+            const parsed = await api.parseUrl(pl.url, 'playlist');
+            const items: MusicTrack[] = Array.isArray(parsed.data)
+              ? parsed.data
+              : (parsed.data as any)?.tracks || [];
+            if (items.length === 0) {
+              await i.editReply({
                 embeds: [
                   new EmbedBuilder()
-                    .setColor(0x1db954)
-                    .setAuthor({ name: '🎧 Đã thêm vào hàng chờ' })
-                    .setTitle(`${track.artist || '???'} — ${track.title}`)
-                    .setThumbnail(track.thumbnail)
-                    .setURL(track.url)
-                    .setDescription(
-                      `⏱ ${formatDuration(track.duration)}${beforeCount > 0 ? `\n📋 Vị trí #${beforeCount + 1} trong queue` : '\n▶️ Đang phát ngay'}`,
-                    ),
+                    .setColor(0xef4444)
+                    .setTitle('❌ Playlist trống hoặc không truy cập được.'),
                 ],
-                components:
-                  beforeCount > 0
-                    ? [
-                        new ActionRowBuilder<ButtonBuilder>().addComponents(
-                          new ButtonBuilder()
-                            .setCustomId('spl_playnow')
-                            .setEmoji('▶️')
-                            .setLabel('Phát ngay')
-                            .setStyle(ButtonStyle.Success),
-                        ),
-                      ]
-                    : [],
+                components: [],
               });
               return;
             }
+
+            const limited = items.slice(0, 50);
+            const qm = getQueueManager();
+            const pm = getPlayerManager();
+            const guildId = ctx.guildId!;
+            const tracks: QueueTrack[] = limited.map((t) => ({
+              track: t,
+              youtubeId: t.source === 'youtube' ? t.sourceId : undefined,
+              requestedBy: ctx.author.username,
+              requestedById: ctx.userId,
+            }));
+            const wasEmpty = !qm.getCurrent(guildId);
+            qm.addTracks(guildId, ctx.channelId!, tracks);
+            if (wasEmpty) {
+              const q = qm.get(guildId)!;
+              q.current = q.tracks.length - tracks.length;
+              pm.join(vc);
+              void pm.playWithAutoSkip(guildId, ctx.client);
+            }
+
+            await i.editReply({
+              embeds: [
+                afterAddEmbed(pl.name, pl.image, tracks.length, limited),
+              ],
+            });
+            return;
           }
+
           await i.update({
             embeds: [buildEmbed()],
             components: [

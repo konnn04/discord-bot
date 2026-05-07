@@ -18,14 +18,11 @@ import {
   ActionRowBuilder,
 } from 'discord.js';
 
-/** Direct Spotify API helpers */
 async function spotifyGet(token: string, path: string): Promise<any> {
   const res = await fetch(`https://api.spotify.com/v1${path}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
-  if (res.status === 401 || res.status === 403) {
-    throw new Error('SPOTIFY_AUTH');
-  }
+  if (res.status === 401 || res.status === 403) throw new Error('SPOTIFY_AUTH');
   if (!res.ok) throw new Error(`Spotify ${res.status}`);
   return res.json();
 }
@@ -39,7 +36,6 @@ async function getAccessToken(
   });
   if (!token) return null;
   if (new Date() < token.expiresAt) return token.accessToken;
-  // Refresh
   const cId = process.env.SPOTIFY_CLIENT_ID;
   const cSec = process.env.SPOTIFY_CLIENT_SECRET;
   if (!cId || !cSec) return null;
@@ -57,7 +53,12 @@ async function getAccessToken(
       }),
     });
     const j = await r.json();
-    if (!j.access_token) return null;
+    if (!j.access_token) {
+      await prisma.client.spotifyToken
+        .delete({ where: { userId } })
+        .catch(() => {});
+      return null;
+    }
     await prisma.client.spotifyToken.update({
       where: { userId },
       data: {
@@ -71,7 +72,39 @@ async function getAccessToken(
   }
 }
 
-function mainMenuEmbed(username: string, loggedIn: boolean): EmbedBuilder {
+async function getClientToken(): Promise<string | null> {
+  const cId = process.env.SPOTIFY_CLIENT_ID;
+  const cSec = process.env.SPOTIFY_CLIENT_SECRET;
+  if (!cId || !cSec) return null;
+  const r = await fetch('https://accounts.spotify.com/api/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Authorization:
+        'Basic ' + Buffer.from(`${cId}:${cSec}`).toString('base64'),
+    },
+    body: 'grant_type=client_credentials',
+  });
+  return (await r.json()).access_token || null;
+}
+
+function backBtn(state?: string): ButtonBuilder {
+  return new ButtonBuilder()
+    .setCustomId(state ? `spot_back_${state}` : 'spot_back')
+    .setEmoji('🔙')
+    .setLabel('Quay lại')
+    .setStyle(ButtonStyle.Secondary);
+}
+function authErrEmbed(): EmbedBuilder {
+  return new EmbedBuilder()
+    .setColor(0xef4444)
+    .setTitle('🔐 Cần đăng nhập lại')
+    .setDescription(
+      'Token Spotify hết hạn hoặc thiếu quyền.\nDùng `/spotify_logout` rồi `/spotify_login` lại nhé!',
+    );
+}
+
+function mainEmbed(username: string, loggedIn: boolean): EmbedBuilder {
   return new EmbedBuilder()
     .setColor(0x1db954)
     .setAuthor({
@@ -79,62 +112,107 @@ function mainMenuEmbed(username: string, loggedIn: boolean): EmbedBuilder {
       iconURL: 'https://cdn-icons-png.flaticon.com/512/174/174872.png',
     })
     .setDescription(
-      `Xin chào **${username}**! Chọn tính năng bên dưới.\n\n${loggedIn ? '🔐 **Đã đăng nhập** — truy cập được playlist cá nhân, top artists, recommendations.' : '⚠️ **Chưa đăng nhập** — dùng `/spotify_login` để mở khóa thêm.'}`,
-    );
+      `Xin chào **${username}**!\n\n${loggedIn ? '🔐 **Đã đăng nhập**' : '⚠️ **Chưa đăng nhập** — `/spotify_login`'}`,
+    )
+    .setFooter({ text: 'Bấm nút bên dưới để khám phá' });
 }
 
-function mainButtons(loggedIn: boolean): ActionRowBuilder<ButtonBuilder>[] {
-  const row1 = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId('spot_menu_search')
-      .setEmoji('🔍')
-      .setLabel('Tìm kiếm')
-      .setStyle(ButtonStyle.Primary),
-    new ButtonBuilder()
-      .setCustomId('spot_menu_browse')
-      .setEmoji('📖')
-      .setLabel('Duyệt Featured')
-      .setStyle(ButtonStyle.Primary),
-  );
-  const row2 = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    loggedIn
-      ? new ButtonBuilder()
-          .setCustomId('spot_menu_logout')
-          .setEmoji('🔓')
-          .setLabel('Đăng xuất')
-          .setStyle(ButtonStyle.Danger)
-      : new ButtonBuilder()
-          .setCustomId('spot_menu_login')
-          .setEmoji('🔐')
-          .setLabel('Đăng nhập')
-          .setStyle(ButtonStyle.Success),
-  );
+function mainRows(loggedIn: boolean): ActionRowBuilder<ButtonBuilder>[] {
+  const rows: ActionRowBuilder<ButtonBuilder>[] = [];
   if (loggedIn) {
-    const row0 = new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder()
-        .setCustomId('spot_menu_my')
-        .setEmoji('📚')
-        .setLabel('Playlist của tôi')
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId('spot_menu_artists')
-        .setEmoji('🎤')
-        .setLabel('Top Artists')
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId('spot_menu_recs')
-        .setEmoji('💚')
-        .setLabel('Gợi ý')
-        .setStyle(ButtonStyle.Secondary),
+    rows.push(
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId('spot_my')
+          .setEmoji('📚')
+          .setLabel('Playlist')
+          .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+          .setCustomId('spot_made')
+          .setEmoji('✨')
+          .setLabel('Made For You')
+          .setStyle(ButtonStyle.Secondary),
+      ),
     );
-    return [row0, row1, row2];
+    rows.push(
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId('spot_artists')
+          .setEmoji('🎤')
+          .setLabel('Top Artists')
+          .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+          .setCustomId('spot_recs')
+          .setEmoji('💚')
+          .setLabel('Gợi ý')
+          .setStyle(ButtonStyle.Secondary),
+      ),
+    );
   }
-  return [row1, row2];
+  rows.push(
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId('spot_search')
+        .setEmoji('🔍')
+        .setLabel('Tìm kiếm')
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId('spot_browse')
+        .setEmoji('📖')
+        .setLabel('Featured')
+        .setStyle(ButtonStyle.Primary),
+    ),
+  );
+  rows.push(
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      loggedIn
+        ? new ButtonBuilder()
+            .setCustomId('spot_logout')
+            .setEmoji('🔓')
+            .setLabel('Đăng xuất')
+            .setStyle(ButtonStyle.Danger)
+        : new ButtonBuilder()
+            .setCustomId('spot_login')
+            .setEmoji('🔐')
+            .setLabel('Đăng nhập')
+            .setStyle(ButtonStyle.Success),
+    ),
+  );
+  return rows;
+}
+
+async function queueTrack(
+  artist: string,
+  title: string,
+  ctx: ContextAdapter,
+): Promise<string | null> {
+  const api = getMusicApi();
+  if (!api.isConfigured()) return '❌ Music server chưa cấu hình.';
+  const vc = ctx.voiceChannel;
+  if (!vc) return '❌ Vào kênh thoại trước.';
+  const resolved = await api.searchAndResolve(`${artist} ${title}`);
+  const qm = getQueueManager();
+  const pm = getPlayerManager();
+  const qt: QueueTrack = {
+    track: resolved.track,
+    youtubeId: resolved.youtubeId,
+    requestedBy: ctx.author.username,
+    requestedById: ctx.userId,
+  };
+  const wasEmpty = !qm.getCurrent(ctx.guildId!);
+  qm.addTrack(ctx.guildId!, ctx.channelId!, qt);
+  if (wasEmpty) {
+    const q = qm.get(ctx.guildId!)!;
+    q.current = q.tracks.length - 1;
+    pm.join(vc);
+    void pm.playWithAutoSkip(ctx.guildId!, ctx.client);
+  }
+  return null;
 }
 
 const spotify: ActionCommand = {
   name: 'spotify',
-  description: 'Menu tổng Spotify — tìm kiếm, playlist, nghệ sĩ, gợi ý',
+  description: 'Menu Spotify CLI — playlist, nghệ sĩ, gợi ý, tìm kiếm',
   category: 'music',
   permission: PermissionLevel.EVERYONE,
 
@@ -145,393 +223,512 @@ const spotify: ActionCommand = {
           where: { userId: ctx.userId },
         }))
       : false;
-
+    const avatar = ctx.author.displayAvatarURL();
     const msg = await ctx.reply({
-      embeds: [mainMenuEmbed(ctx.author.username, loggedIn)],
-      components: mainButtons(loggedIn),
+      embeds: [mainEmbed(ctx.author.username, loggedIn)],
+      components: mainRows(loggedIn),
     });
 
-    const col = msg.createMessageComponentCollector({ time: 120_000 });
-    col.on('collect', async (i) => {
-      if (i.user.id !== ctx.userId) {
-        await i.reply({ content: '❌', flags: 64 });
-        return;
-      }
+    function refreshCollector(m: typeof msg) {
+      const col = m.createMessageComponentCollector({ time: 180_000 });
+      col.on('collect', async (i) => {
+        if (i.user.id !== ctx.userId) {
+          await i.reply({ content: '❌', flags: 64 });
+          return;
+        }
+        const cid = i.customId;
 
-      const cid = i.customId;
+        if (cid === 'spot_search') {
+          await i.reply({
+            content: '🔍 Dùng `/spotify_search` hoặc `/spotify_playlist`.',
+            flags: 64,
+          });
+          return;
+        }
+        if (cid === 'spot_login') {
+          await i.reply({ content: '🔐 Dùng `/spotify_login`.', flags: 64 });
+          return;
+        }
+        if (cid === 'spot_logout') {
+          await i.reply({ content: '🔓 Dùng `/spotify_logout`.', flags: 64 });
+          return;
+        }
+        if (cid === 'spot_back') {
+          await i.update({
+            embeds: [mainEmbed(ctx.author.username, loggedIn)],
+            components: mainRows(loggedIn),
+          });
+          col.stop();
+          refreshCollector(msg);
+          return;
+        }
 
-      if (cid === 'spot_menu_search') {
-        await i.reply({
-          content:
-            '🔍 Dùng `/spotify_search query:từ khóa` hoặc `/spotify_playlist query:từ khóa` để tìm nhạc.',
-          flags: 64,
-        });
-        return;
-      }
-      if (cid === 'spot_menu_login') {
-        await i.reply({
-          content: '🔐 Dùng `/spotify_login` để đăng nhập.',
-          flags: 64,
-        });
-        return;
-      }
-      if (cid === 'spot_menu_logout') {
-        await i.reply({
-          content: '🔓 Dùng `/spotify_logout` để đăng xuất.',
-          flags: 64,
-        });
-        return;
-      }
+        if (!prisma) {
+          await i.reply({ content: '❌ Hệ thống chưa sẵn sàng.', flags: 64 });
+          return;
+        }
+        const token =
+          cid === 'spot_browse'
+            ? null
+            : await getAccessToken(ctx.userId, prisma);
+        if (!token && cid !== 'spot_browse') {
+          await i.reply({
+            content: '🔐 Cần đăng nhập Spotify! `/spotify_login`',
+            flags: 64,
+          });
+          return;
+        }
 
-      // —— Needs auth ——
-      if (!prisma) {
-        await i.reply({ content: '❌ Hệ thống chưa sẵn sàng.', flags: 64 });
-        return;
-      }
-      const token = await getAccessToken(ctx.userId, prisma);
-      if (!token) {
-        await i.reply({
-          content: '🔐 Bạn cần đăng nhập Spotify trước! `/spotify_login`',
-          flags: 64,
-        });
-        return;
-      }
-
-      await i.deferUpdate();
-
-      if (cid === 'spot_menu_my') {
+        await i.deferUpdate();
         try {
-          const data = await spotifyGet(token, '/me/playlists?limit=25');
-          const pls = (data.items || []).map((p: any) => ({
-            id: p.id,
-            name: p.name,
-            tracks: p.tracks?.total || 0,
-            url: p.external_urls?.spotify || '',
-            image: p.images?.[0]?.url,
-          }));
-          if (!pls.length) {
+          // ── My Playlists ──
+          if (cid === 'spot_my') {
+            const d = await spotifyGet(token!, '/me/playlists?limit=25');
+            const pls = (d.items || []).map((p: any) => ({
+              name: p.name,
+              tracks: p.tracks?.total || 0,
+              url: p.external_urls?.spotify || '',
+            }));
+            const emb = new EmbedBuilder()
+              .setColor(0x1db954)
+              .setAuthor({ name: '📚 Playlist của bạn', iconURL: avatar })
+              .setDescription(
+                pls.length
+                  ? pls
+                      .map(
+                        (p: any, idx: number) =>
+                          `**${idx + 1}.** [${p.name}](${p.url}) — ${p.tracks} bài`,
+                      )
+                      .join('\n')
+                  : 'Chưa có playlist.',
+              )
+              .setFooter({
+                text: pls.length
+                  ? 'Dùng /spotify_playlist query:link để phát'
+                  : '',
+              });
             await i.editReply({
-              embeds: [
-                new EmbedBuilder()
-                  .setColor(0x1db954)
-                  .setTitle('📚 Playlist của bạn')
-                  .setDescription('Chưa có playlist nào.'),
+              embeds: [emb],
+              components: [
+                new ActionRowBuilder<ButtonBuilder>().addComponents(backBtn()),
               ],
-              components: [],
             });
-            return;
+            col.stop();
+            refreshCollector(msg);
           }
-          await i.editReply({
-            embeds: [
-              new EmbedBuilder()
+          // ── Made For You (Daily Mix, Discover Weekly, Release Radar) ──
+          else if (cid === 'spot_made') {
+            const d = await spotifyGet(token!, '/me/playlists?limit=50');
+            const made = (d.items || []).filter((p: any) =>
+              /daily mix|discover weekly|release radar|time capsule|repeat rewind|on repeat/i.test(
+                p.name,
+              ),
+            );
+            if (!made.length) {
+              await i.editReply({
+                embeds: [
+                  new EmbedBuilder()
+                    .setColor(0x1db954)
+                    .setTitle('✨ Made For You')
+                    .setDescription('Không tìm thấy playlist cá nhân hóa nào.'),
+                ],
+                components: [
+                  new ActionRowBuilder<ButtonBuilder>().addComponents(
+                    backBtn(),
+                  ),
+                ],
+              });
+            } else {
+              const emb = new EmbedBuilder()
                 .setColor(0x1db954)
-                .setAuthor({
-                  name: '📚 Playlist của bạn',
-                  iconURL: ctx.author.displayAvatarURL(),
-                })
+                .setTitle('✨ Made For You')
                 .setDescription(
-                  pls
+                  made
                     .map(
-                      (p: any, idx: number) =>
-                        `**${idx + 1}.** [${p.name}](${p.url}) — ${p.tracks} bài`,
+                      (p: any, i: number) =>
+                        `**${i + 1}.** [${p.name}](${p.external_urls?.spotify || ''}) — ${p.tracks?.total || 0} bài`,
                     )
                     .join('\n'),
                 )
                 .setFooter({
                   text: 'Dùng /spotify_playlist query:link để phát',
-                }),
-            ],
-            components: [],
-          });
-        } catch (e: any) {
-          if (e.message === 'SPOTIFY_AUTH') {
-            await i.editReply({
-              embeds: [
-                new EmbedBuilder()
-                  .setColor(0xef4444)
-                  .setTitle('🔐 Cần đăng nhập lại')
-                  .setDescription(
-                    'Token Spotify hết hạn hoặc thiếu quyền.\nDùng `/spotify_logout` rồi `/spotify_login` lại nhé!',
+                });
+              await i.editReply({
+                embeds: [emb],
+                components: [
+                  new ActionRowBuilder<ButtonBuilder>().addComponents(
+                    backBtn(),
                   ),
-              ],
-              components: [],
-            });
-          } else {
-            await i.editReply(`❌ Lỗi: ${e.message}`);
+                ],
+              });
+            }
+            col.stop();
+            refreshCollector(msg);
           }
-        }
-      }
-
-      if (cid === 'spot_menu_artists') {
-        try {
-          const data = await spotifyGet(
-            token,
-            '/me/top/artists?limit=15&time_range=medium_term',
-          );
-          const artists = (data.items || []).map((a: any) => ({
-            name: a.name,
-            genres: (a.genres || []).slice(0, 3).join(', '),
-            url: a.external_urls?.spotify || '',
-            image: a.images?.[1]?.url,
-            followers: a.followers?.total,
-          }));
-          await i.editReply({
-            embeds: [
-              new EmbedBuilder()
-                .setColor(0x1db954)
-                .setAuthor({
-                  name: '🎤 Top Artists',
-                  iconURL: ctx.author.displayAvatarURL(),
-                })
-                .setDescription(
-                  artists
-                    .map(
-                      (a: any, idx: number) =>
-                        `**${idx + 1}.** [${a.name}](${a.url}) — ${a.genres || 'N/A'}`,
-                    )
-                    .join('\n'),
-                ),
-            ],
-            components: [],
-          });
-        } catch (e: any) {
-          if (e.message === 'SPOTIFY_AUTH') {
-            await i.editReply({
-              embeds: [
-                new EmbedBuilder()
-                  .setColor(0xef4444)
-                  .setTitle('🔐 Cần đăng nhập lại')
-                  .setDescription(
-                    'Token Spotify hết hạn hoặc thiếu quyền.\nDùng `/spotify_logout` rồi `/spotify_login` lại nhé!',
-                  ),
-              ],
-              components: [],
-            });
-          } else {
-            await i.editReply(`❌ Lỗi: ${e.message}`);
-          }
-        }
-      }
-
-      if (cid === 'spot_menu_recs') {
-        try {
-          const topTracks = await spotifyGet(
-            token,
-            '/me/top/tracks?limit=5&time_range=short_term',
-          );
-          const seedTrack = topTracks.items?.[0];
-          if (!seedTrack) {
-            await i.editReply({
-              embeds: [
-                new EmbedBuilder()
-                  .setColor(0x1db954)
-                  .setTitle('💚 Gợi ý')
-                  .setDescription('Cần nghe thêm nhạc để có gợi ý.'),
-              ],
-              components: [],
-            });
-            return;
-          }
-          const recs = await spotifyGet(
-            token,
-            `/recommendations?limit=10&seed_tracks=${seedTrack.id}`,
-          );
-          const tracks = (recs.tracks || []).map((t: any) => ({
-            artist: t.artists?.[0]?.name || '???',
-            title: t.name,
-            url: t.external_urls?.spotify || '',
-            album: t.album?.name,
-            image: t.album?.images?.[2]?.url,
-            id: t.id,
-            duration: Math.round(t.duration_ms / 1000),
-          }));
-
-          // Show as selectable
-          const sel = new StringSelectMenuBuilder()
-            .setCustomId('spot_recs_sel')
-            .setPlaceholder('Chọn bài để phát...');
-          tracks.forEach((t: any) =>
-            sel.addOptions(
-              new StringSelectMenuOptionBuilder()
-                .setLabel(`${t.artist} — ${t.title}`.slice(0, 100))
-                .setValue(t.id)
-                .setDescription(t.album?.slice(0, 50) || ''),
-            ),
-          );
-          const msg2 = await i.editReply({
-            embeds: [
-              new EmbedBuilder()
-                .setColor(0x1db954)
-                .setTitle(`💚 Gợi ý từ: ${seedTrack.name}`)
-                .setDescription(
-                  tracks
-                    .map(
-                      (t: any, idx: number) =>
-                        `**${idx + 1}.** **${t.artist}** — ${t.title.slice(0, 40)}`,
-                    )
-                    .join('\n'),
-                )
-                .setFooter({ text: 'Chọn bài bên dưới để phát' }),
-            ],
-            components: [
-              new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
-                sel,
+          // ── Top Artists ──
+          else if (cid === 'spot_artists') {
+            const d = await spotifyGet(
+              token!,
+              '/me/top/artists?limit=15&time_range=medium_term',
+            );
+            const artists = (d.items || []).map((a: any) => ({
+              id: a.id,
+              name: a.name,
+              genres: (a.genres || []).slice(0, 3).join(', '),
+              image: a.images?.[1]?.url,
+            }));
+            const emb = new EmbedBuilder()
+              .setColor(0x1db954)
+              .setAuthor({ name: '🎤 Top Artists', iconURL: avatar })
+              .setDescription(
+                artists
+                  .map(
+                    (a: any, i: number) =>
+                      `**${i + 1}.** ${a.name} — ${a.genres || 'N/A'}`,
+                  )
+                  .join('\n'),
+              )
+              .setFooter({ text: 'Chọn nghệ sĩ để xem chi tiết' });
+            const sel = new StringSelectMenuBuilder()
+              .setCustomId('spot_artist_sel')
+              .setPlaceholder('Chọn nghệ sĩ...');
+            artists.forEach((a: any) =>
+              sel.addOptions(
+                new StringSelectMenuOptionBuilder()
+                  .setLabel(a.name)
+                  .setValue(a.id)
+                  .setDescription(a.genres || ''),
               ),
-            ],
-          });
-
-          const col2 = msg2.createMessageComponentCollector({ time: 60_000 });
-          col2.on('collect', async (j) => {
-            if (j.user.id !== ctx.userId) {
-              await j.reply({ content: '❌', flags: 64 });
+            );
+            await i.editReply({
+              embeds: [emb],
+              components: [
+                new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+                  sel,
+                ),
+                new ActionRowBuilder<ButtonBuilder>().addComponents(backBtn()),
+              ],
+            });
+            col.stop();
+            refreshCollector(msg);
+          }
+          // ── Artist Detail ──
+          else if (cid === 'spot_artist_sel') {
+            const aid = (i as any).values?.[0];
+            if (!aid) return;
+            const [artist, top] = await Promise.all([
+              spotifyGet(token!, `/artists/${aid}`),
+              spotifyGet(
+                token!,
+                `/artists/${aid}/top-tracks?market=VN&limit=10`,
+              ),
+            ]);
+            const tracks = (top.tracks || []).map((t: any) => ({
+              id: t.id,
+              name: t.name,
+              album: t.album?.name,
+              duration: Math.round(t.duration_ms / 1000),
+              explicit: t.explicit,
+            }));
+            const emb = new EmbedBuilder()
+              .setColor(0x1db954)
+              .setAuthor({
+                name: artist.name,
+                iconURL: avatar,
+                url: artist.external_urls?.spotify,
+              })
+              .setThumbnail(artist.images?.[0]?.url)
+              .addFields(
+                {
+                  name: '🎵 Thể loại',
+                  value: (artist.genres || []).slice(0, 5).join(', ') || 'N/A',
+                },
+                {
+                  name: '👥 Followers',
+                  value: artist.followers?.total?.toLocaleString() || 'N/A',
+                  inline: true,
+                },
+                {
+                  name: '⭐ Popularity',
+                  value: `${artist.popularity || '?'}/100`,
+                  inline: true,
+                },
+              )
+              .setDescription(
+                `**Top Tracks:**\n${tracks.map((t: any, idx: number) => `**${idx + 1}.** ${t.name} ${t.explicit ? '🅴' : ''} — ${formatDuration(t.duration)}`).join('\n')}`,
+              )
+              .setFooter({ text: 'Chọn bài để phát' });
+            const tSel = new StringSelectMenuBuilder()
+              .setCustomId('spot_artist_track_sel')
+              .setPlaceholder('Chọn bài để phát...');
+            tracks.forEach((t: any) =>
+              tSel.addOptions(
+                new StringSelectMenuOptionBuilder()
+                  .setLabel(t.name)
+                  .setValue(t.id)
+                  .setDescription(
+                    `${t.album || ''} • ${formatDuration(t.duration)}`,
+                  ),
+              ),
+            );
+            await i.editReply({
+              embeds: [emb],
+              components: [
+                new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+                  tSel,
+                ),
+                new ActionRowBuilder<ButtonBuilder>().addComponents(
+                  backBtn('artists'),
+                ),
+              ],
+            });
+            col.stop();
+            refreshCollector(msg);
+          }
+          // ── Back from artist ──
+          else if (cid === 'spot_back_artists') {
+            const d = await spotifyGet(
+              token!,
+              '/me/top/artists?limit=15&time_range=medium_term',
+            );
+            const artists = (d.items || []).map((a: any) => ({
+              id: a.id,
+              name: a.name,
+              genres: (a.genres || []).slice(0, 3).join(', '),
+            }));
+            const emb = new EmbedBuilder()
+              .setColor(0x1db954)
+              .setAuthor({ name: '🎤 Top Artists', iconURL: avatar })
+              .setDescription(
+                artists
+                  .map(
+                    (a: any, i: number) =>
+                      `**${i + 1}.** ${a.name} — ${a.genres || 'N/A'}`,
+                  )
+                  .join('\n'),
+              )
+              .setFooter({ text: 'Chọn nghệ sĩ để xem chi tiết' });
+            const sel = new StringSelectMenuBuilder()
+              .setCustomId('spot_artist_sel')
+              .setPlaceholder('Chọn nghệ sĩ...');
+            artists.forEach((a: any) =>
+              sel.addOptions(
+                new StringSelectMenuOptionBuilder()
+                  .setLabel(a.name)
+                  .setValue(a.id)
+                  .setDescription(a.genres || ''),
+              ),
+            );
+            await i.editReply({
+              embeds: [emb],
+              components: [
+                new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+                  sel,
+                ),
+                new ActionRowBuilder<ButtonBuilder>().addComponents(backBtn()),
+              ],
+            });
+            col.stop();
+            refreshCollector(msg);
+          }
+          // ── Play track from artist ──
+          else if (cid === 'spot_artist_track_sel') {
+            const tid = (i as any).values?.[0];
+            const tdata = await spotifyGet(token!, `/tracks/${tid}`);
+            const err = await queueTrack(
+              tdata.artists?.[0]?.name || '',
+              tdata.name,
+              ctx,
+            );
+            if (err) {
+              await i.editReply({
+                embeds: [new EmbedBuilder().setColor(0xef4444).setTitle(err)],
+                components: [],
+              });
+            } else {
+              await i.editReply({
+                embeds: [
+                  new EmbedBuilder()
+                    .setColor(0x1db954)
+                    .setTitle('🎧 Đã thêm')
+                    .setThumbnail(tdata.album?.images?.[1]?.url)
+                    .setDescription(
+                      `**${tdata.artists?.[0]?.name || ''} — ${tdata.name}**\n⏱ ${formatDuration(Math.round(tdata.duration_ms / 1000))}`,
+                    ),
+                ],
+                components: [],
+              });
+            }
+          }
+          // ── Recommendations ──
+          else if (cid === 'spot_recs') {
+            const topT = await spotifyGet(
+              token!,
+              '/me/top/tracks?limit=5&time_range=short_term',
+            );
+            const seed = topT.items?.[0];
+            if (!seed) {
+              await i.editReply({
+                embeds: [
+                  new EmbedBuilder()
+                    .setColor(0x1db954)
+                    .setTitle('💚 Gợi ý')
+                    .setDescription('Cần nghe thêm nhạc.'),
+                ],
+                components: [
+                  new ActionRowBuilder<ButtonBuilder>().addComponents(
+                    backBtn(),
+                  ),
+                ],
+              });
+              col.stop();
+              refreshCollector(msg);
               return;
             }
-            const sid = (j as any).values?.[0];
-            const t = tracks.find((x: any) => x.id === sid);
-            if (!t) return;
-            const api = getMusicApi();
-            if (!api.isConfigured()) {
-              await j.reply({
-                content: '❌ Music server chưa cấu hình.',
-                flags: 64,
+            const recs = await spotifyGet(
+              token!,
+              `/recommendations?limit=10&seed_tracks=${seed.id}`,
+            );
+            const tracks = (recs.tracks || []).map((t: any) => ({
+              id: t.id,
+              artist: t.artists?.[0]?.name || '???',
+              title: t.name,
+              album: t.album?.name,
+              image: t.album?.images?.[2]?.url,
+              duration: Math.round(t.duration_ms / 1000),
+            }));
+            const emb = new EmbedBuilder()
+              .setColor(0x1db954)
+              .setTitle(`💚 Gợi ý từ: ${seed.name}`)
+              .setDescription(
+                tracks
+                  .map(
+                    (t: any, i: number) =>
+                      `**${i + 1}.** **${t.artist}** — ${t.title.slice(0, 40)}`,
+                  )
+                  .join('\n'),
+              )
+              .setFooter({ text: 'Chọn bài để phát' });
+            const rSel = new StringSelectMenuBuilder()
+              .setCustomId('spot_recs_sel')
+              .setPlaceholder('Chọn bài...');
+            tracks.forEach((t: any) =>
+              rSel.addOptions(
+                new StringSelectMenuOptionBuilder()
+                  .setLabel(`${t.artist} — ${t.title}`.slice(0, 100))
+                  .setValue(t.id)
+                  .setDescription(t.album?.slice(0, 50) || ''),
+              ),
+            );
+            await i.editReply({
+              embeds: [emb],
+              components: [
+                new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+                  rSel,
+                ),
+                new ActionRowBuilder<ButtonBuilder>().addComponents(backBtn()),
+              ],
+            });
+            col.stop();
+            refreshCollector(msg);
+          }
+          // ── Play from recs ──
+          else if (cid === 'spot_recs_sel') {
+            const tid = (i as any).values?.[0];
+            const tdata = await spotifyGet(token!, `/tracks/${tid}`);
+            const err = await queueTrack(
+              tdata.artists?.[0]?.name || '',
+              tdata.name,
+              ctx,
+            );
+            if (err) {
+              await i.editReply({
+                embeds: [new EmbedBuilder().setColor(0xef4444).setTitle(err)],
+                components: [],
+              });
+            } else {
+              await i.editReply({
+                embeds: [
+                  new EmbedBuilder()
+                    .setColor(0x1db954)
+                    .setTitle('🎧 Đã thêm')
+                    .setThumbnail(tdata.album?.images?.[1]?.url)
+                    .setDescription(
+                      `**${tdata.artists?.[0]?.name || ''} — ${tdata.name}**\n⏱ ${formatDuration(Math.round(tdata.duration_ms / 1000))}`,
+                    ),
+                ],
+                components: [],
+              });
+            }
+          }
+          // ── Browse Featured ──
+          else if (cid === 'spot_browse') {
+            const ct = await getClientToken();
+            if (!ct) {
+              await i.editReply({
+                embeds: [
+                  new EmbedBuilder()
+                    .setColor(0xef4444)
+                    .setTitle('❌ Spotify chưa cấu hình.'),
+                ],
+                components: [],
               });
               return;
             }
-            const vc = ctx.voiceChannel;
-            if (!vc) {
-              await j.reply({ content: '❌ Vào kênh thoại trước.', flags: 64 });
-              return;
-            }
-            await j.deferUpdate();
-            const resolved = await api.searchAndResolve(
-              `${t.artist} ${t.title}`,
+            const d = await spotifyGet(
+              ct,
+              '/browse/featured-playlists?limit=10',
             );
-            const qm = getQueueManager();
-            const pm = getPlayerManager();
-            const qt: QueueTrack = {
-              track: resolved.track,
-              youtubeId: resolved.youtubeId,
-              requestedBy: ctx.author.username,
-              requestedById: ctx.userId,
-            };
-            const wasEmpty = !qm.getCurrent(ctx.guildId!);
-            qm.addTrack(ctx.guildId!, ctx.channelId!, qt);
-            if (wasEmpty) {
-              const q = qm.get(ctx.guildId!)!;
-              q.current = q.tracks.length - 1;
-              pm.join(vc);
-              void pm.playWithAutoSkip(ctx.guildId!, ctx.client);
-            }
-            await j.editReply({
-              embeds: [
-                new EmbedBuilder()
-                  .setColor(0x1db954)
-                  .setTitle('🎧 Đã thêm')
-                  .setThumbnail(t.image)
-                  .setDescription(
-                    `**${t.artist} — ${t.title}**\n⏱ ${formatDuration(t.duration)}`,
-                  ),
+            const pls = (d.playlists?.items || []).map((p: any) => ({
+              name: p.name,
+              tracks: p.tracks?.total || 0,
+              url: p.external_urls?.spotify || '',
+              desc: p.description?.slice(0, 80) || '',
+            }));
+            const emb = new EmbedBuilder()
+              .setColor(0x1db954)
+              .setTitle('📖 Featured Playlists')
+              .setDescription(
+                pls
+                  .map(
+                    (p: any, i: number) =>
+                      `**${i + 1}.** [${p.name}](${p.url}) — ${p.tracks} bài\n> ${p.desc}`,
+                  )
+                  .join('\n'),
+              )
+              .setFooter({ text: 'Dùng /spotify_playlist query:link để phát' });
+            await i.editReply({
+              embeds: [emb],
+              components: [
+                new ActionRowBuilder<ButtonBuilder>().addComponents(backBtn()),
               ],
-              components: [],
             });
-          });
+            col.stop();
+            refreshCollector(msg);
+          }
         } catch (e: any) {
-          if (e.message === 'SPOTIFY_AUTH') {
+          if (e.message === 'SPOTIFY_AUTH')
+            await i.editReply({ embeds: [authErrEmbed()], components: [] });
+          else
             await i.editReply({
               embeds: [
                 new EmbedBuilder()
                   .setColor(0xef4444)
-                  .setTitle('🔐 Cần đăng nhập lại')
-                  .setDescription(
-                    'Token Spotify hết hạn hoặc thiếu quyền.\nDùng `/spotify_logout` rồi `/spotify_login` lại nhé!',
-                  ),
+                  .setDescription(`❌ Lỗi: ${e.message}`),
               ],
               components: [],
             });
-          } else {
-            await i.editReply(`❌ Lỗi: ${e.message}`);
-          }
         }
-      }
-
-      if (cid === 'spot_menu_browse') {
+      });
+      col.on('end', async () => {
         try {
-          // Use client credentials for browse (no user login needed)
-          const cId = process.env.SPOTIFY_CLIENT_ID;
-          const cSec = process.env.SPOTIFY_CLIENT_SECRET;
-          if (!cId || !cSec) {
-            await i.editReply({
-              embeds: [
-                new EmbedBuilder()
-                  .setColor(0xef4444)
-                  .setTitle('❌ Spotify chưa cấu hình.'),
-              ],
-              components: [],
-            });
-            return;
-          }
-          const authRes = await fetch(
-            'https://accounts.spotify.com/api/token',
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                Authorization:
-                  'Basic ' + Buffer.from(`${cId}:${cSec}`).toString('base64'),
-              },
-              body: 'grant_type=client_credentials',
-            },
-          );
-          const auth = await authRes.json();
-          const featured = await spotifyGet(
-            auth.access_token,
-            '/browse/featured-playlists?limit=10',
-          );
-          const pls = (featured.playlists?.items || []).map((p: any) => ({
-            name: p.name,
-            tracks: p.tracks?.total || 0,
-            url: p.external_urls?.spotify || '',
-            image: p.images?.[0]?.url,
-            desc: p.description?.slice(0, 60) || '',
-          }));
-          await i.editReply({
-            embeds: [
-              new EmbedBuilder()
-                .setColor(0x1db954)
-                .setTitle('📖 Featured Playlists')
-                .setDescription(
-                  pls
-                    .map(
-                      (p: any, idx: number) =>
-                        `**${idx + 1}.** [${p.name}](${p.url}) — ${p.tracks} bài\n> ${p.desc || ''}`,
-                    )
-                    .join('\n'),
-                )
-                .setFooter({
-                  text: 'Dùng /spotify_playlist query:link để phát',
-                }),
-            ],
-            components: [],
-          });
-        } catch (e: any) {
-          if (e.message === 'SPOTIFY_AUTH') {
-            await i.editReply({
-              embeds: [
-                new EmbedBuilder()
-                  .setColor(0xef4444)
-                  .setTitle('🔐 Cần đăng nhập lại')
-                  .setDescription(
-                    'Token Spotify hết hạn hoặc thiếu quyền.\nDùng `/spotify_logout` rồi `/spotify_login` lại nhé!',
-                  ),
-              ],
-              components: [],
-            });
-          } else {
-            await i.editReply(`❌ Lỗi: ${e.message}`);
-          }
+          await msg.edit({ components: [] }).catch(() => {});
+        } catch {
+          /* */
         }
-      }
-    });
+      });
+    }
+    refreshCollector(msg);
   },
 };
 
