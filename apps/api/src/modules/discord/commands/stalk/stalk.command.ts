@@ -216,16 +216,16 @@ const stalk: ActionCommand = {
             embeds: [statusEmbed(target.username, modes, guildName)],
             components: [modeButtons(modes)],
           });
-          col.stop();
-          attachCollector(msg);
         }
       });
 
-      col.on('end', async () => {
-        try {
-          await msg.edit({ components: [] }).catch(() => {});
-        } catch {
-          /* deleted */
+      col.on('end', async (_, reason) => {
+        if (reason === 'time') {
+          try {
+            await msg.edit({ components: [] }).catch(() => {});
+          } catch {
+            /* deleted */
+          }
         }
       });
     };
@@ -235,14 +235,31 @@ const stalk: ActionCommand = {
     // DM confirmation
     try {
       const active = MODE_DEFS.filter((m) => modes[m.key]);
-      await ctx.author.send(
-        `✅ **Stalker Activated**\n` +
-          `Bạn đang theo dõi **${target.username}** tại **${guildName}**\n` +
-          `Chế độ: ${active.map((m) => m.label).join(', ') || 'không có'}\n\n` +
-          `Bạn sẽ nhận DM khi:\n` +
-          active.map((m) => `• ${m.desc}`).join('\n') ||
-          '• (đã tắt tất cả chế độ)',
-      );
+      const dmEmbed = new EmbedBuilder()
+        .setColor(0x10b981)
+        .setTitle('✅ Đã bật Stalker')
+        .setDescription(
+          `Bạn đang theo dõi **${target.username}** tại **${guildName}**`,
+        )
+        .addFields(
+          {
+            name: 'Chế độ hoạt động',
+            value:
+              active.map((m) => `${m.emoji} ${m.label}`).join(' | ') ||
+              'Không có',
+            inline: false,
+          },
+          {
+            name: 'Bạn sẽ nhận DM khi:',
+            value:
+              active.map((m) => `• ${m.desc}`).join('\n') ||
+              '• (đã tắt tất cả chế độ)',
+            inline: false,
+          },
+        )
+        .setTimestamp();
+
+      await ctx.author.send({ embeds: [dmEmbed] });
     } catch {
       /* DMs closed */
     }
