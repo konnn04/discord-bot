@@ -40,6 +40,7 @@ import {
   LogOut,
   Bot,
   ChevronLeft,
+  UserCog,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useEffect, useMemo } from "react";
@@ -158,9 +159,28 @@ export function AdminLayout() {
                 </SidebarGroup>
               </>
             ) : (
-              <div className="flex flex-1 items-center justify-center p-4 text-center text-sm text-muted-foreground">
-                Chọn một server để bắt đầu quản lý
-              </div>
+              <>
+                <div className="flex flex-1 items-center justify-center p-4 text-center text-sm text-muted-foreground">
+                  Chọn một server để bắt đầu quản lý
+                </div>
+                <SidebarGroup>
+                  <SidebarGroupContent>
+                    <SidebarMenu>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={location.pathname === "/admin/settings"}
+                        >
+                          <Link to="/admin/settings">
+                            <UserCog className="h-4 w-4" />
+                            <span>Cá nhân hóa</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    </SidebarMenu>
+                  </SidebarGroupContent>
+                </SidebarGroup>
+              </>
             )}
           </SidebarContent>
         </Sidebar>
@@ -214,6 +234,12 @@ export function AdminLayout() {
                 <DropdownMenuContent align="end" className="w-48">
                   <DropdownMenuLabel>{user?.username}</DropdownMenuLabel>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link to="/admin/settings" className="cursor-pointer">
+                      <UserCog className="mr-2 h-4 w-4" />
+                      Cá nhân hóa
+                    </Link>
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={logout}>
                     <LogOut className="mr-2 h-4 w-4" />
                     Đăng xuất

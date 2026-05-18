@@ -9,6 +9,8 @@ import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { api } from "@/lib/api";
 import { API_ROUTES } from "@/lib/routes";
+import { useSettingsStore } from "@/stores/settings.store";
+import { shiftOnlineDataToTimezone, getTimezoneAbbr } from "@/lib/time";
 import type {
   GuildInfo,
   GuildStats,
@@ -78,6 +80,11 @@ export function DashboardPage() {
   const [xpTopPeriod, setXpTopPeriod] = useState<string>("month");
   const [musicStats, setMusicStats] = useState<MusicStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { timezoneOffset, timezone, init: initSettings } = useSettingsStore();
+
+  useEffect(() => {
+    initSettings();
+  }, [initSettings]);
 
   useEffect(() => {
     if (!guildId) return;
@@ -115,13 +122,13 @@ export function DashboardPage() {
         setStats(s);
         setMessageChart(m);
         setXpChart(x);
-        setOnlineFreq(o);
+        setOnlineFreq(shiftOnlineDataToTimezone(o, timezoneOffset));
         setXpTopMembers(xpTop);
         setMusicStats(ms);
         setIsLoading(false);
       })
       .catch(() => setIsLoading(false));
-  }, [guildId, onlineRange, xpTopPeriod]);
+  }, [guildId, onlineRange, xpTopPeriod, timezoneOffset]);
 
   if (isLoading) {
     return (
@@ -473,7 +480,7 @@ export function DashboardPage() {
           </CardHeader>
           <CardContent>
             <p className="mb-3 text-xs text-muted-foreground">
-              Lượng thành viên online trung bình theo khung giờ (UTC)
+              Lượng thành viên online trung bình theo khung giờ ({getTimezoneAbbr(timezone)})
               {onlineFreq.every((d) => d.count === 0) &&
                 " — Chưa có dữ liệu, cron đang thu thập..."}
             </p>

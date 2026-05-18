@@ -12,6 +12,7 @@ const AdminLayout = lazy(() => import("@/components/layout/admin-layout").then(m
 const AdminPage = lazy(() => import("@/pages/admin/index").then(m => ({ default: m.AdminPage })));
 const DashboardPage = lazy(() => import("@/pages/admin/dashboard").then(m => ({ default: m.DashboardPage })));
 const MembersPage = lazy(() => import("@/pages/admin/members").then(m => ({ default: m.MembersPage })));
+const UserSettingsPage = lazy(() => import("@/pages/admin/settings").then(m => ({ default: m.UserSettingsPage })));
 const MusicLayout = lazy(() => import("@/components/layout/music-layout").then(m => ({ default: m.MusicLayout })));
 const MusicSelectPage = lazy(() => import("@/pages/music-select").then(m => ({ default: m.MusicSelectPage })));
 const MusicPage = lazy(() => import("@/pages/music").then(m => ({ default: m.MusicPage })));
@@ -47,6 +48,10 @@ export const router = createBrowserRouter([
     ),
     children: [
       { index: true, element: <Lazy><AdminPage /></Lazy> },
+      {
+        path: "settings",
+        element: <Lazy><UserSettingsPage /></Lazy>,
+      },
       {
         path: ":guildId/dashboard",
         element: <Lazy><DashboardPage /></Lazy>,

@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { useGuildStore } from "@/stores/guild.store";
+import { useSettingsStore } from "@/stores/settings.store";
+import { formatInTimezone } from "@/lib/time";
 import {
   Server,
   Clock,
@@ -77,8 +79,13 @@ function formatBytes(bytes: number): string {
 export function AdminPage() {
   const navigate = useNavigate();
   const { guilds, isLoading, fetchGuilds } = useGuildStore();
+  const { init: initSettings } = useSettingsStore();
   const [health, setHealth] = useState<HealthData | null>(null);
   const [fullHealth, setFullHealth] = useState<FullHealthResponse['data'] | null>(null);
+
+  useEffect(() => {
+    initSettings();
+  }, [initSettings]);
 
   useEffect(() => {
     fetchGuilds();
@@ -140,7 +147,7 @@ export function AdminPage() {
                 {health ? formatDuration(health.uptime) : "--"}
               </div>
               <p className="text-xs text-muted-foreground">
-                {health ? new Date(health.timestamp).toLocaleString("vi-VN") : ""}
+                {health ? formatInTimezone(health.timestamp) : ""}
               </p>
             </CardContent>
           </Card>
@@ -238,7 +245,7 @@ export function AdminPage() {
               </div>
               {fullHealth?.musicServer?.timestamp && (
                 <p className="text-xs text-muted-foreground">
-                  {new Date(fullHealth.musicServer.timestamp).toLocaleString("vi-VN")}
+                  {formatInTimezone(fullHealth.musicServer.timestamp)}
                 </p>
               )}
             </CardContent>
