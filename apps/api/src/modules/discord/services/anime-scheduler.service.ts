@@ -24,66 +24,64 @@ export class AnimeSchedulerService {
   async checkSchedule(): Promise<void> {
     if (!this.discordClient) return;
 
+    const now = new Date();
     const tracks = await this.prisma.client.animeTrack.findMany({
-      where: { airingAt: { not: null } },
+      where: {
+        airingAt: { lte: now },
+      },
     });
 
     let notified = 0;
-    const now = Math.floor(Date.now() / 1000);
 
     for (const track of tracks) {
       try {
-        const schedule = await getAnimeApi().getBroadcastSchedule(
-          track.animeId,
-        );
-        if (!schedule) continue;
+        const episodeToNotify = track.nextEpisode;
+        if (!episodeToNotify) continue;
 
-        // Episode already aired?
-        if (schedule.airingAt > now) continue;
-
-        // Already notified for this episode?
         const alreadyNotified =
           await this.prisma.client.animeEpisodeNotified.findUnique({
             where: {
               userId_animeId_episode: {
                 userId: track.userId,
                 animeId: track.animeId,
-                episode: schedule.episode,
+                episode: episodeToNotify,
               },
             },
           });
-        if (alreadyNotified) continue;
 
-        // DM the user
-        const discordUser = await this.discordClient.users
-          .fetch(track.userId)
-          .catch(() => null);
-        if (!discordUser) continue;
+        if (!alreadyNotified) {
+          // DM the user
+          const discordUser = await this.discordClient.users
+            .fetch(track.userId)
+            .catch(() => null);
 
-        const embed = new EmbedBuilder()
-          .setColor(0x8b5cf6)
-          .setTitle(`📺 Tập mới: ${track.title}`)
-          .setDescription(`**Tập ${schedule.episode}** đã phát sóng!`)
-          .setThumbnail(track.posterUrl)
-          .setFooter({ text: 'Dùng /my_anime để quản lý danh sách theo dõi' });
+          if (discordUser) {
+            const embed = new EmbedBuilder()
+              .setColor(0x8b5cf6)
+              .setTitle(`📺 Tập mới: ${track.title}`)
+              .setDescription(`**Tập ${episodeToNotify}** đã phát sóng!`)
+              .setThumbnail(track.posterUrl)
+              .setFooter({
+                text: 'Dùng /my_anime để quản lý danh sách theo dõi',
+              });
 
-        try {
-          await discordUser.send({ embeds: [embed] });
-        } catch {
-          /* DMs closed */
-          continue;
+            try {
+              await discordUser.send({ embeds: [embed] });
+              await this.prisma.client.animeEpisodeNotified.create({
+                data: {
+                  userId: track.userId,
+                  animeId: track.animeId,
+                  episode: episodeToNotify,
+                },
+              });
+              notified++;
+            } catch {
+              /* DMs closed */
+            }
+          }
         }
 
-        // Mark notified
-        await this.prisma.client.animeEpisodeNotified.create({
-          data: {
-            userId: track.userId,
-            animeId: track.animeId,
-            episode: schedule.episode,
-          },
-        });
-
-        // Update tracking record with new next episode
+        // Fetch new schedule to update track
         const nextSchedule = await getAnimeApi().getBroadcastSchedule(
           track.animeId,
         );
@@ -98,8 +96,6 @@ export class AnimeSchedulerService {
               : null,
           },
         });
-
-        notified++;
       } catch (err: any) {
         this.logger.warn(
           `[Anime] Check failed for anime ${track.animeId}: ${err.message}`,
@@ -135,7 +131,6 @@ export class AnimeSchedulerService {
         const anime = animeMap.get(track.animeId);
         if (!anime || anime.status !== 'FINISHED') continue;
 
-        // Delete tracking for this user
         await this.prisma.client.animeTrack
           .delete({
             where: {
@@ -145,11 +140,13 @@ export class AnimeSchedulerService {
               },
             },
           })
-          .catch(() => {/* already deleted */});
+          .catch(() => {
+            /* already deleted */
+          });
 
         // DM user
         try {
-          const user = await this.discordClient!.users
+          const user = await this.discordClient.users
             .fetch(track.userId)
             .catch(() => null);
           if (user) {
@@ -157,7 +154,9 @@ export class AnimeSchedulerService {
               `✅ **${track.title}** đã kết thúc! Đã tự động bỏ theo dõi.`,
             );
           }
-        } catch {/* DMs closed */}
+        } catch {
+          /* DMs closed */
+        }
 
         removed++;
       }

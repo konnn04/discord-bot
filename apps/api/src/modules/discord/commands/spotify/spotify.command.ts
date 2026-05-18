@@ -130,7 +130,7 @@ function mainRows(loggedIn: boolean): ActionRowBuilder<ButtonBuilder>[] {
         new ButtonBuilder()
           .setCustomId('spot_made')
           .setEmoji('✨')
-          .setLabel('Made For You')
+          .setLabel('Featured (Made for u)')
           .setStyle(ButtonStyle.Secondary),
       ),
     );
@@ -143,8 +143,8 @@ function mainRows(loggedIn: boolean): ActionRowBuilder<ButtonBuilder>[] {
           .setStyle(ButtonStyle.Secondary),
         new ButtonBuilder()
           .setCustomId('spot_recs')
-          .setEmoji('💚')
-          .setLabel('Gợi ý')
+          .setEmoji('🔂')
+          .setLabel('Vừa nghe')
           .setStyle(ButtonStyle.Secondary),
       ),
     );
@@ -316,21 +316,20 @@ const spotify: ActionCommand = {
             col.stop();
             refreshCollector(msg);
           }
-          // ── Made For You (Daily Mix, Discover Weekly, Release Radar) ──
+          // ── Made For You / Featured Playlists ──
           else if (cid === 'spot_made') {
-            const d = await spotifyGet(token!, '/me/playlists?limit=50');
-            const made = (d.items || []).filter((p: any) =>
-              /daily mix|discover weekly|release radar|time capsule|repeat rewind|on repeat/i.test(
-                p.name,
-              ),
+            const d = await spotifyGet(
+              token!,
+              '/browse/featured-playlists?limit=20&country=VN',
             );
+            const made = d.playlists?.items || [];
             if (!made.length) {
               await i.editReply({
                 embeds: [
                   new EmbedBuilder()
                     .setColor(0x1db954)
-                    .setTitle('✨ Made For You')
-                    .setDescription('Không tìm thấy playlist cá nhân hóa nào.'),
+                    .setTitle('✨ Featured Playlists')
+                    .setDescription('Không tìm thấy playlist nổi bật nào.'),
                 ],
                 components: [
                   new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -341,12 +340,13 @@ const spotify: ActionCommand = {
             } else {
               const emb = new EmbedBuilder()
                 .setColor(0x1db954)
-                .setTitle('✨ Made For You')
+                .setTitle(`✨ ${d.message || 'Featured Playlists'}`)
                 .setDescription(
                   made
+                    .slice(0, 15)
                     .map(
                       (p: any, i: number) =>
-                        `**${i + 1}.** [${p.name}](${p.external_urls?.spotify || ''}) — ${p.tracks?.total || 0} bài`,
+                        `**${i + 1}.** [${p.name}](${p.external_urls?.spotify || ''}) — ${p.tracks?.total || 0} bài\n> ${p.description?.slice(0, 60) || ''}`,
                     )
                     .join('\n'),
                 )
@@ -560,20 +560,36 @@ const spotify: ActionCommand = {
               });
             }
           }
-          // ── Recommendations ──
+          // ── Recently Played (Vừa nghe) ──
           else if (cid === 'spot_recs') {
-            const topT = await spotifyGet(
+            const d = await spotifyGet(
               token!,
-              '/me/top/tracks?limit=5&time_range=short_term',
+              '/me/player/recently-played?limit=25',
             );
-            const seed = topT.items?.[0];
-            if (!seed) {
+
+            const tracks = (d.items || []).map((item: any) => ({
+              id: item.track.id,
+              artist: item.track.artists?.[0]?.name || '???',
+              title: item.track.name,
+              album: item.track.album?.name,
+              image: item.track.album?.images?.[2]?.url,
+              duration: Math.round(item.track.duration_ms / 1000),
+            }));
+
+            const uniqueTracks = tracks
+              .filter(
+                (t: any, idx: number, arr: any[]) =>
+                  arr.findIndex((item) => item.id === t.id) === idx,
+              )
+              .slice(0, 10);
+
+            if (!uniqueTracks.length) {
               await i.editReply({
                 embeds: [
                   new EmbedBuilder()
                     .setColor(0x1db954)
-                    .setTitle('💚 Gợi ý')
-                    .setDescription('Cần nghe thêm nhạc.'),
+                    .setTitle('🔂 Vừa nghe gần đây')
+                    .setDescription('Bạn chưa nghe bài nào gần đây.'),
                 ],
                 components: [
                   new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -585,34 +601,24 @@ const spotify: ActionCommand = {
               refreshCollector(msg);
               return;
             }
-            const recs = await spotifyGet(
-              token!,
-              `/recommendations?limit=10&seed_tracks=${seed.id}`,
-            );
-            const tracks = (recs.tracks || []).map((t: any) => ({
-              id: t.id,
-              artist: t.artists?.[0]?.name || '???',
-              title: t.name,
-              album: t.album?.name,
-              image: t.album?.images?.[2]?.url,
-              duration: Math.round(t.duration_ms / 1000),
-            }));
+
             const emb = new EmbedBuilder()
               .setColor(0x1db954)
-              .setTitle(`💚 Gợi ý từ: ${seed.name}`)
+              .setTitle('🔂 Vừa nghe gần đây')
               .setDescription(
-                tracks
+                uniqueTracks
                   .map(
-                    (t: any, i: number) =>
-                      `**${i + 1}.** **${t.artist}** — ${t.title.slice(0, 40)}`,
+                    (t: any, idx: number) =>
+                      `**${idx + 1}.** **${t.artist}** — ${t.title.slice(0, 40)}`,
                   )
                   .join('\n'),
               )
               .setFooter({ text: 'Chọn bài để phát' });
+
             const rSel = new StringSelectMenuBuilder()
               .setCustomId('spot_recs_sel')
               .setPlaceholder('Chọn bài...');
-            tracks.forEach((t: any) =>
+            uniqueTracks.forEach((t: any) =>
               rSel.addOptions(
                 new StringSelectMenuOptionBuilder()
                   .setLabel(`${t.artist} — ${t.title}`.slice(0, 100))
@@ -620,6 +626,7 @@ const spotify: ActionCommand = {
                   .setDescription(t.album?.slice(0, 50) || ''),
               ),
             );
+
             await i.editReply({
               embeds: [emb],
               components: [
@@ -677,7 +684,7 @@ const spotify: ActionCommand = {
             }
             const d = await spotifyGet(
               ct,
-              '/browse/featured-playlists?limit=10',
+              '/search?q=top+hits&type=playlist&limit=10',
             );
             const pls = (d.playlists?.items || []).map((p: any) => ({
               name: p.name,

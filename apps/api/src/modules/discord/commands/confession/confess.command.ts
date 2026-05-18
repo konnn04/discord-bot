@@ -8,6 +8,8 @@ import {
   TextInputStyle,
   ActionRowBuilder,
   TextChannel,
+  EmbedBuilder,
+  Colors,
 } from 'discord.js';
 
 const BANNED_WORDS = ['địt', 'cặc', 'lồn', 'chó', 'fuck', 'shit'];
@@ -76,20 +78,20 @@ const confess: ActionCommand = {
 
     if (!submitted) return;
 
+    await submitted.deferReply({ flags: 64 });
+
     const content = submitted.fields.getTextInputValue('content').trim();
     if (!content) {
-      await submitted.reply({
+      await submitted.editReply({
         content: '❌ Nội dung không được để trống.',
-        flags: 64,
       });
       return;
     }
 
     const bad = filterContent(content);
     if (bad) {
-      await submitted.reply({
+      await submitted.editReply({
         content: `🚫 Lời nhắn của bạn chứa từ không phù hợp. Không được gửi.`,
-        flags: 64,
       });
       return;
     }
@@ -99,11 +101,39 @@ const confess: ActionCommand = {
       | TextChannel
       | undefined;
     if (!ch) {
-      await submitted.reply({
+      await submitted.editReply({
         content: '❌ Kênh confession không tồn tại.',
-        flags: 64,
       });
       return;
+    }
+
+    // Process @username mentions
+    let processedContent = content;
+    const mentionRegex = /@([a-zA-Z0-9_.-]+)/g;
+    const matches = [...content.matchAll(mentionRegex)];
+
+    if (matches.length > 0) {
+      try {
+        await ctx.guild!.members.fetch();
+      } catch {
+        /* ignore */
+      }
+
+      for (const match of matches) {
+        const query = match[1].toLowerCase();
+        const member = ctx.guild!.members.cache.find(
+          (m) =>
+            m.user.username.toLowerCase() === query ||
+            (m.user.globalName && m.user.globalName.toLowerCase() === query) ||
+            (m.nickname && m.nickname.toLowerCase() === query),
+        );
+        if (member) {
+          processedContent = processedContent.replace(
+            match[0],
+            `<@${member.id}>`,
+          );
+        }
+      }
     }
 
     // Generate anonymous number
@@ -113,33 +143,35 @@ const confess: ActionCommand = {
     const anonLabel = `Ẩn danh #${count + 1}`;
 
     try {
+      const embed = new EmbedBuilder()
+        .setColor(Colors.Purple)
+        .setAuthor({ name: `📩 Confession ${anonLabel}` })
+        .setDescription(processedContent)
+        .setTimestamp()
+        .setFooter({ text: 'Dùng lệnh /confess để gửi lời nhắn' });
+
       const msg = await ch.send({
-        content: `📩 **${anonLabel}**\n${content}`,
+        embeds: [embed],
       });
 
-      // Auto reactions
-      const reactions = ['❤️', '😂', '😮', '😢', '🔥'];
-      for (const r of reactions) {
-        await msg.react(r).catch(() => {});
-      }
+      await submitted.editReply({
+        content: `✅ Đã gửi lời nhắn ${anonLabel} thành công!`,
+      });
 
-      // Log to DB
+      const reactions = ['❤️', '😂', '😮', '😢', '🔥'];
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
+      Promise.all(reactions.map((r) => msg.react(r).catch(() => {})));
+
       await prisma.client.confessionLog.create({
         data: {
           guildId: ctx.guildId,
           authorId: ctx.userId,
-          content,
+          content: processedContent,
         },
       });
-
-      await submitted.reply({
-        content: `✅ Đã gửi lời nhắn ẩn danh (${anonLabel})!`,
-        flags: 64,
-      });
     } catch (err: any) {
-      await submitted.reply({
+      await submitted.editReply({
         content: `❌ Lỗi khi gửi: ${err.message}`,
-        flags: 64,
       });
     }
   },

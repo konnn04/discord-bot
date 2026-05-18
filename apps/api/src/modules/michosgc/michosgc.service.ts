@@ -3,7 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { GlobalSettingsService } from '../settings/global-settings.service';
 import { GuildSettingsService } from '../settings/guild-settings.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { Client, TextChannel, EmbedBuilder } from 'discord.js';
+import { Client, EmbedBuilder } from 'discord.js';
 import { createHash } from 'crypto';
 
 interface HoyoApiResponse {
@@ -116,7 +116,12 @@ export class MichosgcService implements OnModuleInit {
         const channel = await this.discordClient!.channels.fetch(
           config.channelId,
         );
-        if (!channel || !(channel instanceof TextChannel)) continue;
+        if (!channel || !channel.isTextBased()) {
+          this.logger.warn(
+            `Guild ${guildId}: Channel ${config.channelId} is not text-based or not found.`,
+          );
+          continue;
+        }
 
         const gameNames: Record<string, string> = {
           genshin: 'Genshin Impact',
@@ -175,7 +180,11 @@ export class MichosgcService implements OnModuleInit {
         const messagePayload: any = { embeds: [embed] };
         if (content) messagePayload.content = content;
 
-        await channel.send(messagePayload);
+        if ('send' in channel) {
+          await channel.send(messagePayload);
+        } else {
+          await (channel as any).send(messagePayload);
+        }
       } catch (err) {
         this.logger.error(`Failed to send code to guild ${guildId}:`, err);
       }
