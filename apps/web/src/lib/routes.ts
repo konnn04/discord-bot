@@ -32,7 +32,10 @@ export const API_ROUTES = {
     `/guilds/${guildId}/members/${memberId}/timeout`,
   GUILD_CHARTS_MESSAGES: (id: string) => `/guilds/${id}/charts/messages`,
   GUILD_CHARTS_XP: (id: string) => `/guilds/${id}/charts/xp`,
-  GUILD_CHARTS_ONLINE: (id: string) => `/guilds/${id}/charts/online`,
+  GUILD_CHARTS_XP_TOP: (id: string) => `/guilds/${id}/charts/xp/top`,
+  GUILD_CHARTS_ONLINE: (id: string, range?: string) =>
+    `/guilds/${id}/charts/online${range ? `?range=${range}` : ''}`,
+  GUILD_MUSIC_STATS: (id: string) => `/guilds/${id}/music/stats`,
 
   MUSIC_STATE: (guildId: string) =>
     `/v1/discord/music/guilds/${guildId}/state`,

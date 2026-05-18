@@ -3,6 +3,8 @@ import { DiscordService } from '../discord/discord.service';
 import { GuildSettingsService } from '../settings/guild-settings.service';
 import { PermissionService } from '../discord/services/permission.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { OnlinePresenceService } from './online-presence.service';
+import { MusicStatsService, MusicStats } from './music-stats.service';
 import type { GuildSettings } from 'shared/src/types/settings.types';
 
 /** TTL cache for member lists — avoids spamming Discord API on every pagination request */
@@ -33,6 +35,8 @@ export class GuildsService {
     private guildSettings: GuildSettingsService,
     private permissionService: PermissionService,
     private prisma: PrismaService,
+    private onlinePresence: OnlinePresenceService,
+    private musicStats: MusicStatsService,
   ) {}
 
   /** Get all guilds the bot is in, optionally filtered by a user's guilds */
@@ -345,13 +349,60 @@ export class GuildsService {
       .map(([month, xp]) => ({ month, xp }));
   }
 
-  /** Get online frequency by hour - placeholder */
-  getOnlineFrequency(guildId: string): { hour: number; count: number }[] {
-    // In production, this would query presence tracking data for guildId
-    void guildId; // reserved for future implementation
-    return Array.from({ length: 24 }, (_, hour) => ({
-      hour,
-      count: 0,
+  /** Get online frequency by hour with range filter */
+  getOnlineFrequency(
+    guildId: string,
+    range: 'week' | 'month' | '90d' = 'week',
+  ): Promise<{ hour: number; count: number }[]> {
+    return this.onlinePresence.getOnlineFrequency(guildId, range);
+  }
+
+  /** Get top XP members (protected, bypasses rankApi setting) */
+  async getTopMembers(
+    guildId: string,
+    period: string,
+    limit: number = 10,
+  ): Promise<
+    {
+      rank: number;
+      userId: string;
+      username: string;
+      avatarUrl: string | null;
+      xp: number;
+    }[]
+  > {
+    if (!this.prisma.isConnected) return [];
+
+    const where = /^\d{4}$/.test(period)
+      ? { guildId, period: { startsWith: period } }
+      : { guildId, period };
+
+    const records = await this.prisma.client.guildMemberXp.findMany({
+      where,
+      orderBy: { xp: 'desc' },
+      take: Math.min(Math.max(1, limit), 100),
+      include: {
+        user: {
+          select: { discordId: true, username: true, avatar: true },
+        },
+      },
+    });
+
+    const DISCORD_CDN = 'https://cdn.discordapp.com';
+    return records.map((r: any, i: number) => ({
+      rank: i + 1,
+      userId: r.userId,
+      username: r.user?.username ?? 'Unknown',
+      avatarUrl:
+        r.user?.discordId && r.user?.avatar
+          ? `${DISCORD_CDN}/avatars/${r.user.discordId}/${r.user.avatar}.${r.user.avatar.startsWith('a_') ? 'gif' : 'webp'}?size=256`
+          : null,
+      xp: r.xp,
     }));
+  }
+
+  /** Get music statistics for a guild */
+  getMusicStats(guildId: string): Promise<MusicStats> {
+    return this.musicStats.getStats(guildId);
   }
 }

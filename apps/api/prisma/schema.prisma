@@ -111,6 +111,17 @@ model MusicHistory {
   @@index([playedAt])
 }
 
+/// Tracks online member count snapshots every 15 minutes
+model OnlinePresenceLog {
+  id         String   @id @default(cuid())
+  guildId    String
+  count      Int
+  recordedAt DateTime @default(now())
+
+  @@index([guildId, recordedAt])
+  @@index([recordedAt])
+}
+
 /// Maps voice/stage channels to their auto-created tag-everyone roles
 model VoiceChannelRole {
   guildId   String

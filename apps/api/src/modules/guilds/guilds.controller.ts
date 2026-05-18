@@ -9,6 +9,8 @@ import {
   UseGuards,
   Req,
   ForbiddenException,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { GuildsService } from './guilds.service';
 import { AuthGuard } from '../auth/auth.guard';
@@ -174,14 +176,64 @@ export class GuildsController {
     return { success: true, data };
   }
 
-  /** Get online frequency chart data */
+  /** Get online frequency chart data with range filter */
   @Get(':id/charts/online')
-  getOnlineFrequency(@Param('id') id: string, @Req() req: Request) {
+  async getOnlineFrequency(
+    @Param('id') id: string,
+    @Query('range') range: string,
+    @Req() req: Request,
+  ) {
     const user = (req as any).user;
     if (!this.guildsService.canManageGuild(user.sub, id)) {
       throw new ForbiddenException('You do not have permission');
     }
-    const data = this.guildsService.getOnlineFrequency(id);
+    const validRange = range === 'month' || range === '90d' ? range : 'week';
+    const data = await this.guildsService.getOnlineFrequency(id, validRange);
+    return { success: true, data };
+  }
+
+  /** Get top XP members for a guild (protected, no rankApi setting needed) */
+  @Get(':id/charts/xp/top')
+  async getTopXpMembers(
+    @Param('id') id: string,
+    @Query('period') period: string,
+    @Query('limit') limit: string,
+    @Req() req: Request,
+  ) {
+    const user = (req as any).user;
+    if (!this.guildsService.canManageGuild(user.sub, id)) {
+      throw new ForbiddenException('You do not have permission');
+    }
+
+    if (!period) {
+      const now = new Date();
+      period = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    }
+
+    if (!/^\d{4}(-\d{2})?$/.test(period)) {
+      throw new HttpException(
+        { success: false, error: 'Invalid period format. Use YYYY-MM or YYYY' },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const parsedLimit = limit ? parseInt(limit, 10) : 10;
+    const data = await this.guildsService.getTopMembers(
+      id,
+      period,
+      parsedLimit,
+    );
+    return { success: true, data: { guildId: id, period, members: data } };
+  }
+
+  /** Get music statistics for a guild */
+  @Get(':id/music/stats')
+  async getMusicStats(@Param('id') id: string, @Req() req: Request) {
+    const user = (req as any).user;
+    if (!this.guildsService.canManageGuild(user.sub, id)) {
+      throw new ForbiddenException('You do not have permission');
+    }
+    const data = await this.guildsService.getMusicStats(id);
     return { success: true, data };
   }
 }

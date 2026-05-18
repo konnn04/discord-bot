@@ -70,4 +70,7 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   get musicHistory() {
     return this.client?.musicHistory;
   }
+  get onlinePresenceLog() {
+    return this.client?.onlinePresenceLog;
+  }
 }

@@ -61,6 +61,45 @@ export interface OnlineFrequencyData {
   count: number;
 }
 
+export interface XpTopMember {
+  rank: number;
+  userId: string;
+  username: string;
+  avatarUrl: string | null;
+  xp: number;
+}
+
+export interface XpTopData {
+  guildId: string;
+  period: string;
+  members: XpTopMember[];
+}
+
+export interface MusicStats {
+  totalTracksPlayed: number;
+  totalListeningHours: number;
+  topListeners: {
+    discordId: string;
+    username: string;
+    avatarUrl: string | null;
+    trackCount: number;
+    totalSeconds: number;
+  }[];
+  topTracks: {
+    title: string;
+    artist: string;
+    playCount: number;
+    totalSeconds: number;
+  }[];
+  currentlyPlaying: {
+    title: string;
+    artist: string;
+    thumbnail: string;
+    url: string;
+    requestedBy: string;
+  } | null;
+}
+
 export interface MusicTrack {
   id: string;
   title: string;
