@@ -29,6 +29,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: runner
     restart: unless-stopped
     environment:
       # Ensure DATABASE_URL matches the postgres service configuration above
@@ -42,6 +43,17 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: web-runner
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - bot
 
 volumes:
   pgdata:

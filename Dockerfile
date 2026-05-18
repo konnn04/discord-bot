@@ -18,6 +18,11 @@ RUN pnpm --filter shared build
 RUN pnpm --filter api exec prisma generate
 RUN pnpm --filter api build
 
+# ── Web builder ──────────────────────────────────────────
+FROM builder AS web-builder
+RUN pnpm --filter web build
+
+# ── API runner ───────────────────────────────────────────
 FROM node:20-alpine AS runner
 
 # ffmpeg is required by @discordjs/voice for audio encoding
@@ -43,6 +48,7 @@ COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
 COPY --from=builder /app/apps/api/prisma.config.ts ./apps/api/prisma.config.ts
 COPY --from=builder /app/apps/api/assets ./apps/api/assets
+COPY --from=web-builder /app/apps/web/dist ./apps/web/dist
 
 # Generate Prisma client for prod
 RUN pnpm --filter api exec prisma generate
@@ -52,3 +58,5 @@ EXPOSE 3000
 
 # Start: push schema then run NestJS
 CMD sh -c "pnpm --filter api exec prisma db push --accept-data-loss && pnpm --filter api start:prod"
+
+
