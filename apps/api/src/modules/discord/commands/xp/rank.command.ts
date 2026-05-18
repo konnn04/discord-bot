@@ -4,12 +4,9 @@ import { PermissionLevel } from 'shared/src/types/discord.types';
 import { ContextAdapter } from '../../contexts/context-adapter';
 import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
 import { join } from 'path';
-import * as fs from 'fs';
 
 try {
-  const fontDir = fs.existsSync(join(process.cwd(), 'apps/api/assets/fonts'))
-    ? join(process.cwd(), 'apps/api/assets/fonts')
-    : join(process.cwd(), 'assets/fonts'); // fallback if run from api folder
+  const fontDir = join(__dirname, '..', '..', '..', '..', 'assets', 'fonts');
   GlobalFonts.registerFromPath(join(fontDir, 'Roboto-Regular.ttf'), 'Roboto');
   GlobalFonts.registerFromPath(join(fontDir, 'Roboto-Bold.ttf'), 'Roboto');
 } catch (e) {

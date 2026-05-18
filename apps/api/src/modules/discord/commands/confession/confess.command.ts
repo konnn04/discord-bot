@@ -107,35 +107,6 @@ const confess: ActionCommand = {
       return;
     }
 
-    // Process @username mentions
-    let processedContent = content;
-    const mentionRegex = /@([a-zA-Z0-9_.-]+)/g;
-    const matches = [...content.matchAll(mentionRegex)];
-
-    if (matches.length > 0) {
-      try {
-        await ctx.guild!.members.fetch();
-      } catch {
-        /* ignore */
-      }
-
-      for (const match of matches) {
-        const query = match[1].toLowerCase();
-        const member = ctx.guild!.members.cache.find(
-          (m) =>
-            m.user.username.toLowerCase() === query ||
-            (m.user.globalName && m.user.globalName.toLowerCase() === query) ||
-            (m.nickname && m.nickname.toLowerCase() === query),
-        );
-        if (member) {
-          processedContent = processedContent.replace(
-            match[0],
-            `<@${member.id}>`,
-          );
-        }
-      }
-    }
-
     // Generate anonymous number
     const count = await prisma.client.confessionLog.count({
       where: { guildId: ctx.guildId },
@@ -146,7 +117,7 @@ const confess: ActionCommand = {
       const embed = new EmbedBuilder()
         .setColor(Colors.Purple)
         .setAuthor({ name: `📩 Confession ${anonLabel}` })
-        .setDescription(processedContent)
+        .setDescription(content)
         .setTimestamp()
         .setFooter({ text: 'Dùng lệnh /confess để gửi lời nhắn' });
 
@@ -159,14 +130,13 @@ const confess: ActionCommand = {
       });
 
       const reactions = ['❤️', '😂', '😮', '😢', '🔥'];
-      // eslint-disable-next-line @typescript-eslint/no-floating-promises
-      Promise.all(reactions.map((r) => msg.react(r).catch(() => {})));
+      await Promise.all(reactions.map((r) => msg.react(r).catch(() => {})));
 
       await prisma.client.confessionLog.create({
         data: {
           guildId: ctx.guildId,
           authorId: ctx.userId,
-          content: processedContent,
+          content: content,
         },
       });
     } catch (err: any) {

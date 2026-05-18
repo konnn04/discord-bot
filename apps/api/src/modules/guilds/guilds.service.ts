@@ -2,14 +2,37 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { DiscordService } from '../discord/discord.service';
 import { GuildSettingsService } from '../settings/guild-settings.service';
 import { PermissionService } from '../discord/services/permission.service';
+import { PrismaService } from '../prisma/prisma.service';
 import type { GuildSettings } from 'shared/src/types/settings.types';
+
+/** TTL cache for member lists — avoids spamming Discord API on every pagination request */
+interface MemberCacheEntry {
+  fetchedAt: number;
+  members: Map<
+    string,
+    {
+      id: string;
+      displayName: string;
+      username: string;
+      avatar: string | null;
+      status: string;
+      activity: string | null;
+      joinedAt: string | null;
+      roles: string[];
+      roleNames: string[];
+    }
+  >;
+}
+const MEMBER_CACHE_TTL_MS = 60_000; // 60s
 
 @Injectable()
 export class GuildsService {
+  private memberCache = new Map<string, MemberCacheEntry>();
   constructor(
     private discordService: DiscordService,
     private guildSettings: GuildSettingsService,
     private permissionService: PermissionService,
+    private prisma: PrismaService,
   ) {}
 
   /** Get all guilds the bot is in, optionally filtered by a user's guilds */
@@ -85,5 +108,250 @@ export class GuildsService {
       member.permissions.has('ManageGuild') ||
       member.permissions.has('Administrator')
     );
+  }
+
+  /** Get guild statistics */
+  getGuildStats(guildId: string) {
+    const guild = this.discordService.client.guilds.cache.get(guildId);
+    if (!guild) throw new NotFoundException(`Guild ${guildId} not found`);
+
+    const members = guild.members.cache;
+    const online = members.filter((m) => m.presence?.status === 'online').size;
+    const bots = members.filter((m) => m.user.bot).size;
+    const humans = members.size - bots;
+
+    return {
+      totalMembers: humans,
+      onlineMembers: online,
+      botMembers: bots,
+      roleCount: guild.roles.cache.size,
+      channelCount: guild.channels.cache.size,
+      createdAt: guild.createdAt?.toISOString() ?? null,
+    };
+  }
+
+  /** Get paginated member list — cached for 60s to avoid Discord rate limits */
+  async getMembers(
+    guildId: string,
+    page: number,
+    pageSize: number,
+    filter: 'all' | 'humans' | 'bots' | 'online',
+    sort: 'joined' | 'status' = 'joined',
+    search?: string,
+  ): Promise<{
+    members: Array<{
+      id: string;
+      displayName: string;
+      username: string;
+      avatar: string | null;
+      status: string;
+      activity: string | null;
+      joinedAt: string | null;
+      roles: string[];
+      roleNames: string[];
+    }>;
+    total: number;
+  }> {
+    const guild = this.discordService.client.guilds.cache.get(guildId);
+    if (!guild) throw new NotFoundException(`Guild ${guildId} not found`);
+
+    const cached = this.memberCache.get(guildId);
+    const now = Date.now();
+    let memberList: MemberCacheEntry['members'];
+
+    if (cached && now - cached.fetchedAt < MEMBER_CACHE_TTL_MS) {
+      memberList = cached.members;
+    } else {
+      await guild.members.fetch();
+      memberList = new Map();
+      for (const m of guild.members.cache.values()) {
+        memberList.set(m.id, {
+          id: m.id,
+          displayName: m.displayName,
+          username: m.user.username,
+          avatar: m.user.avatar,
+          status: m.presence?.status ?? 'offline',
+          activity: m.presence?.activities?.[0]?.name ?? null,
+          joinedAt: m.joinedAt?.toISOString() ?? null,
+          roles: m.roles.cache.map((r) => r.id),
+          roleNames: m.roles.cache.map((r) => r.name),
+        });
+      }
+      this.memberCache.set(guildId, { fetchedAt: now, members: memberList });
+    }
+
+    let members = Array.from(memberList.values());
+
+    // Filter
+    if (filter === 'humans') {
+      members = members.filter((m) => {
+        const gm = guild.members.cache.get(m.id);
+        return gm ? !gm.user.bot : true;
+      });
+    } else if (filter === 'bots') {
+      members = members.filter((m) => {
+        const gm = guild.members.cache.get(m.id);
+        return gm ? gm.user.bot : false;
+      });
+    } else if (filter === 'online') {
+      members = members.filter(
+        (m) =>
+          m.status === 'online' || m.status === 'idle' || m.status === 'dnd',
+      );
+    }
+
+    // Search
+    if (search) {
+      const q = search.toLowerCase();
+      members = members.filter(
+        (m) =>
+          m.displayName.toLowerCase().includes(q) ||
+          m.username.toLowerCase().includes(q) ||
+          m.id.includes(q),
+      );
+    }
+
+    // Sort
+    if (sort === 'status') {
+      const statusOrder: Record<string, number> = {
+        online: 0,
+        idle: 1,
+        dnd: 2,
+        offline: 3,
+      };
+      members.sort(
+        (a, b) => (statusOrder[a.status] ?? 4) - (statusOrder[b.status] ?? 4),
+      );
+    } else {
+      members.sort((a, b) =>
+        (b.joinedAt ?? '').localeCompare(a.joinedAt ?? ''),
+      );
+    }
+
+    const total = members.length;
+    const offset = (page - 1) * pageSize;
+    const paged = members.slice(offset, offset + pageSize);
+
+    return { members: paged, total };
+  }
+
+  /** Get member detail — uses cached list, no extra Discord fetch */
+  getMemberDetail(guildId: string, memberId: string) {
+    const cached = this.memberCache.get(guildId);
+    if (cached) {
+      const m = cached.members.get(memberId);
+      if (m) {
+        return {
+          joinedAt: m.joinedAt,
+          roles: m.roleNames,
+          activity: m.activity,
+        };
+      }
+    }
+
+    // Fallback: fetch from cache
+    const guild = this.discordService.client.guilds.cache.get(guildId);
+    if (!guild) throw new NotFoundException(`Guild ${guildId} not found`);
+
+    const member = guild.members.cache.get(memberId);
+    if (!member) throw new NotFoundException(`Member ${memberId} not found`);
+
+    return {
+      joinedAt: member.joinedAt?.toISOString() ?? null,
+      roles: member.roles.cache.map((r) => r.name),
+      activity: member.presence?.activities?.[0]?.name ?? null,
+    };
+  }
+
+  /** Kick a member */
+  async kickMember(guildId: string, memberId: string) {
+    const guild = this.discordService.client.guilds.cache.get(guildId);
+    if (!guild) throw new NotFoundException(`Guild ${guildId} not found`);
+
+    const member = guild.members.cache.get(memberId);
+    if (!member) throw new NotFoundException(`Member ${memberId} not found`);
+
+    await member.kick('Kicked from web dashboard');
+    return { success: true };
+  }
+
+  /** Timeout a member */
+  async timeoutMember(guildId: string, memberId: string, minutes: number) {
+    const guild = this.discordService.client.guilds.cache.get(guildId);
+    if (!guild) throw new NotFoundException(`Guild ${guildId} not found`);
+
+    const member = guild.members.cache.get(memberId);
+    if (!member) throw new NotFoundException(`Member ${memberId} not found`);
+
+    await member.timeout(minutes * 60 * 1000, 'Timed out from web dashboard');
+    return { success: true };
+  }
+
+  /** Get message chart data (monthly) - count XP records per period as proxy for message activity */
+  async getMessageChart(
+    guildId: string,
+  ): Promise<{ month: string; count: number }[]> {
+    // Generate last 12 months
+    const months: { month: string; count: number }[] = [];
+    const now = new Date();
+
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      months.push({ month, count: 0 });
+    }
+
+    // Try to get real data from DB
+    if (this.prisma.isConnected) {
+      const records = await this.prisma.client.guildMemberXp.findMany({
+        where: { guildId },
+        select: { period: true },
+      });
+
+      // Count records per period
+      const countMap = new Map<string, number>();
+      for (const r of records) {
+        countMap.set(r.period, (countMap.get(r.period) ?? 0) + 1);
+      }
+
+      // Merge into months
+      for (const m of months) {
+        m.count = countMap.get(m.month) ?? 0;
+      }
+    }
+
+    return months;
+  }
+
+  /** Get XP chart data from GuildMemberXp */
+  async getXpChart(guildId: string) {
+    if (!this.prisma.isConnected) return [];
+
+    const records = await this.prisma.client.guildMemberXp.findMany({
+      where: { guildId },
+      select: { period: true, xp: true },
+    });
+
+    // Aggregate XP by period (month)
+    const periodMap = new Map<string, number>();
+    for (const r of records) {
+      periodMap.set(r.period, (periodMap.get(r.period) ?? 0) + r.xp);
+    }
+
+    // Sort and return last 12 periods
+    return Array.from(periodMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .slice(-12)
+      .map(([month, xp]) => ({ month, xp }));
+  }
+
+  /** Get online frequency by hour - placeholder */
+  getOnlineFrequency(guildId: string): { hour: number; count: number }[] {
+    // In production, this would query presence tracking data for guildId
+    void guildId; // reserved for future implementation
+    return Array.from({ length: 24 }, (_, hour) => ({
+      hour,
+      count: 0,
+    }));
   }
 }

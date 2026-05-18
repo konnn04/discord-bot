@@ -10,9 +10,15 @@ import {
 import { getQueueManager } from './queue-manager';
 import { formatDuration } from './utils';
 
+const DASHBOARD_URL =
+  process.env.DASHBOARD_URL ||
+  process.env.CUSTOM_DOMAIN ||
+  'http://localhost:5173';
+
 /** Create the music control button row */
 export function createMusicButtons(
   isPaused: boolean,
+  guildId: string,
 ): ActionRowBuilder<ButtonBuilder> {
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
@@ -32,9 +38,10 @@ export function createMusicButtons(
       .setEmoji('⏹️')
       .setStyle(ButtonStyle.Danger),
     new ButtonBuilder()
-      .setCustomId('music_lyrics')
-      .setEmoji('🎤')
-      .setStyle(ButtonStyle.Primary),
+      .setLabel('Dashboard')
+      .setEmoji('🌐')
+      .setStyle(ButtonStyle.Link)
+      .setURL(`${DASHBOARD_URL}/music/${guildId}`),
   );
 }
 

@@ -102,6 +102,10 @@ export interface GuildSettings {
   leetcodeContest: {
     channelId: string | null;
   };
+
+  rankApi: {
+    enabled: boolean;
+  };
 }
 
 /** Default global settings */
@@ -189,6 +193,9 @@ export function createDefaultGuildSettings(guildId: string): GuildSettings {
     },
     leetcodeContest: {
       channelId: null,
+    },
+    rankApi: {
+      enabled: false,
     },
   };
 }

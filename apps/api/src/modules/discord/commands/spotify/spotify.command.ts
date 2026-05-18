@@ -316,20 +316,22 @@ const spotify: ActionCommand = {
             col.stop();
             refreshCollector(msg);
           }
-          // ── Made For You / Featured Playlists ──
+          // ── Made For You / Top Tracks ──
           else if (cid === 'spot_made') {
             const d = await spotifyGet(
               token!,
-              '/browse/featured-playlists?limit=20&country=VN',
+              '/me/top/tracks?limit=20&time_range=short_term',
             );
-            const made = d.playlists?.items || [];
+            const made = d.items || [];
             if (!made.length) {
               await i.editReply({
                 embeds: [
                   new EmbedBuilder()
                     .setColor(0x1db954)
-                    .setTitle('✨ Featured Playlists')
-                    .setDescription('Không tìm thấy playlist nổi bật nào.'),
+                    .setTitle('✨ Top Tracks')
+                    .setDescription(
+                      'Không có bài hát nào. Hãy nghe nhạc nhiều hơn!',
+                    ),
                 ],
                 components: [
                   new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -340,18 +342,18 @@ const spotify: ActionCommand = {
             } else {
               const emb = new EmbedBuilder()
                 .setColor(0x1db954)
-                .setTitle(`✨ ${d.message || 'Featured Playlists'}`)
+                .setTitle('✨ Your Top Tracks')
                 .setDescription(
                   made
                     .slice(0, 15)
                     .map(
-                      (p: any, i: number) =>
-                        `**${i + 1}.** [${p.name}](${p.external_urls?.spotify || ''}) — ${p.tracks?.total || 0} bài\n> ${p.description?.slice(0, 60) || ''}`,
+                      (t: any, i: number) =>
+                        `**${i + 1}.** [${t.name}](${t.external_urls?.spotify || ''}) — ${t.artists?.map((a: any) => a.name).join(', ') || 'Unknown'}`,
                     )
                     .join('\n'),
                 )
                 .setFooter({
-                  text: 'Dùng /spotify_playlist query:link để phát',
+                  text: 'Dùng /spotify_playlist query:track:... để phát',
                 });
               await i.editReply({
                 embeds: [emb],

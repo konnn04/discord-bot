@@ -32,12 +32,28 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
-  // Serve web build in production
-  if (process.env.NODE_ENV === 'production') {
-    const webDistPath = join(__dirname, '..', '..', 'web', 'dist');
-    if (existsSync(webDistPath)) {
-      app.useStaticAssets(webDistPath);
-    }
+  const webDistPath = join(
+    __dirname,
+    '..',
+    '..',
+    '..',
+    '..',
+    '..',
+    '..',
+    'apps',
+    'web',
+    'dist',
+  );
+  if (existsSync(webDistPath)) {
+    app.useStaticAssets(webDistPath);
+    console.log(`Serving web frontend from ${webDistPath}`);
+    const indexHtml = join(webDistPath, 'index.html');
+    app.use((req, res, next) => {
+      if (req.path.startsWith('/api') || req.method !== 'GET') {
+        return next();
+      }
+      res.sendFile(indexHtml);
+    });
   }
 
   const port = process.env.PORT ?? 3000;

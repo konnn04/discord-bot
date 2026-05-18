@@ -37,6 +37,7 @@ interface GuildPlayer {
 
 let _prisma: any = null;
 let _guildSettings: any = null;
+let _gateway: { broadcastState(guildId: string): void } | null = null;
 
 function getPrisma(): any {
   if (!_prisma) {
@@ -51,6 +52,12 @@ export function setPlayerPrisma(prisma: any): void {
 
 export function setPlayerGuildSettings(settings: any): void {
   _guildSettings = settings;
+}
+
+export function setPlayerGateway(gateway: {
+  broadcastState(guildId: string): void;
+}): void {
+  _gateway = gateway;
 }
 
 function getAutoLeaveMs(guildId: string): number {
@@ -262,6 +269,7 @@ export class PlayerManager {
       void recordHistory(current.requestedById, guildId, current.track);
 
       await this.sendNowPlaying(guildId);
+      _gateway?.broadcastState(guildId);
 
       return true;
     } catch (error) {
@@ -272,6 +280,10 @@ export class PlayerManager {
       );
       return false;
     }
+  }
+
+  async updateNowPlaying(guildId: string): Promise<void> {
+    return this.sendNowPlaying(guildId);
   }
 
   private async sendNowPlaying(guildId: string): Promise<void> {
@@ -285,7 +297,7 @@ export class PlayerManager {
     const embed = createNowPlayingEmbed(guildId, false, 0);
     if (!embed) return;
 
-    const buttons = createMusicButtons(false);
+    const buttons = createMusicButtons(false, guildId);
 
     if (gp.nowPlayingMessage) {
       const shouldRecreate = await this._isNotLastMessage(gp);
@@ -305,7 +317,7 @@ export class PlayerManager {
 
     try {
       const ch = await gp.client.channels.fetch(queue.textChannelId);
-      if (ch && ch.isTextBased()) {
+      if (ch && 'send' in ch) {
         const textCh = ch as TextChannel;
         const msg = await textCh.send({
           embeds: [embed],
@@ -365,6 +377,7 @@ export class PlayerManager {
 
     if (qm.hasNext(guildId)) {
       qm.skip(guildId, 1, true);
+      _gateway?.broadcastState(guildId);
       const result = await this.playWithAutoSkip(
         guildId,
         gp?.client || undefined,
@@ -379,7 +392,7 @@ export class PlayerManager {
           if (queue) {
             try {
               const ch = await gp.client.channels.fetch(queue.textChannelId);
-              if (ch && ch.isTextBased()) {
+              if (ch && 'send' in ch) {
                 const msg =
                   result.autoSkippedCount > 0
                     ? `⚠️ Đã tự động bỏ qua ${result.autoSkippedCount} bài bị lỗi. Hết queue rồi!`
@@ -413,7 +426,7 @@ export class PlayerManager {
         if (queue) {
           try {
             const ch = await gp.client.channels.fetch(queue.textChannelId);
-            if (ch && ch.isTextBased()) {
+            if (ch && 'send' in ch) {
               await (ch as TextChannel).send({
                 embeds: [
                   new EmbedBuilder()
@@ -436,6 +449,9 @@ export class PlayerManager {
         }, getAutoLeaveMs(guildId));
       }
     }
+
+    // Notify web dashboard
+    _gateway?.broadcastState(guildId);
   }
 
   pause(guildId: string): boolean {
@@ -443,6 +459,7 @@ export class PlayerManager {
     if (!gp) return false;
     if (gp.player.state.status === AudioPlayerStatus.Playing) {
       gp.player.pause();
+      _gateway?.broadcastState(guildId);
       return true;
     }
     return false;
@@ -453,6 +470,7 @@ export class PlayerManager {
     if (!gp) return false;
     if (gp.player.state.status === AudioPlayerStatus.Paused) {
       gp.player.unpause();
+      _gateway?.broadcastState(guildId);
       return true;
     }
     return false;
@@ -508,7 +526,7 @@ export class PlayerManager {
     if (gp?.client && queue) {
       try {
         const ch = await gp.client.channels.fetch(queue.textChannelId);
-        if (ch && ch.isTextBased()) {
+        if (ch && 'send' in ch) {
           await (ch as TextChannel).send({
             embeds: [
               new EmbedBuilder()
@@ -523,6 +541,7 @@ export class PlayerManager {
     }
 
     this.leave(guildId);
+    _gateway?.broadcastState(guildId);
   }
 
   setVolume(guildId: string, vol: number): void {
@@ -540,6 +559,17 @@ export class PlayerManager {
     return Math.floor((Date.now() - gp.playStartedAt) / 1000);
   }
 
+  setPlayingSince(guildId: string, ts: number): void {
+    const gp = this.players.get(guildId);
+    if (gp) gp.playStartedAt = ts;
+  }
+
+  seek(guildId: string, position: number): void {
+    const gp = this.players.get(guildId);
+    if (!gp?.resource) return;
+    gp.playStartedAt = Date.now() - position * 1000;
+  }
+
   private cleanup(guildId: string): void {
     void this.deleteNowPlaying(guildId);
     const gp = this.players.get(guildId);
@@ -549,6 +579,7 @@ export class PlayerManager {
     }
     this.players.delete(guildId);
     getQueueManager().remove(guildId);
+    _gateway?.broadcastState(guildId);
   }
 
   isConnected(guildId: string): boolean {

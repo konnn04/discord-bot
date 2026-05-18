@@ -74,7 +74,7 @@ export class AuthController {
 
     const jwt = this.authService.generateJwt(user, tokenData.access_token);
 
-    return res.redirect(`/?token=${jwt}`);
+    return res.redirect(`/callback?token=${jwt}`);
   }
 
   @Get('me')
@@ -88,6 +88,7 @@ export class AuthController {
         id: user.id,
         username: user.username,
         avatar: user.avatar,
+        displayName: user.global_name || user.username,
       },
     };
   }

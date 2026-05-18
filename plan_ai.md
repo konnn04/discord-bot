@@ -1,4 +1,4 @@
-# FoxyBot AI Chatbot Plan (DeepSeek Agentic)
+# FoxyBot - Discord bot AI Chatbot Plan (DeepSeek Agentic)
 
 ## Feasibility Verdict: ✅ FULLY DOABLE
 

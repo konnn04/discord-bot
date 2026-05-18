@@ -24,8 +24,10 @@ import { MeetingTracker } from './utils/meeting-tracker';
 import {
   setPlayerPrisma,
   setPlayerGuildSettings,
+  setPlayerGateway,
 } from './services/music/player-manager';
 import { setQueueGuildSettings } from './services/music/queue-manager';
+import { MusicGateway } from './gateways/music.gateway';
 
 /** Shared ref so other modules (e.g. auth) can DM users */
 export const discordClientRef: { client: Client | null } = { client: null };
@@ -53,6 +55,7 @@ export class DiscordService implements OnModuleInit, OnModuleDestroy {
     private animeScheduler: AnimeSchedulerService,
     private reminderScheduler: ReminderSchedulerService,
     private prisma: PrismaService,
+    private musicGateway: MusicGateway,
   ) {
     this.client = new Client({
       intents: [
@@ -121,6 +124,7 @@ export class DiscordService implements OnModuleInit, OnModuleDestroy {
       // Pass prisma and settings to managers
       setPlayerPrisma(this.prisma);
       setPlayerGuildSettings(this.guildSettings);
+      setPlayerGateway(this.musicGateway);
       setQueueGuildSettings(this.guildSettings);
 
       // Share client ref for auth callbacks

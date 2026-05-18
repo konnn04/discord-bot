@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { join } from 'path';
 import { PrismaModule } from './modules/prisma/prisma.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { DiscordModule } from './modules/discord/discord.module';
@@ -18,7 +19,10 @@ import { ScheduleModule } from '@nestjs/schedule';
 @Module({
   imports: [
     // Core
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: join(__dirname, '..', '..', '..', '..', '..', '..', '.env'),
+    }),
     ScheduleModule.forRoot(),
     PrismaModule,
     SettingsModule,
