@@ -77,8 +77,13 @@ export class AnimeSchedulerService {
               notified++;
             } catch {
               /* DMs closed */
+              continue;
             }
+          } else {
+            continue;
           }
+        } else {
+          continue;
         }
 
         // Fetch new schedule to update track

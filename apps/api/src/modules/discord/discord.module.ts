@@ -9,6 +9,7 @@ import { LeetcodeSchedulerService } from './services/leetcode-scheduler.service'
 import { AnimeSchedulerService } from './services/anime-scheduler.service';
 import { ReminderSchedulerService } from './services/reminder-scheduler.service';
 import { MusicController } from './controllers/music.controller';
+import { MusicGateway } from './gateways/music.gateway';
 
 import { MichosgcModule } from '../michosgc/michosgc.module';
 
@@ -25,6 +26,7 @@ import { MichosgcModule } from '../michosgc/michosgc.module';
     LeetcodeSchedulerService,
     AnimeSchedulerService,
     ReminderSchedulerService,
+    MusicGateway,
   ],
   exports: [
     DiscordService,

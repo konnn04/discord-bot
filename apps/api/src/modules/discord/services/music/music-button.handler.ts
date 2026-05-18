@@ -44,7 +44,7 @@ export async function handleMusicButton(
           false,
           pm.getElapsed(guildId),
         );
-        const buttons = createMusicButtons(false);
+        const buttons = createMusicButtons(false, guildId);
         if (embed) {
           await interaction.update({
             embeds: [embed],
@@ -60,7 +60,7 @@ export async function handleMusicButton(
           true,
           pm.getElapsed(guildId),
         );
-        const buttons = createMusicButtons(true);
+        const buttons = createMusicButtons(true, guildId);
         if (embed) {
           await interaction.update({
             embeds: [embed],

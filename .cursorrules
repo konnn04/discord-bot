@@ -1,4 +1,4 @@
-# FoxyBot Architecture & AI Instructions
+# FoxyBot - Discord bot Architecture & AI Instructions
 
 Welcome to the **FoxyBot** repository. This is a monorepo managed by `pnpm workspaces`.
 Please follow these core architectural rules when generating code or navigating the project.

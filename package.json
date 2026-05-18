@@ -5,6 +5,7 @@
   "private": true,
   "scripts": {
     "dev": "concurrently -n api,web -c blue,green \"pnpm dev:api\" \"pnpm dev:web\"",
+    "dev-b": "concurrently -n api,web -c blue,green \"pnpm dev:api\" \"pnpm build --watch\"",
     "dev:api": "pnpm --filter api start:dev",
     "dev:web": "pnpm --filter web dev",
     "build": "pnpm --filter shared build && pnpm --filter api build && pnpm --filter web build",
