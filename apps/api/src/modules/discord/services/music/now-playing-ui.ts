@@ -10,9 +10,18 @@ import {
 import { getQueueManager } from './queue-manager';
 import { formatDuration } from './utils';
 
+const normalizeUrl = (url) => {
+  if (!url) return null
+  const normalized = /^https?:\/\//i.test(url)
+    ? url
+    : `https://${url}`
+  return normalized.replace(/\/$/, '')
+}
+
+
 const DASHBOARD_URL =
-  process.env.DASHBOARD_URL ||
-  process.env.CUSTOM_DOMAIN ||
+  normalizeUrl(process.env.DASHBOARD_URL) ||
+  normalizeUrl(process.env.CUSTOM_DOMAIN) ||
   'http://localhost:5173';
 
 /** Create the music control button row */
