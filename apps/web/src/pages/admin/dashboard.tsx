@@ -89,6 +89,7 @@ export function DashboardPage() {
   useEffect(() => {
     if (!guildId) return;
 
+    let cancelled = false;
     const now = new Date();
     const period = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
     const year = `${now.getFullYear()}`;
@@ -118,6 +119,7 @@ export function DashboardPage() {
         .catch(() => null),
     ])
       .then(([g, s, m, x, o, xpTop, ms]) => {
+        if (cancelled) return;
         setGuild(g);
         setStats(s);
         setMessageChart(m);
@@ -127,7 +129,13 @@ export function DashboardPage() {
         setMusicStats(ms);
         setIsLoading(false);
       })
-      .catch(() => setIsLoading(false));
+      .catch(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [guildId, onlineRange, xpTopPeriod, timezoneOffset]);
 
   if (isLoading) {
@@ -211,7 +219,7 @@ export function DashboardPage() {
               className="mt-2 h-1.5"
             />
             <p className="mt-1 text-xs text-muted-foreground">
-              {stats?.botMembers ?? "?"} bot •{" "}
+              {(stats as GuildStats & { onlineBots: number })?.onlineBots ?? "?"} bot online • 
               {stats?.totalMembers
                 ? Math.round(
                     ((stats.onlineMembers ?? 0) / stats.totalMembers) * 100,
@@ -289,7 +297,7 @@ export function DashboardPage() {
               config={{
                 count: {
                   label: "Tin nhắn",
-                  color: "hsl(var(--primary))",
+                  color: "var(--primary)",
                 },
               }}
               className="h-72 w-full"
@@ -313,7 +321,7 @@ export function DashboardPage() {
                   <Tooltip content={<ChartTooltipContent />} />
                   <Bar
                     dataKey="count"
-                    fill="hsl(var(--primary))"
+                    fill="var(--primary)"
                     radius={[6, 6, 0, 0]}
                     maxBarSize={40}
                   />
@@ -334,7 +342,7 @@ export function DashboardPage() {
           <CardContent>
             <ChartContainer
               config={{
-                xp: { label: "XP", color: "hsl(var(--chart-2))" },
+                xp: { label: "XP", color: "var(--chart-2)" },
               }}
               className="h-72 w-full"
             >
@@ -358,9 +366,9 @@ export function DashboardPage() {
                   <Line
                     type="monotone"
                     dataKey="xp"
-                    stroke="hsl(var(--chart-2))"
+                    stroke="var(--chart-2)"
                     strokeWidth={2.5}
-                    dot={{ r: 3, fill: "hsl(var(--chart-2))" }}
+                    dot={{ r: 3, fill: "var(--chart-2)" }}
                     activeDot={{ r: 5 }}
                   />
                 </LineChart>
@@ -487,8 +495,12 @@ export function DashboardPage() {
             <ChartContainer
               config={{
                 count: {
-                  label: "Online TB",
-                  color: "hsl(var(--chart-3))",
+                  label: "Tổng online",
+                  color: "var(--chart-3)",
+                },
+                humanCount: {
+                  label: "Người online",
+                  color: "var(--chart-1)",
                 },
               }}
               className="h-52 w-full"
@@ -514,9 +526,19 @@ export function DashboardPage() {
                   <Area
                     type="monotone"
                     dataKey="count"
-                    stroke="hsl(var(--chart-3))"
-                    fill="hsl(var(--chart-3) / 0.2)"
+                    stroke="var(--chart-3)"
+                    fill="var(--chart-3)"
+                    fillOpacity={0.15}
                     strokeWidth={2}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="humanCount"
+                    stroke="var(--chart-1)"
+                    fill="var(--chart-1)"
+                    fillOpacity={0.1}
+                    strokeWidth={2}
+                    strokeDasharray="4 3"
                   />
                 </AreaChart>
               </ResponsiveContainer>

@@ -68,7 +68,7 @@ function AudioWaves({ active }: { active: boolean }) {
 
 export function MusicPage() {
   const { guildId } = useParams<{ guildId: string }>();
-  const { guilds } = useGuildStore();
+  const { guilds, fetchGuilds } = useGuildStore();
   const { user } = useAuthStore();
   const activeGuild = guilds.find((g) => g.id === guildId);
   const displayName = user?.displayName || user?.username || "Web User";
@@ -121,6 +121,9 @@ export function MusicPage() {
 
   // ── Init & socket ──
   useEffect(() => {
+    if (guilds.length === 0) {
+      fetchGuilds();
+    }
     if (guildId) {
       setGuildId(guildId);
       fetchPlayerState(guildId);
@@ -128,7 +131,7 @@ export function MusicPage() {
     return () => {
       cancelAnimationFrame(animRef.current);
     };
-  }, [guildId, fetchPlayerState, setGuildId]);
+  }, [guildId, guilds.length, fetchPlayerState, setGuildId, fetchGuilds]);
 
   // ── Progress animation (client-side ticking while playing) ──
   useEffect(() => {

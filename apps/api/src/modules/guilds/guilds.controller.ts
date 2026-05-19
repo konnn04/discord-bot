@@ -139,19 +139,19 @@ export class GuildsController {
     return this.guildsService.kickMember(id, memberId);
   }
 
-  /** Timeout a member */
+  /** Timeout a member (minutes=0 or omit to remove timeout) */
   @Post(':id/members/:memberId/timeout')
   async timeoutMember(
     @Param('id') id: string,
     @Param('memberId') memberId: string,
-    @Body() body: { minutes: number },
+    @Body() body: { minutes?: number },
     @Req() req: Request,
   ) {
     const user = (req as any).user;
     if (!this.guildsService.canManageGuild(user.sub, id)) {
       throw new ForbiddenException('You do not have permission');
     }
-    return this.guildsService.timeoutMember(id, memberId, body.minutes ?? 60);
+    return this.guildsService.timeoutMember(id, memberId, body.minutes ?? null);
   }
 
   /** Get message chart data */

@@ -115,7 +115,8 @@ model MusicHistory {
 model OnlinePresenceLog {
   id         String   @id @default(cuid())
   guildId    String
-  count      Int
+  count      Int      /// total online (humans + bots)
+  humanCount Int      @default(0) /// online humans only
   recordedAt DateTime @default(now())
 
   @@index([guildId, recordedAt])

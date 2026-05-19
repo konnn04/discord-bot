@@ -14,30 +14,35 @@ export class OnlinePresenceService {
     private prisma: PrismaService,
   ) {}
 
-  /**
-   * Cron every 15 minutes: snapshot online member count for every guild.
-   */
   @Cron('*/15 * * * *')
   async collectOnlineCounts(): Promise<void> {
     if (!this.prisma.isConnected) return;
 
     const guilds = this.discordService.client.guilds.cache;
     const now = new Date();
-    const records: { guildId: string; count: number; recordedAt: Date }[] = [];
+    const records: {
+      guildId: string;
+      count: number;
+      humanCount: number;
+      recordedAt: Date;
+    }[] = [];
 
     for (const [, guild] of guilds) {
       try {
         const members = guild.members.cache;
-        const online = members.filter(
+        const onlineMembers = members.filter(
           (m) =>
             m.presence?.status === 'online' ||
             m.presence?.status === 'idle' ||
             m.presence?.status === 'dnd',
-        ).size;
+        );
+        const totalOnline = onlineMembers.size;
+        const humanOnline = onlineMembers.filter((m) => !m.user.bot).size;
 
         records.push({
           guildId: guild.id,
-          count: online,
+          count: totalOnline,
+          humanCount: humanOnline,
           recordedAt: now,
         });
       } catch {
@@ -62,7 +67,7 @@ export class OnlinePresenceService {
   async getOnlineFrequency(
     guildId: string,
     range: RangeFilter = 'week',
-  ): Promise<{ hour: number; count: number }[]> {
+  ): Promise<{ hour: number; count: number; humanCount: number }[]> {
     if (!this.prisma.isConnected) {
       return this.emptyHours();
     }
@@ -88,34 +93,38 @@ export class OnlinePresenceService {
           guildId,
           recordedAt: { gte: since },
         },
-        select: { count: true, recordedAt: true },
+        select: { count: true, humanCount: true, recordedAt: true },
       });
 
       if (records.length === 0) return this.emptyHours();
 
-      // Aggregate by hour of day (UTC)
-      const hourMap = new Map<number, number[]>();
-      for (let i = 0; i < 24; i++) hourMap.set(i, []);
+      const totalMap = new Map<number, number[]>();
+      const humanMap = new Map<number, number[]>();
+      for (let i = 0; i < 24; i++) {
+        totalMap.set(i, []);
+        humanMap.set(i, []);
+      }
 
       for (const r of records) {
         const hour = r.recordedAt.getUTCHours();
-        hourMap.get(hour)?.push(r.count);
+        totalMap.get(hour)?.push(r.count);
+        humanMap.get(hour)?.push(r.humanCount);
       }
 
       return Array.from({ length: 24 }, (_, hour) => {
-        const values = hourMap.get(hour) ?? [];
-        const avg =
-          values.length > 0
-            ? Math.round(values.reduce((a, b) => a + b, 0) / values.length)
+        const totalValues = totalMap.get(hour) ?? [];
+        const humanValues = humanMap.get(hour) ?? [];
+        const avg = (vals: number[]) =>
+          vals.length > 0
+            ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length)
             : 0;
-        return { hour, count: avg };
+        return { hour, count: avg(totalValues), humanCount: avg(humanValues) };
       });
     } catch {
       return this.emptyHours();
     }
   }
 
-  /** Delete records older than 90 days (run daily) */
   @Cron('0 3 * * *')
   async cleanOldRecords(): Promise<void> {
     if (!this.prisma.isConnected) return;
@@ -132,7 +141,11 @@ export class OnlinePresenceService {
     }
   }
 
-  private emptyHours(): { hour: number; count: number }[] {
-    return Array.from({ length: 24 }, (_, hour) => ({ hour, count: 0 }));
+  private emptyHours(): { hour: number; count: number; humanCount: number }[] {
+    return Array.from({ length: 24 }, (_, hour) => ({
+      hour,
+      count: 0,
+      humanCount: 0,
+    }));
   }
 }

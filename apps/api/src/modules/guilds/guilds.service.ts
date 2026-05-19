@@ -120,14 +120,26 @@ export class GuildsService {
     if (!guild) throw new NotFoundException(`Guild ${guildId} not found`);
 
     const members = guild.members.cache;
-    const online = members.filter((m) => m.presence?.status === 'online').size;
-    const bots = members.filter((m) => m.user.bot).size;
-    const humans = members.size - bots;
+    const bots = members.filter((m) => m.user.bot);
+    const humans = members.filter((m) => !m.user.bot);
+    const onlineHumans = humans.filter(
+      (m) =>
+        m.presence?.status === 'online' ||
+        m.presence?.status === 'idle' ||
+        m.presence?.status === 'dnd',
+    ).size;
+    const onlineBots = bots.filter(
+      (m) =>
+        m.presence?.status === 'online' ||
+        m.presence?.status === 'idle' ||
+        m.presence?.status === 'dnd',
+    ).size;
 
     return {
-      totalMembers: humans,
-      onlineMembers: online,
-      botMembers: bots,
+      totalMembers: humans.size,
+      onlineMembers: onlineHumans,
+      botMembers: bots.size,
+      onlineBots: onlineBots,
       roleCount: guild.roles.cache.size,
       channelCount: guild.channels.cache.size,
       createdAt: guild.createdAt?.toISOString() ?? null,
@@ -279,16 +291,25 @@ export class GuildsService {
     return { success: true };
   }
 
-  /** Timeout a member */
-  async timeoutMember(guildId: string, memberId: string, minutes: number) {
+  /** Timeout a member (minutes=0 or null removes timeout) */
+  async timeoutMember(
+    guildId: string,
+    memberId: string,
+    minutes: number | null,
+  ) {
     const guild = this.discordService.client.guilds.cache.get(guildId);
     if (!guild) throw new NotFoundException(`Guild ${guildId} not found`);
 
     const member = guild.members.cache.get(memberId);
     if (!member) throw new NotFoundException(`Member ${memberId} not found`);
 
+    if (!minutes || minutes <= 0) {
+      await member.timeout(null, 'Timeout removed from web dashboard');
+      return { success: true, message: 'Đã xóa timeout' };
+    }
+
     await member.timeout(minutes * 60 * 1000, 'Timed out from web dashboard');
-    return { success: true };
+    return { success: true, message: `Đã timeout ${minutes} phút` };
   }
 
   /** Get message chart data (monthly) - count XP records per period as proxy for message activity */
@@ -353,7 +374,7 @@ export class GuildsService {
   getOnlineFrequency(
     guildId: string,
     range: 'week' | 'month' | '90d' = 'week',
-  ): Promise<{ hour: number; count: number }[]> {
+  ): Promise<{ hour: number; count: number; humanCount: number }[]> {
     return this.onlinePresence.getOnlineFrequency(guildId, range);
   }
 

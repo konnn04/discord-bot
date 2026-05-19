@@ -41,6 +41,7 @@ export interface GuildStats {
   totalMembers: number;
   onlineMembers: number;
   botMembers: number;
+  onlineBots: number;
   roleCount: number;
   channelCount: number;
   createdAt: string;
@@ -59,6 +60,7 @@ export interface XpChartData {
 export interface OnlineFrequencyData {
   hour: number;
   count: number;
+  humanCount: number;
 }
 
 export interface XpTopMember {

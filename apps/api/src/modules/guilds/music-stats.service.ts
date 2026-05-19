@@ -88,19 +88,23 @@ export class MusicStatsService {
         userMap.set(h.discordId, existing);
       }
 
-      // Fetch usernames and avatar from Discord guild cache
       const guild = this.discordService.client.guilds.cache.get(guildId);
 
       const topListeners = Array.from(userMap.entries())
         .sort((a, b) => b[1].totalSeconds - a[1].totalSeconds)
         .slice(0, 10)
         .map(([discordId, data]) => {
-          const member = guild?.members.cache.get(discordId);
+          const isSnowflake = /^\d{17,20}$/.test(discordId);
+          const member = isSnowflake
+            ? guild?.members.cache.get(discordId)
+            : undefined;
           const user = member?.user;
           const avatarHash = user?.avatar;
           const avatarUrl = avatarHash
             ? `${DISCORD_CDN}/avatars/${discordId}/${avatarHash}.${avatarHash.startsWith('a_') ? 'gif' : 'webp'}?size=256`
-            : `${DISCORD_CDN}/embed/avatars/${(BigInt(discordId) >> 22n) % 6n}.png`;
+            : isSnowflake
+              ? `${DISCORD_CDN}/embed/avatars/${(BigInt(discordId) >> 22n) % 6n}.png`
+              : null;
 
           return {
             discordId,

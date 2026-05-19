@@ -410,11 +410,10 @@ export function MembersPage() {
                 </div>
               )}
 
-              <div className="flex gap-2 pt-2">
+              <div className="flex flex-wrap gap-2 pt-2">
                 <Button
                   variant="destructive"
                   size="sm"
-                  className="flex-1"
                   onClick={async () => {
                     if (!guildId) return;
                     await api.post(
@@ -430,7 +429,6 @@ export function MembersPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="flex-1"
                   onClick={async () => {
                     if (!guildId) return;
                     await api.post(
@@ -443,6 +441,22 @@ export function MembersPage() {
                 >
                   <Shield className="mr-1.5 h-4 w-4" />
                   Timeout 1h
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    if (!guildId) return;
+                    await api.post(
+                      API_ROUTES.GUILD_MEMBER_TIMEOUT(guildId, selectedMember.id),
+                      { minutes: 0 },
+                    );
+                    queryClient.invalidateQueries({ queryKey: ["members", guildId] });
+                    setSelectedMember(null);
+                  }}
+                >
+                  <Clock className="mr-1.5 h-4 w-4" />
+                  Xóa timeout
                 </Button>
               </div>
             </div>
