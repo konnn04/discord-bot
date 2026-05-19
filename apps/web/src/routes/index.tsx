@@ -13,6 +13,11 @@ const AdminPage = lazy(() => import("@/pages/admin/index").then(m => ({ default:
 const DashboardPage = lazy(() => import("@/pages/admin/dashboard").then(m => ({ default: m.DashboardPage })));
 const MembersPage = lazy(() => import("@/pages/admin/members").then(m => ({ default: m.MembersPage })));
 const UserSettingsPage = lazy(() => import("@/pages/admin/settings").then(m => ({ default: m.UserSettingsPage })));
+const GuildSettingsLayout = lazy(() => import("@/pages/admin/settings/layout").then(m => ({ default: m.GuildSettingsLayout })));
+const WelcomeSettings = lazy(() => import("@/pages/admin/settings/welcome").then(m => ({ default: m.WelcomeSettings })));
+const NotificationsSettings = lazy(() => import("@/pages/admin/settings/notifications").then(m => ({ default: m.NotificationsSettings })));
+const GeneralSettings = lazy(() => import("@/pages/admin/settings/general").then(m => ({ default: m.GeneralSettings })));
+const MichosgcSettings = lazy(() => import("@/pages/admin/settings/michosgc").then(m => ({ default: m.MichosgcSettings })));
 const MusicLayout = lazy(() => import("@/components/layout/music-layout").then(m => ({ default: m.MusicLayout })));
 const MusicSelectPage = lazy(() => import("@/pages/music-select").then(m => ({ default: m.MusicSelectPage })));
 const MusicPage = lazy(() => import("@/pages/music").then(m => ({ default: m.MusicPage })));
@@ -59,6 +64,17 @@ export const router = createBrowserRouter([
       {
         path: ":guildId/members",
         element: <Lazy><MembersPage /></Lazy>,
+      },
+      {
+        path: ":guildId/settings",
+        element: <Lazy><GuildSettingsLayout /></Lazy>,
+        children: [
+          { index: true, element: <Lazy><WelcomeSettings /></Lazy> },
+          { path: "welcome", element: <Lazy><WelcomeSettings /></Lazy> },
+          { path: "notifications", element: <Lazy><NotificationsSettings /></Lazy> },
+          { path: "general", element: <Lazy><GeneralSettings /></Lazy> },
+          { path: "michosgc", element: <Lazy><MichosgcSettings /></Lazy> },
+        ],
       },
     ],
   },

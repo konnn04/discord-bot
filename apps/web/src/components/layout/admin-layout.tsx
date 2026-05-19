@@ -8,6 +8,9 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarProvider,
   SidebarTrigger,
   SidebarHeader,
@@ -130,13 +133,55 @@ export function AdminLayout() {
                       <SidebarMenuItem>
                         <SidebarMenuButton
                           asChild
-                          isActive={location.pathname.includes("/settings")}
+                          isActive={location.pathname.includes("/settings") && !location.pathname.split("/").includes("welcome") && !location.pathname.split("/").includes("notifications") && !location.pathname.split("/").includes("general") && !location.pathname.split("/").includes("michosgc")}
                         >
                           <Link to={`/admin/${guildId}/settings`}>
                             <Settings className="h-4 w-4" />
-                            <span>Cài đặt</span>
+                            <span>Chung</span>
                           </Link>
                         </SidebarMenuButton>
+                        <SidebarMenuSub>
+                          <SidebarMenuSubItem>
+                            <SidebarMenuSubButton
+                              asChild
+                              isActive={location.pathname.includes("/welcome")}
+                            >
+                              <Link to={`/admin/${guildId}/settings/welcome`}>
+                                Chào mừng
+                              </Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                          <SidebarMenuSubItem>
+                            <SidebarMenuSubButton
+                              asChild
+                              isActive={location.pathname.includes("/notifications")}
+                            >
+                              <Link to={`/admin/${guildId}/settings/notifications`}>
+                                Thông báo
+                              </Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                          <SidebarMenuSubItem>
+                            <SidebarMenuSubButton
+                              asChild
+                              isActive={location.pathname.includes("/general")}
+                            >
+                              <Link to={`/admin/${guildId}/settings/general`}>
+                                Cài đặt chung
+                              </Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                          <SidebarMenuSubItem>
+                            <SidebarMenuSubButton
+                              asChild
+                              isActive={location.pathname.includes("/michosgc")}
+                            >
+                              <Link to={`/admin/${guildId}/settings/michosgc`}>
+                                Game Roles
+                              </Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        </SidebarMenuSub>
                       </SidebarMenuItem>
                     </SidebarMenu>
                   </SidebarGroupContent>
