@@ -1,64 +1,11 @@
-/**
- * HTTP client for the Music Server API.
- * Reads MUSIC_SERVER_URL and MUSIC_SERVER_API_TOKEN from environment.
- */
-
-// ============ Types ============
-
-export interface MusicTrack {
-  id: string; // e.g. "youtube:xTvyyoF_LZY" or "spotify:7qiZfU..."
-  source: 'youtube' | 'spotify';
-  sourceId: string; // raw ID on the platform
-  title: string;
-  artist: string;
-  album?: string;
-  duration: number; // seconds
-  thumbnail: string;
-  url: string;
-}
-
-export interface SearchAndResolveResult {
-  track: MusicTrack;
-  youtubeId: string;
-}
-
-export interface ParseUrlResult {
-  type: 'track' | 'playlist' | 'album';
-  data: MusicTrack | MusicTrack[] | { name?: string; tracks: MusicTrack[] };
-}
-
-export interface ResolveResult {
-  spotify: MusicTrack;
-  youtube: MusicTrack;
-}
-
-export interface StreamInfo {
-  id: string;
-  title: string;
-  duration: number;
-  thumbnail: string;
-  uploader: string;
-  audioFormats: AudioFormat[];
-}
-
-export interface AudioFormat {
-  formatId: string;
-  ext: string;
-  quality: string;
-  fileSize: number;
-  abr: number;
-  acodec: string;
-}
-
-export interface LyricsResult {
-  id: number;
-  trackName: string;
-  artistName: string;
-  albumName?: string;
-  duration?: number;
-  plainLyrics: string;
-  syncedLyrics?: string;
-}
+import type {
+  MusicTrack,
+  SearchAndResolveResult,
+  ParseUrlResult,
+  ResolveResult,
+  StreamInfo,
+  LyricsResult,
+} from 'shared/src/types/music.types';
 
 interface ApiResponse<T> {
   success: boolean;
@@ -66,8 +13,6 @@ interface ApiResponse<T> {
   total?: number;
   error?: string;
 }
-
-// ============ Client ============
 
 export class MusicApiClient {
   private baseUrl: string;
@@ -125,9 +70,6 @@ export class MusicApiClient {
     return json.data;
   }
 
-  /**
-   * Generates a secure, short-lived download URL that does NOT contain the API key.
-   */
   async getPublicDownloadUrl(
     videoId: string,
     format?: string,
@@ -153,7 +95,6 @@ export class MusicApiClient {
     return this.request<MusicTrack[]>(`/music/search?${params}`);
   }
 
-  /** Search and resolve to a streamable YouTube ID in one call */
   async searchAndResolve(query: string): Promise<SearchAndResolveResult> {
     const params = new URLSearchParams({ q: query });
     return this.request<SearchAndResolveResult>(
@@ -161,7 +102,6 @@ export class MusicApiClient {
     );
   }
 
-  /** Parse a YouTube or Spotify URL */
   async parseUrl(
     url: string,
     type?: 'track' | 'playlist' | 'album',
@@ -171,12 +111,10 @@ export class MusicApiClient {
     return this.request<ParseUrlResult>(`/music/parse-url?${params}`);
   }
 
-  /** Resolve a Spotify track to YouTube */
   async resolve(spotifyId: string): Promise<ResolveResult> {
     return this.request<ResolveResult>(`/music/resolve/${spotifyId}`);
   }
 
-  /** Batch-resolve multiple Spotify tracks in parallel (server handles caching). */
   async resolveMany(spotifyIds: string[]): Promise<Map<string, ResolveResult>> {
     const results = new Map<string, ResolveResult>();
     if (spotifyIds.length === 0) return results;
@@ -198,12 +136,10 @@ export class MusicApiClient {
     return results;
   }
 
-  /** Get recommendations based on a track */
   async getRecommendations(trackId: string): Promise<MusicTrack[]> {
     return this.request<MusicTrack[]>(`/music/recommendations/${trackId}`);
   }
 
-  /** Get playlist info and tracks */
   async getPlaylist(
     source: string,
     id: string,
@@ -213,30 +149,22 @@ export class MusicApiClient {
     );
   }
 
-  /** Get stream info (available formats, metadata) */
   async getStreamInfo(videoId: string): Promise<StreamInfo> {
     return this.request<StreamInfo>(`/stream/${videoId}/info`);
   }
 
-  /** Build the proxy stream URL (does NOT fetch, just builds the URL) */
   getProxyStreamUrl(videoId: string, format?: string): string {
     let url = `${this.baseUrl}/stream/${videoId}`;
     if (format) url += `?format=${format}`;
-    // Append API key as query param for audio resource consumption
     const sep = url.includes('?') ? '&' : '?';
     url += `${sep}apiKey=${encodeURIComponent(this.apiKey)}`;
     return url;
   }
 
-  /** Get the headers needed for streaming requests */
   getStreamHeaders(): Record<string, string> {
     return { 'X-API-Key': this.apiKey };
   }
 
-  /**
-   * One-shot play: POST /stream/play with a track URL (Spotify or YouTube).
-   * Server handles search/parse → resolve → stream internally.
-   */
   async fetchPlayStream(trackUrl: string): Promise<Response> {
     const url = `${this.baseUrl}/stream/play`;
     return fetch(url, {
@@ -246,26 +174,22 @@ export class MusicApiClient {
     });
   }
 
-  /** Get lyrics by track name and artist */
   async getLyrics(track: string, artist: string): Promise<LyricsResult> {
     const params = new URLSearchParams({ track, artist });
     return this.request<LyricsResult>(`/lyrics?${params}`);
   }
 
-  /** Search lyrics (multiple results) */
   async searchLyrics(track: string, artist?: string): Promise<LyricsResult[]> {
     const params = new URLSearchParams({ track });
     if (artist) params.set('artist', artist);
     return this.request<LyricsResult[]>(`/lyrics/search?${params}`);
   }
 
-  /** Check if the client is configured */
   isConfigured(): boolean {
     return !!this.baseUrl && !!this.apiKey;
   }
 }
 
-/** Singleton instance */
 let _instance: MusicApiClient | null = null;
 
 export function getMusicApi(): MusicApiClient {

@@ -1,8 +1,7 @@
 import type { ActionCommand } from 'shared/src/types/discord.types';
 import { ContextAdapter } from '../../contexts/context-adapter';
 import { EmbedBuilder, User } from 'discord.js';
-
-const DISCORD_CDN = 'https://cdn.discordapp.com';
+import { DISCORD_CDN } from '../../constants';
 
 const userInfo: ActionCommand = {
   name: 'userinfo',

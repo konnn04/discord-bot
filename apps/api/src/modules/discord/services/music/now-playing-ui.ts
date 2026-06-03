@@ -9,22 +9,8 @@ import {
 } from 'discord.js';
 import { getQueueManager } from './queue-manager';
 import { formatDuration } from './utils';
+import { getDashboardUrl } from '../../constants';
 
-const normalizeUrl = (url) => {
-  if (!url) return null
-  const normalized = /^https?:\/\//i.test(url)
-    ? url
-    : `https://${url}`
-  return normalized.replace(/\/$/, '')
-}
-
-
-const DASHBOARD_URL =
-  normalizeUrl(process.env.DASHBOARD_URL) ||
-  normalizeUrl(process.env.CUSTOM_DOMAIN) ||
-  'http://localhost:5173';
-
-/** Create the music control button row */
 export function createMusicButtons(
   isPaused: boolean,
   guildId: string,
@@ -50,11 +36,10 @@ export function createMusicButtons(
       .setLabel('Dashboard')
       .setEmoji('🌐')
       .setStyle(ButtonStyle.Link)
-      .setURL(`${DASHBOARD_URL}/music/${guildId}`),
+      .setURL(`${getDashboardUrl()}/music/${guildId}`),
   );
 }
 
-/** Build the "Now Playing" embed for a guild */
 export function createNowPlayingEmbed(
   guildId: string,
   isPaused: boolean,

@@ -8,12 +8,7 @@ import {
   ButtonStyle,
   ActionRowBuilder,
 } from 'discord.js';
-
-const DIFF_COLORS: Record<string, number> = {
-  Easy: 0x00b8a3,
-  Medium: 0xffc01e,
-  Hard: 0xef4743,
-};
+import { DIFF_COLORS } from '../../constants';
 
 const randomLeetcode: ActionCommand = {
   name: 'random_leetcode',

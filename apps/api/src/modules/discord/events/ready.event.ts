@@ -15,11 +15,11 @@ const readyEvent: EventHandler = {
     client.user.setPresence({
       activities: [
         {
-          name: '🤖 Discord Bot | /help',
+          name: 'f!help nha bạn!',
           type: ActivityType.Custom,
         },
       ],
-      status: 'online',
+      status: 'idle',
     });
   },
 };

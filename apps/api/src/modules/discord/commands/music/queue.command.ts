@@ -4,8 +4,7 @@ import { EmbedBuilder } from 'discord.js';
 import { getQueueManager } from '../../services/music/queue-manager';
 import { formatDuration } from '../../services/music/utils';
 import { paginate } from '../../utils/pagination';
-
-const PAGE_SIZE = 10;
+import { PAGE_SIZE } from '../../constants';
 
 function buildRemainingEmbeds(guildId: string): {
   pages: EmbedBuilder[];

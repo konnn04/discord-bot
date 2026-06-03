@@ -4,13 +4,7 @@ import { ContextAdapter } from '../../contexts/context-adapter';
 import { getLeetcodeApi } from '../../services/leetcode-api.client';
 import type { PrismaService } from '../../../prisma/prisma.service';
 import { EmbedBuilder } from 'discord.js';
-
-const DIFF_EMOJI: Record<string, string> = {
-  All: '📊',
-  Easy: '🟢',
-  Medium: '🟠',
-  Hard: '🔴',
-};
+import { DIFF_EMOJI } from '../../constants';
 
 const myLeetcode: ActionCommand = {
   name: 'my_leetcode',

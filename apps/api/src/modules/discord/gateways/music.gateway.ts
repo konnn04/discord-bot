@@ -9,22 +9,7 @@ import { Server, Socket } from 'socket.io';
 import { getPlayerManager } from '../services/music/player-manager';
 import { getQueueManager } from '../services/music/queue-manager';
 
-export interface MusicState {
-  guildId: string;
-  playerState: {
-    isPlaying: boolean;
-    isPaused: boolean;
-    currentTrack: any;
-    position: number;
-    volume: number;
-    loop: string;
-    shuffle: boolean;
-  } | null;
-  queue: any[];
-  history: any[];
-  voiceChannelId: string | null;
-  voiceChannelName: string | null;
-}
+import type { MusicState } from 'shared/src/types/music.types';
 
 @WebSocketGateway({
   namespace: '/music',

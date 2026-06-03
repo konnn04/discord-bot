@@ -3,9 +3,9 @@ import type { ActionCommand } from 'shared/src/types/discord.types';
 import { ContextAdapter } from '../../contexts/context-adapter';
 import type { PrismaService } from '../../../prisma/prisma.service';
 import { getMusicApi } from '../../services/music/music-api.client';
+import type { QueueTrack } from 'shared/src/types/music.types';
 import {
   getQueueManager,
-  type QueueTrack,
 } from '../../services/music/queue-manager';
 import { getPlayerManager } from '../../services/music/player-manager';
 import { formatDuration } from '../../services/music/utils';

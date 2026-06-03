@@ -3,14 +3,14 @@ import type { ActionCommand } from 'shared/src/types/discord.types';
 import { ContextAdapter } from '../../contexts/context-adapter';
 import {
   getMusicApi,
-  type MusicTrack,
 } from '../../services/music/music-api.client';
+import type { MusicTrack, QueueTrack } from 'shared/src/types/music.types';
 import {
   getQueueManager,
-  type QueueTrack,
 } from '../../services/music/queue-manager';
 import { getPlayerManager } from '../../services/music/player-manager';
 import { formatDuration } from '../../services/music/utils';
+import { PAGE_SIZE } from '../../constants';
 import {
   EmbedBuilder,
   ButtonBuilder,
@@ -22,8 +22,6 @@ import {
   TextInputBuilder,
   TextInputStyle,
 } from 'discord.js';
-
-const PAGE_SIZE = 10;
 
 function listEmbed(
   tracks: MusicTrack[],

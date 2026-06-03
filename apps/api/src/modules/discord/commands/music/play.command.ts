@@ -2,9 +2,9 @@ import type { ActionCommand } from 'shared/src/types/discord.types';
 import { ContextAdapter } from '../../contexts/context-adapter';
 import { EmbedBuilder } from 'discord.js';
 import { getMusicApi } from '../../services/music/music-api.client';
+import type { QueueTrack } from 'shared/src/types/music.types';
 import {
   getQueueManager,
-  type QueueTrack,
 } from '../../services/music/queue-manager';
 import { getPlayerManager } from '../../services/music/player-manager';
 import { formatDuration, isUrl } from '../../services/music/utils';

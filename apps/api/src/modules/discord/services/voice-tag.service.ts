@@ -1,11 +1,3 @@
-/**
- * Auto-manages a Discord role per voice/stage channel so members can be @mentioned.
- *
- * - Roles: no perms, no color, not hoisted, positioned at bottom
- * - Mapping: persisted in VoiceChannelRole table, cached in-memory for 0-latency reads
- * - Voice events: buffered & deduplicated, flushed every 2s to respect Discord rate limits
- * - Startup: batch-reconciles per guild (1 DB query each, no N+1)
- */
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { GuildSettingsService } from '../../settings/guild-settings.service';
@@ -19,9 +11,7 @@ import type {
   User,
 } from 'discord.js';
 import { AuditLogEvent, ChannelType, EmbedBuilder } from 'discord.js';
-
-const ROLE_NAME_PREFIX = '📢 {} members';
-const FLUSH_INTERVAL_MS = 2000;
+import { ROLE_NAME_PREFIX, VOICE_TAG_FLUSH_INTERVAL_MS } from '../constants';
 
 interface VoiceTagTask {
   action: 'add' | 'remove';
@@ -49,7 +39,7 @@ export class VoiceTagService {
   ) {
     this.flushTimer = setInterval(
       () => this.flushTaskBuffer(),
-      FLUSH_INTERVAL_MS,
+      VOICE_TAG_FLUSH_INTERVAL_MS,
     );
   }
 
@@ -64,13 +54,10 @@ export class VoiceTagService {
     }
   }
 
-  // ── Task buffer (dedup & batch) ─────────────────────────────────
-
   private taskKey(guildId: string, userId: string, roleId: string): string {
     return `${guildId}:${userId}:${roleId}`;
   }
 
-  /** Last-write-wins; conflicting add+remove for same user+role cancel out */
   private enqueueTask(task: VoiceTagTask): void {
     const key = this.taskKey(task.guildId, task.userId, task.roleId);
     const existing = this.taskBuffer.get(key);
@@ -81,7 +68,6 @@ export class VoiceTagService {
     }
   }
 
-  /** Process buffer per guild sequentially; retries on 429 / 5xx */
   private async flushTaskBuffer(): Promise<void> {
     if (this.isFlushing || this.taskBuffer.size === 0 || !this.discordClient)
       return;
@@ -139,8 +125,6 @@ export class VoiceTagService {
     this.isFlushing = false;
   }
 
-  // ── Feature toggle ──────────────────────────────────────────────
-
   async enable(guild: Guild): Promise<string> {
     const guildId = guild.id;
 
@@ -191,7 +175,7 @@ export class VoiceTagService {
         if (role) await role.delete('Voice tag feature disabled');
         deleted++;
       } catch {
-        /* role already gone or missing perms */
+        // already gone
       }
     }
 
@@ -210,9 +194,6 @@ export class VoiceTagService {
     return this.guildSettings.isFeatureEnabled(guildId, 'tagMembersInVoice');
   }
 
-  // ── Voice state events ──────────────────────────────────────────
-
-  /** Enqueues role-add; triggers background role recreation if missing */
   onMemberJoin(
     guild: Guild,
     member: GuildMember,
@@ -271,8 +252,6 @@ export class VoiceTagService {
     });
   }
 
-  // ── Channel / role lifecycle ────────────────────────────────────
-
   async onChannelDelete(guild: Guild, channelId: string): Promise<void> {
     if (!this.isEnabled(guild.id)) return;
 
@@ -296,7 +275,6 @@ export class VoiceTagService {
     );
   }
 
-  /** If a tracked role is deleted manually, recreates it and DMs the deleter */
   async onRoleDelete(guild: Guild, role: Role): Promise<void> {
     if (!this.isEnabled(guild.id)) return;
 
@@ -364,8 +342,6 @@ export class VoiceTagService {
       `[VoiceTag] Role ${role.id} deleted in guild ${guild.id} — recreated as ${newRole.id}`,
     );
   }
-
-  // ── Startup reconciliation ──────────────────────────────────────
 
   async reconcileAll(client: Client): Promise<void> {
     this.logger.log('[VoiceTag] Starting startup reconciliation...');
@@ -458,8 +434,6 @@ export class VoiceTagService {
 
     return { created, deleted, synced };
   }
-
-  // ── Helpers ─────────────────────────────────────────────────────
 
   private getVoiceAndStageChannels(
     guild: Guild,
@@ -575,8 +549,6 @@ export class VoiceTagService {
 
     return fixed;
   }
-
-  // ── Record cache ────────────────────────────────────────────────
 
   private async getRecord(
     guildId: string,

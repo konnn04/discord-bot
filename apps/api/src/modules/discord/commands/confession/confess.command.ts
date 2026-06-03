@@ -11,8 +11,7 @@ import {
   EmbedBuilder,
   Colors,
 } from 'discord.js';
-
-const BANNED_WORDS = ['địt', 'cặc', 'lồn', 'chó', 'fuck', 'shit'];
+import { BANNED_WORDS } from '../../constants';
 
 function filterContent(text: string): string | null {
   for (const w of BANNED_WORDS) {

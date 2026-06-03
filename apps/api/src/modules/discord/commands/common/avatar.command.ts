@@ -7,8 +7,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
 } from 'discord.js';
-
-const DISCORD_CDN = 'https://cdn.discordapp.com';
+import { DISCORD_CDN } from '../../constants';
 
 const avatar: ActionCommand = {
   name: 'avatar',

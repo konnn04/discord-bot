@@ -1,24 +1,8 @@
 /**
  * Per-guild music queue manager.
  */
-import type { MusicTrack } from './music-api.client';
-
-export interface QueueTrack {
-  track: MusicTrack;
-  youtubeId?: string;
-  requestedBy: string; // display name
-  requestedById: string; // Discord user ID (for history tracking)
-}
-
-export interface GuildQueue {
-  tracks: QueueTrack[];
-  current: number;
-  volume: number;
-  textChannelId: string;
-  loopMode: 'off' | 'track' | 'queue';
-}
-
-const PAGE_SIZE = 10;
+import type { QueueTrack, GuildQueue } from 'shared/src/types/music.types';
+import { PAGE_SIZE } from '../../constants';
 
 let _guildSettings: any = null;
 export function setQueueGuildSettings(settings: any): void {
@@ -28,7 +12,6 @@ export function setQueueGuildSettings(settings: any): void {
 class QueueManager {
   private queues = new Map<string, GuildQueue>();
 
-  /** Get or create a queue for a guild */
   getOrCreate(guildId: string, textChannelId: string): GuildQueue {
     let q = this.queues.get(guildId);
     if (!q) {
@@ -43,24 +26,20 @@ class QueueManager {
       };
       this.queues.set(guildId, q);
     }
-    // Always update text channel to the latest one used
     q.textChannelId = textChannelId;
     return q;
   }
 
-  /** Get the queue if it exists */
   get(guildId: string): GuildQueue | undefined {
     return this.queues.get(guildId);
   }
 
-  /** Add a single track to the queue, returns its position */
   addTrack(guildId: string, textChannelId: string, item: QueueTrack): number {
     const q = this.getOrCreate(guildId, textChannelId);
     q.tracks.push(item);
     return q.tracks.length;
   }
 
-  /** Add multiple tracks to the queue, returns count added */
   addTracks(
     guildId: string,
     textChannelId: string,
@@ -71,20 +50,17 @@ class QueueManager {
     return items.length;
   }
 
-  /** Get current track */
   getCurrent(guildId: string): QueueTrack | null {
     const q = this.queues.get(guildId);
     if (!q || q.current >= q.tracks.length) return null;
     return q.tracks[q.current];
   }
 
-  /** Skip n tracks, returns the new current track or null if queue ended */
   skip(guildId: string, n = 1, isAuto = false): QueueTrack | null {
     const q = this.queues.get(guildId);
     if (!q) return null;
 
     if (q.loopMode === 'track' && isAuto) {
-      // Loop track: don't advance current index if naturally ending
       return q.tracks[q.current];
     }
 
@@ -99,16 +75,14 @@ class QueueManager {
     return q.tracks[q.current];
   }
 
-  /** Check if there is a next track */
   hasNext(guildId: string): boolean {
     const q = this.queues.get(guildId);
     if (!q) return false;
-    if (q.loopMode === 'track') return true; // Always has next (itself)
-    if (q.loopMode === 'queue' && q.tracks.length > 0) return true; // Always has next
+    if (q.loopMode === 'track') return true;
+    if (q.loopMode === 'queue' && q.tracks.length > 0) return true;
     return q.current + 1 < q.tracks.length;
   }
 
-  /** Go to previous track, returns the new current track or null */
   prev(guildId: string): QueueTrack | null {
     const q = this.queues.get(guildId);
     if (!q || q.current <= 0) return null;
@@ -116,17 +90,12 @@ class QueueManager {
     return q.tracks[q.current];
   }
 
-  /** Get remaining tracks count after current */
   remaining(guildId: string): number {
     const q = this.queues.get(guildId);
     if (!q) return 0;
     return Math.max(0, q.tracks.length - q.current - 1);
   }
 
-  /**
-   * Get a page of remaining tracks (after current), plus the current track.
-   * Page 1 = tracks immediately after current.
-   */
   getRemainingPage(
     guildId: string,
     page = 1,
@@ -186,7 +155,6 @@ class QueueManager {
     };
   }
 
-  /** Get queue page for display (10 tracks per page, all tracks) */
   getPage(
     guildId: string,
     page = 1,
@@ -218,24 +186,20 @@ class QueueManager {
     };
   }
 
-  /** Set volume for a guild */
   setVolume(guildId: string, vol: number): void {
     const q = this.queues.get(guildId);
     if (q) q.volume = Math.max(0, Math.min(100, vol));
   }
 
-  /** Get volume for a guild */
   getVolume(guildId: string): number {
     return this.queues.get(guildId)?.volume ?? 80;
   }
 
-  /** Set loop mode */
   setLoopMode(guildId: string, mode: 'off' | 'track' | 'queue'): void {
     const q = this.queues.get(guildId);
     if (q) q.loopMode = mode;
   }
 
-  /** Shuffle remaining tracks in the queue */
   shuffle(guildId: string): boolean {
     const q = this.queues.get(guildId);
     if (!q || q.current >= q.tracks.length - 1) return false; // Nothing to shuffle
@@ -250,7 +214,6 @@ class QueueManager {
     return true;
   }
 
-  /** Remove a track at the given 1-based position (relative to current). Returns the removed track or null */
   removeTrack(guildId: string, position: number): QueueTrack | null {
     const q = this.queues.get(guildId);
     if (!q || position < 1) return null;
@@ -268,7 +231,6 @@ class QueueManager {
     return removed;
   }
 
-  /** Clear queue tracks but keep the entry */
   clear(guildId: string): void {
     const q = this.queues.get(guildId);
     if (q) {
@@ -282,7 +244,6 @@ class QueueManager {
     this.queues.delete(guildId);
   }
 
-  /** Get total duration of remaining tracks (seconds) */
   totalDuration(guildId: string): number {
     const q = this.queues.get(guildId);
     if (!q) return 0;
@@ -290,7 +251,6 @@ class QueueManager {
   }
 }
 
-/** Singleton */
 let _instance: QueueManager | null = null;
 export function getQueueManager(): QueueManager {
   if (!_instance) _instance = new QueueManager();

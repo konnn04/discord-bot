@@ -163,8 +163,6 @@ export class PlayerManager {
         `[PlayerManager] Audio error in guild ${guildId}:`,
         error.message,
       );
-      // The player will transition to Idle after error — onTrackEnd handles recovery.
-      // Do NOT skip manually here to avoid double-skipping.
     });
 
     this.players.set(guildId, gp);
@@ -176,12 +174,8 @@ export class PlayerManager {
     if (!gp) return false;
     if (client) gp.client = client;
 
-    // Set switching BEFORE any async work so onTrackEnd doesn't race.
-    // Reset only after new track confirms Playing.
     gp.switching = true;
 
-    // Force-stop current audio to prevent old-stream events from interfering
-    // with the new stream during skip/switching.
     gp.player.stop(true);
 
     const qm = getQueueManager();
@@ -194,7 +188,6 @@ export class PlayerManager {
     const api = getMusicApi();
 
     try {
-      // Resolve youtubeId in background for history/prefetch (non-blocking)
       if (!current.youtubeId) {
         if (current.track.source === 'youtube') {
           current.youtubeId = current.track.sourceId;
@@ -214,37 +207,28 @@ export class PlayerManager {
 
       void this.prefetchNextTrack(guildId);
 
-      // One-shot: server parses URL → resolves → streams in one call
       const response = await api.fetchPlayStream(current.track.url);
 
       if (!response.ok || !response.body) {
         throw new Error(`Stream fetch failed: ${response.status}`);
       }
 
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+
+      console.log(
+        `[PlayerManager] Preloaded ${(buffer.length / 1024 / 1024).toFixed(1)}MB for guild ${guildId}: ${current.track.title}`,
+      );
+
       const { Readable } = await import('stream');
-      const nodeStream = Readable.fromWeb(response.body as any);
+      const nodeStream = Readable.from(buffer);
 
       nodeStream.on('error', (err) => {
         console.error(
-          `[PlayerManager] Stream read error in guild ${guildId}:`,
+          `[PlayerManager] Stream error in guild ${guildId}:`,
           err.message,
         );
         gp.player.stop(true);
-      });
-
-      let streamEnded = false;
-      nodeStream.on('end', () => {
-        streamEnded = true;
-      });
-      nodeStream.on('close', () => {
-        if (!streamEnded) {
-          console.warn(
-            `[PlayerManager] Stream closed prematurely in guild ${guildId}`,
-          );
-          if (!gp.stopping && !gp.switching) {
-            gp.player.stop(true);
-          }
-        }
       });
 
       const resource = createAudioResource(nodeStream, {
@@ -345,7 +329,6 @@ export class PlayerManager {
     await this.deleteNowPlaying(guildId);
   }
 
-  /** Expose GuildPlayer for external handlers (e.g. music button handler) */
   getGuildPlayer(guildId: string): GuildPlayer | undefined {
     return this.players.get(guildId);
   }
@@ -383,7 +366,6 @@ export class PlayerManager {
         gp?.client || undefined,
       );
       if (!result.success) {
-        // All remaining tracks are broken — stop and clear stale queue
         qm.clear(guildId);
         await this.deleteNowPlaying(guildId);
 
@@ -418,7 +400,6 @@ export class PlayerManager {
     } else {
       await this.deleteNowPlaying(guildId);
 
-      // Clear stale queue so new /play calls don't resurrect old tracks
       qm.clear(guildId);
 
       if (gp?.client) {
@@ -450,7 +431,6 @@ export class PlayerManager {
       }
     }
 
-    // Notify web dashboard
     _gateway?.broadcastState(guildId);
   }
 
@@ -609,11 +589,6 @@ export class PlayerManager {
     }
   }
 
-  /**
-   * Try to play the current track. If it fails, auto-skip and retry
-   * up to maxRetries times. Returns the number of tracks auto-skipped,
-   * or -1 if all tracks are exhausted.
-   */
   async playWithAutoSkip(
     guildId: string,
     client?: Client,
@@ -623,8 +598,6 @@ export class PlayerManager {
     autoSkippedCount: number;
     lastError?: string;
   }> {
-    // Guard: if another play is already starting (switching=true set synchronously
-    // in play()), don't interfere — let the in-flight call handle playback.
     const gp = this.players.get(guildId);
     if (gp?.switching) {
       return { success: true, autoSkippedCount: 0 };
@@ -646,7 +619,6 @@ export class PlayerManager {
         return { success: true, autoSkippedCount };
       }
 
-      // Play failed — log and skip to next
       lastError = `Không thể phát: **${current.track.title}**`;
       console.warn(
         `[PlayerManager] Auto-skipping broken track in guild ${guildId}: ${current.track.title}`,
@@ -656,12 +628,10 @@ export class PlayerManager {
       autoSkippedCount++;
 
       if (!next) {
-        // Queue exhausted after auto-skip — don't stop, let the caller decide
         return { success: false, autoSkippedCount, lastError };
       }
     }
 
-    // Exceeded max retries — don't stop, let the caller decide
     return { success: false, autoSkippedCount, lastError };
   }
 

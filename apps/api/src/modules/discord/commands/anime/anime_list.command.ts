@@ -3,6 +3,7 @@ import type { ActionCommand } from 'shared/src/types/discord.types';
 import { ContextAdapter } from '../../contexts/context-adapter';
 import { getAnimeApi, AnimeInfo } from '../../services/anime-api.client';
 import type { PrismaService } from '../../../prisma/prisma.service';
+import { PAGE_SIZE, STATUS_EMOJI } from '../../constants';
 import {
   EmbedBuilder,
   ButtonBuilder,
@@ -11,13 +12,6 @@ import {
   StringSelectMenuOptionBuilder,
   ActionRowBuilder,
 } from 'discord.js';
-
-const PAGE_SIZE = 10;
-const STATUS_EMOJI: Record<string, string> = {
-  RELEASING: '📺',
-  FINISHED: '✅',
-  NOT_YET_RELEASED: '⏳',
-};
 
 function seasonLabel(): string {
   const m = new Date().getMonth();

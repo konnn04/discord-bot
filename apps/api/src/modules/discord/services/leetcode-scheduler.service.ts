@@ -20,13 +20,7 @@ import {
   ButtonStyle,
   ActionRowBuilder,
 } from 'discord.js';
-
-const LEETCODE_BASE = 'https://leetcode.com';
-const DIFF_COLORS: Record<string, number> = {
-  Easy: 0x00b8a3,
-  Medium: 0xffc01e,
-  Hard: 0xef4743,
-};
+import { LEETCODE_BASE, DIFF_COLORS } from '../constants';
 
 @Injectable()
 export class LeetcodeSchedulerService {
