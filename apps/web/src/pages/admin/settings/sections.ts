@@ -3,7 +3,9 @@ import {
   MessageSquareText,
   Bell,
   Settings2,
-  Gamepad2,
+  Gift,
+  Trophy,
+  Bot,
 } from "lucide-react";
 
 export type SettingsSection = {
@@ -33,9 +35,21 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     description: "Prefix, tính năng, XP, nhạc...",
   },
   {
+    id: "rolerank",
+    label: "Role theo Level",
+    icon: Trophy,
+    description: "Tự động cấp role theo mốc level",
+  },
+  {
     id: "michosgc",
-    label: "Game Roles",
-    icon: Gamepad2,
-    description: "Genshin, HSR, Honkai 3rd, NAP, ToT",
+    label: "Giftcode",
+    icon: Gift,
+    description: "Thông báo giftcode HoYoverse & tag role",
+  },
+  {
+    id: "chatbot",
+    label: "Chatbot AI",
+    icon: Bot,
+    description: "Bot trả lời khi tag & kiểm soát công cụ",
   },
 ];

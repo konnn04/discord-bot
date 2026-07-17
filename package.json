@@ -10,6 +10,8 @@
     "dev:web": "pnpm --filter web dev",
     "build": "pnpm --filter shared build && pnpm --filter api build && pnpm --filter web build",
     "build:shared": "pnpm --filter shared build",
+    "start": "pnpm --filter api start",
+    "start:prod": "pnpm --filter api start:prod",
     "db:generate": "pnpm --filter api exec prisma generate",
     "db:migrate": "pnpm --filter api exec prisma migrate dev",
     "db:push": "pnpm --filter api exec prisma db push",

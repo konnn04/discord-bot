@@ -242,6 +242,23 @@ model Reminder {
   @@index([remindAt])
 }
 
+/// Persisted meeting-attendance report, shared via a public web link
+model MeetingReport {
+  id             String   @id @default(cuid())
+  guildId        String
+  voiceChannelId String
+  channelName    String
+  initiatorId    String
+  startTime      DateTime
+  endTime        DateTime
+  /// Array of { userId, displayName, tag, totalDuration, sessions: [{ joinedAt, leftAt }] }
+  participants   Json
+  createdAt      DateTime @default(now())
+
+  @@index([guildId])
+  @@index([createdAt])
+}
+
 /// Spotify OAuth tokens for user-specific features (playlists, liked songs)
 model SpotifyToken {
   userId       String   @id

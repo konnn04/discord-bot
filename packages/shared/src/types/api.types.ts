@@ -1,7 +1,3 @@
-/**
- * API response type definitions shared between backend and frontend
- */
-
 export interface GuildInfo {
   id: string;
   name: string;
@@ -18,7 +14,7 @@ export interface UserInfo {
 }
 
 export interface AuthTokenPayload {
-  sub: string; // Discord user ID
+  sub: string; 
   username: string;
   avatar: string | null;
   accessToken: string;
@@ -29,4 +25,40 @@ export interface ApiResponse<T = any> {
   data?: T;
   error?: string;
   message?: string;
+}
+
+export interface GuildChannelInfo {
+  id: string;
+  name: string;
+  type: number; 
+  parentId: string | null;
+  position: number;
+}
+
+export interface MeetingReportParticipant {
+  userId: string;
+  displayName: string;
+  tag: string;
+  totalDuration: number; 
+  sessions: { joinedAt: number; leftAt: number | null }[];
+}
+
+export interface MeetingReport {
+  id: string;
+  guildId: string;
+  voiceChannelId: string;
+  channelName: string;
+  initiatorId: string;
+  startTime: string; // ISO
+  endTime: string; // ISO
+  participants: MeetingReportParticipant[];
+  createdAt: string; // ISO
+}
+
+export interface GuildRoleInfo {
+  id: string;
+  name: string;
+  color: number; // decimal color, 0 = no color
+  position: number;
+  managed: boolean;
 }

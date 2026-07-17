@@ -68,7 +68,24 @@ export class GuildsController {
     return { success: true, data: settings };
   }
 
-  /** Update guild settings */
+  @Get(':id/channels')
+  getChannels(@Param('id') id: string, @Req() req: Request) {
+    const user = (req as any).user;
+    if (!this.guildsService.canManageGuild(user.sub, id)) {
+      throw new ForbiddenException('You do not have permission');
+    }
+    return { success: true, data: this.guildsService.getChannels(id) };
+  }
+
+  @Get(':id/roles')
+  getRoles(@Param('id') id: string, @Req() req: Request) {
+    const user = (req as any).user;
+    if (!this.guildsService.canManageGuild(user.sub, id)) {
+      throw new ForbiddenException('You do not have permission');
+    }
+    return { success: true, data: this.guildsService.getRoles(id) };
+  }
+
   @Put(':id/settings')
   updateSettings(
     @Param('id') id: string,
@@ -86,7 +103,6 @@ export class GuildsController {
     return { success: true, data: settings };
   }
 
-  /** Get paginated member list */
   @Get(':id/members')
   async getMembers(
     @Param('id') id: string,

@@ -18,6 +18,11 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   }
 
   if (!isAuthenticated) {
+    // Remember where the user was headed so we can send them back after login.
+    const returnTo = window.location.pathname + window.location.search;
+    if (returnTo && returnTo !== "/login") {
+      sessionStorage.setItem("foxybot_return_to", returnTo);
+    }
     return <Navigate to="/login" replace />;
   }
 

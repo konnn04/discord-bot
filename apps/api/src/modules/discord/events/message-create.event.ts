@@ -2,18 +2,17 @@ import type { EventHandler } from 'shared/src/types/discord.types';
 import { Message } from 'discord.js';
 import { ContextAdapter } from '../contexts/context-adapter';
 import { isStalkRateLimited } from '../services/stalk-rate-limit';
+import { getSpeakManager } from '../services/speak/speak-manager';
+import { getChatbotService } from '../chatbot/chatbot.service';
 
 const messageCreateEvent: EventHandler = {
   name: 'messageCreate',
 
   async execute(message: Message, deps: any) {
-    // Ignore bots
     if (message.author.bot) return;
 
-    // —— Stalker: message tracking (non-command messages only) ——
     if (deps?.prisma && message.guildId) {
       void (async () => {
-        // Check if message starts with a prefix → not a natural conversation
         let prefix = 'f!';
         if (deps?.guildSettings) {
           prefix = deps.guildSettings.getPrefix(message.guildId!);
@@ -24,16 +23,13 @@ const messageCreateEvent: EventHandler = {
 
         const prisma = deps.prisma;
 
-        // Find subscriptions with onMessage=true for this user
         const subs = await prisma.client.stalkerSubscription.findMany({
           where: { targetId: message.author.id, onMessage: true },
         });
 
         for (const sub of subs) {
-          // 5-min rate limit via in-memory Map (lighter than DB write)
           if (isStalkRateLimited(sub.id, 'message')) continue;
 
-          // Cross-guild context
           const eventGuild = message.guild;
           const same = eventGuild?.members.cache.has(sub.trackerId);
           const guildLabel = same
@@ -61,9 +57,23 @@ const messageCreateEvent: EventHandler = {
       })();
     }
 
+    if (
+      message.guildId &&
+      message.client.user &&
+      message.mentions.has(message.client.user, {
+        ignoreEveryone: true,
+        ignoreRoles: true,
+        ignoreRepliedUser: true,
+      })
+    ) {
+      void getChatbotService()
+        .handleMention(message, deps)
+        .catch(() => {});
+      return;
+    }
+
     if (!deps?.commandLoader) return;
 
-    // Determine prefix for this guild
     let prefix = 'f!';
     if (message.guildId && deps?.guildSettings) {
       prefix = deps.guildSettings.getPrefix(message.guildId);
@@ -71,9 +81,19 @@ const messageCreateEvent: EventHandler = {
       prefix = deps.globalSettings.get().bot.defaultPrefix;
     }
 
-    // Check if message starts with prefix
     if (!message.content.startsWith(prefix)) {
-      // Not a command, give XP!
+      if (message.guildId && message.content) {
+        getSpeakManager().enqueue(
+          message.guildId,
+          message.channelId,
+          message.content,
+          {
+            id: message.author.id,
+            displayName: message.member?.displayName ?? message.author.username,
+          },
+        );
+      }
+
       if (message.guildId && deps?.xpBuffer) {
         deps.xpBuffer.addMessageXp(
           message.author.id,
@@ -86,16 +106,13 @@ const messageCreateEvent: EventHandler = {
       return;
     }
 
-    // Parse command name
     const args = message.content.slice(prefix.length).trim().split(/ +/);
     const commandName = args[0]?.toLowerCase();
     if (!commandName) return;
 
-    // Get command
     const command = deps.commandLoader.getCommand(commandName);
     if (!command) return;
 
-    // Check if command is slash-only
     if (command.isOnlySlashCommand) {
       await message
         .reply({
@@ -105,7 +122,6 @@ const messageCreateEvent: EventHandler = {
       return;
     }
 
-    // Permission check
     if (command.permission !== undefined && deps?.permissionService) {
       const member = message.member;
       if (
@@ -122,7 +138,6 @@ const messageCreateEvent: EventHandler = {
       }
     }
 
-    // Cooldown check
     if (deps?.cooldownService) {
       const remaining = deps.cooldownService.check(
         command.name,
@@ -139,7 +154,6 @@ const messageCreateEvent: EventHandler = {
       }
     }
 
-    // Execute command
     try {
       const ctx = new ContextAdapter(message, commandName);
       await command.execute(ctx, deps);

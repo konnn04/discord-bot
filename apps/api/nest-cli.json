@@ -4,6 +4,10 @@
   "sourceRoot": "src",
   "entryFile": "apps/api/src/main",
   "compilerOptions": {
-    "deleteOutDir": true
+    "deleteOutDir": true,
+    "assets": [
+      { "include": "modules/discord/chatbot/prompts/**/*.md", "outDir": "dist" }
+    ],
+    "watchAssets": true
   }
 }

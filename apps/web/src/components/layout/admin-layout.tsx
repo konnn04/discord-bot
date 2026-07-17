@@ -47,6 +47,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useEffect, useMemo } from "react";
+import { SETTINGS_SECTIONS } from "@/pages/admin/settings/sections";
 
 document.title = "FoxyBot - Admin Dashboard";
 
@@ -82,7 +83,18 @@ export function AdminLayout() {
     } else if (parts.includes("members")) {
       crumbs.push({ label: "Thành viên" });
     } else if (parts.includes("settings")) {
-      crumbs.push({ label: "Cài đặt" });
+      const gId = parts[1];
+      const sectionId = parts[parts.indexOf("settings") + 1];
+      const section = SETTINGS_SECTIONS.find((s) => s.id === sectionId);
+      if (section) {
+        crumbs.push({
+          label: "Cài đặt",
+          href: `/admin/${gId}/settings`,
+        });
+        crumbs.push({ label: section.label });
+      } else {
+        crumbs.push({ label: "Cài đặt" });
+      }
     }
 
     return crumbs;
@@ -133,54 +145,30 @@ export function AdminLayout() {
                       <SidebarMenuItem>
                         <SidebarMenuButton
                           asChild
-                          isActive={location.pathname.includes("/settings") && !location.pathname.split("/").includes("welcome") && !location.pathname.split("/").includes("notifications") && !location.pathname.split("/").includes("general") && !location.pathname.split("/").includes("michosgc")}
+                          isActive={location.pathname.endsWith("/settings")}
                         >
                           <Link to={`/admin/${guildId}/settings`}>
                             <Settings className="h-4 w-4" />
-                            <span>Chung</span>
+                            <span>Cài đặt</span>
                           </Link>
                         </SidebarMenuButton>
                         <SidebarMenuSub>
-                          <SidebarMenuSubItem>
-                            <SidebarMenuSubButton
-                              asChild
-                              isActive={location.pathname.includes("/welcome")}
-                            >
-                              <Link to={`/admin/${guildId}/settings/welcome`}>
-                                Chào mừng
-                              </Link>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                          <SidebarMenuSubItem>
-                            <SidebarMenuSubButton
-                              asChild
-                              isActive={location.pathname.includes("/notifications")}
-                            >
-                              <Link to={`/admin/${guildId}/settings/notifications`}>
-                                Thông báo
-                              </Link>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                          <SidebarMenuSubItem>
-                            <SidebarMenuSubButton
-                              asChild
-                              isActive={location.pathname.includes("/general")}
-                            >
-                              <Link to={`/admin/${guildId}/settings/general`}>
-                                Cài đặt chung
-                              </Link>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                          <SidebarMenuSubItem>
-                            <SidebarMenuSubButton
-                              asChild
-                              isActive={location.pathname.includes("/michosgc")}
-                            >
-                              <Link to={`/admin/${guildId}/settings/michosgc`}>
-                                Game Roles
-                              </Link>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
+                          {SETTINGS_SECTIONS.map((section) => (
+                            <SidebarMenuSubItem key={section.id}>
+                              <SidebarMenuSubButton
+                                asChild
+                                isActive={location.pathname.includes(
+                                  `/settings/${section.id}`,
+                                )}
+                              >
+                                <Link
+                                  to={`/admin/${guildId}/settings/${section.id}`}
+                                >
+                                  {section.label}
+                                </Link>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                          ))}
                         </SidebarMenuSub>
                       </SidebarMenuItem>
                     </SidebarMenu>

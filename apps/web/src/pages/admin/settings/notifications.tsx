@@ -2,8 +2,8 @@ import { useOutletContext } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
+import { GuildChannelSelect } from "@/components/shared/guild-selects";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { API_ROUTES } from "@/lib/routes";
@@ -48,16 +48,11 @@ export function NotificationsSettings() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="leetcode-channel">Kênh gửi</Label>
-            <Input
-              id="leetcode-channel"
-              placeholder="Channel ID..."
-              value={data.dailyLeetCode.channelId ?? ""}
-              onChange={(e) =>
-                update({
-                  dailyLeetCode: { channelId: e.target.value || null },
-                })
-              }
+            <Label>Kênh gửi</Label>
+            <GuildChannelSelect
+              guildId={guildId}
+              value={data.dailyLeetCode.channelId}
+              onChange={(channelId) => update({ dailyLeetCode: { channelId } })}
             />
           </div>
         </CardContent>
@@ -86,16 +81,11 @@ export function NotificationsSettings() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="contest-channel">Kênh gửi</Label>
-            <Input
-              id="contest-channel"
-              placeholder="Channel ID..."
-              value={data.leetcodeContest.channelId ?? ""}
-              onChange={(e) =>
-                update({
-                  leetcodeContest: { channelId: e.target.value || null },
-                })
-              }
+            <Label>Kênh gửi</Label>
+            <GuildChannelSelect
+              guildId={guildId}
+              value={data.leetcodeContest.channelId}
+              onChange={(channelId) => update({ leetcodeContest: { channelId } })}
             />
           </div>
         </CardContent>
@@ -126,13 +116,12 @@ export function NotificationsSettings() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="michosgc-channel">Kênh gửi</Label>
-            <Input
-              id="michosgc-channel"
-              placeholder="Channel ID..."
-              value={data.michosgc.channelId ?? ""}
-              onChange={(e) =>
-                update({ michosgc: { ...data.michosgc, channelId: e.target.value || null } })
+            <Label>Kênh gửi</Label>
+            <GuildChannelSelect
+              guildId={guildId}
+              value={data.michosgc.channelId}
+              onChange={(channelId) =>
+                update({ michosgc: { ...data.michosgc, channelId } })
               }
             />
           </div>
@@ -164,13 +153,12 @@ export function NotificationsSettings() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="lvlup-channel">Kênh gửi</Label>
-            <Input
-              id="lvlup-channel"
-              placeholder="Channel ID..."
-              value={data.xp.levelUpChannelId ?? ""}
-              onChange={(e) =>
-                update({ xp: { ...data.xp, levelUpChannelId: e.target.value || null } })
+            <Label>Kênh gửi</Label>
+            <GuildChannelSelect
+              guildId={guildId}
+              value={data.xp.levelUpChannelId}
+              onChange={(levelUpChannelId) =>
+                update({ xp: { ...data.xp, levelUpChannelId } })
               }
             />
           </div>

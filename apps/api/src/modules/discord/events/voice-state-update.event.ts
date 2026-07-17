@@ -1,6 +1,7 @@
 import type { EventHandler } from 'shared/src/types/discord.types';
 import { VoiceState, EmbedBuilder } from 'discord.js';
 import { getPlayerManager } from '../services/music/player-manager';
+import { getSpeakManager } from '../services/speak/speak-manager';
 import { isStalkRateLimited } from '../services/stalk-rate-limit';
 import { ColorResolvable } from 'discord.js';
 
@@ -16,7 +17,15 @@ const voiceStateUpdateEvent: EventHandler = {
     const oldChannelId = oldState.channelId;
     const newChannelId = newState.channelId;
 
-    // Voice tag role assignment (buffered, non-blocking)
+    if (
+      member.user.bot &&
+      member.id === newState.client.user?.id &&
+      oldChannelId &&
+      !newChannelId
+    ) {
+      getSpeakManager().stop(newState.guild.id);
+    }
+
     if (voiceTagService && !member.user.bot) {
       if (oldChannelId && newChannelId && oldChannelId !== newChannelId) {
         voiceTagService
@@ -36,7 +45,6 @@ const voiceStateUpdateEvent: EventHandler = {
       }
     }
 
-    // Stalker: notify subscribers when target joins voice (cross-guild)
     if (deps?.prisma && !member.user.bot && newChannelId && !oldChannelId) {
       const voiceCh = newState.channel;
       const chName = voiceCh?.name || 'unknown';
@@ -70,7 +78,6 @@ const voiceStateUpdateEvent: EventHandler = {
 
     // Meeting Tracker Logic
     if (meetingTracker && !member.user.bot) {
-      // User left a tracked channel
       if (oldChannelId && oldChannelId !== newChannelId) {
         const session = meetingTracker.getSession(oldChannelId);
         if (session) {

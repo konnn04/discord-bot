@@ -2,6 +2,7 @@ import { AttachmentBuilder, User } from 'discord.js';
 import type { ActionCommand } from 'shared/src/types/discord.types';
 import { PermissionLevel } from 'shared/src/types/discord.types';
 import { ContextAdapter } from '../../contexts/context-adapter';
+import { contextFromCommand, getRankAction } from '../../actions';
 import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
 import { join } from 'path';
 
@@ -16,7 +17,6 @@ try {
 const CARD_W = 900;
 const CARD_H = 280;
 
-/** Generate rank card image buffer */
 async function drawRankCard(opts: {
   tag: string;
   avatarUrl: string;
@@ -33,7 +33,6 @@ async function drawRankCard(opts: {
   const canvas = createCanvas(CARD_W, CARD_H);
   const ctx = canvas.getContext('2d');
 
-  // ── Background gradient ──
   const bg = ctx.createLinearGradient(0, 0, CARD_W, CARD_H);
   bg.addColorStop(0, '#1a1a2e');
   bg.addColorStop(1, '#16213e');
@@ -155,13 +154,8 @@ const rank: ActionCommand = {
   ],
 
   async execute(ctx: ContextAdapter, deps?: any) {
-    if (!deps?.prisma) {
-      await ctx.reply('❌ Hệ thống chưa sẵn sàng.');
-      return;
-    }
-
-    const guildId = ctx.guildId;
-    if (!guildId) {
+    const actionCtx = contextFromCommand(ctx, deps);
+    if (!actionCtx) {
       await ctx.reply('❌ Lệnh này chỉ khả dụng trong server.');
       return;
     }
@@ -175,49 +169,21 @@ const rank: ActionCommand = {
 
     await ctx.defer();
 
-    const dbUser = await deps.prisma.user.findUnique({
-      where: { discordId: targetUser.id },
-    });
-    if (!dbUser) {
+    const result = await getRankAction(actionCtx, { discordId: targetUser.id });
+    if (!result.ok || !result.data) {
       await ctx.editReply(
         `❌ **${targetUser.username}** chưa có XP trong server này.`,
       );
       return;
     }
-
-    const member = await deps.prisma.guildMember.findUnique({
-      where: { userId_guildId: { userId: dbUser.id, guildId } },
-    });
-    if (!member || member.xp === 0) {
-      await ctx.editReply(
-        `❌ **${targetUser.username}** chưa có XP trong server này.`,
-      );
-      return;
-    }
-
-    const rankPos =
-      (await deps.prisma.guildMember.count({
-        where: { guildId, xp: { gt: member.xp } },
-      })) + 1;
-
-    // XP calculation
-    const formula =
-      deps.globalSettings?.get()?.xp?.levelUpFormula || 'exponential';
-    const baseXp = deps.globalSettings?.get()?.xp?.baseXpForLevelUp || 100;
-    let currentBase = 0;
-    if (formula === 'exponential') {
-      for (let i = 1; i <= member.level; i++)
-        currentBase += baseXp * Math.pow(1.5, i - 1);
-    } else {
-      currentBase = member.level * baseXp;
-    }
-    const nextBase =
-      formula === 'exponential'
-        ? currentBase + baseXp * Math.pow(1.5, member.level)
-        : (member.level + 1) * baseXp;
-    const xpInLvl = member.xp - currentBase;
-    const xpNeed = nextBase - currentBase;
-    const progress = Math.min(100, Math.max(0, (xpInLvl / xpNeed) * 100));
+    const {
+      level,
+      xp,
+      rank: rankPos,
+      xpInLevel: xpInLvl,
+      xpNeeded: xpNeed,
+      progress,
+    } = result.data;
 
     const serverName = ctx.guild?.name || 'Server';
     const avatarUrl = targetUser.displayAvatarURL({
@@ -234,8 +200,8 @@ const rank: ActionCommand = {
       tag: targetUser.username,
       avatarUrl,
       avatarDecorationUrl: avatarDecorationUrl || undefined,
-      level: member.level,
-      xp: member.xp,
+      level,
+      xp,
       xpCurrent: xpInLvl,
       xpNeeded: xpNeed,
       rank: rankPos,

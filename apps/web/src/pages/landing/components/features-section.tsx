@@ -2,13 +2,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Music,
-  MessageSquare,
+  Bot,
   Shield,
-  Zap,
+  Volume2,
   BarChart3,
-  Activity,
-  Gamepad2,
-  Globe,
+  Trophy,
+  Gift,
+  MessageSquare,
   type LucideIcon,
 } from "lucide-react";
 
@@ -21,6 +21,13 @@ interface Feature {
 
 const features: Feature[] = [
   {
+    icon: Bot,
+    title: "Chatbot AI",
+    description:
+      "Trả lời khi được tag, dùng Gemini hoặc DeepSeek. Bạn kiểm soát từng công cụ bot được phép dùng.",
+    badge: "Mới",
+  },
+  {
     icon: Music,
     title: "Music Player",
     description:
@@ -28,46 +35,41 @@ const features: Feature[] = [
     badge: "Hot",
   },
   {
-    icon: MessageSquare,
-    title: "XP & Leveling",
+    icon: Volume2,
+    title: "Đọc chat (TTS)",
     description:
-      "Hệ thống level theo tin nhắn và voice. Bảng xếp hạng, level card đẹp mắt.",
+      "Bot đọc tin nhắn trong kênh thoại bằng giọng Việt/Anh tự nhiên với /speak.",
+    badge: "Mới",
+  },
+  {
+    icon: Trophy,
+    title: "XP, Level & Role",
+    description:
+      "Level theo tin nhắn và voice, bảng xếp hạng, tự cấp role theo mốc level.",
+  },
+  {
+    icon: MessageSquare,
+    title: "Chào mừng",
+    description:
+      "Ảnh chào mừng tạo tự động với avatar và tên thành viên — hoặc text/embed tuỳ chọn.",
+  },
+  {
+    icon: Gift,
+    title: "Thông báo Giftcode",
+    description:
+      "Tự động báo giftcode HoYoverse mới và tag đúng role cho từng game.",
+  },
+  {
+    icon: BarChart3,
+    title: "Analytics & Meeting",
+    description:
+      "Biểu đồ tin nhắn, XP, online. Báo cáo điểm danh cuộc họp qua link web.",
   },
   {
     icon: Shield,
     title: "Moderation",
     description:
-      "Quản lý server dễ dàng với các lệnh kick, ban, timeout và log channel.",
-  },
-  {
-    icon: Gamepad2,
-    title: "Mini Games",
-    description:
-      "Gacha game Micho SGC, LeetCode daily challenge, confession và nhiều hơn nữa.",
-  },
-  {
-    icon: Activity,
-    title: "Presence Tracking",
-    description:
-      "Theo dõi hoạt động GitHub, LeetCode, Spotify của thành viên theo thời gian thực.",
-  },
-  {
-    icon: BarChart3,
-    title: "Analytics",
-    description:
-      "Biểu đồ tin nhắn, XP, tần suất online. Dashboard quản lý đầy đủ số liệu.",
-  },
-  {
-    icon: Globe,
-    title: "Web Dashboard",
-    description:
-      "Quản lý toàn bộ server qua giao diện web hiện đại. Không cần nhớ lệnh.",
-  },
-  {
-    icon: Zap,
-    title: "High Performance",
-    description:
-      "Xử lý tin nhắn realtime, queue music mượt mà, WebSocket cho cập nhật tức thì.",
+      "Kick, ban, timeout, log channel — quản lý toàn bộ qua dashboard web hiện đại.",
   },
 ];
 

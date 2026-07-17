@@ -11,7 +11,13 @@ export function CallbackPage() {
     const token = searchParams.get("token");
     if (token) {
       handleCallback(token).then(() => {
-        navigate("/admin", { replace: true });
+        const stored = sessionStorage.getItem("foxybot_return_to");
+        sessionStorage.removeItem("foxybot_return_to");
+        const returnTo =
+          stored && stored.startsWith("/") && !stored.startsWith("//")
+            ? stored
+            : "/admin";
+        navigate(returnTo, { replace: true });
       });
     } else {
       navigate("/login", { replace: true });

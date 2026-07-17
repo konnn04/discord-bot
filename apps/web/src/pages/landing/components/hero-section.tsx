@@ -30,8 +30,8 @@ export function HeroSection() {
         </h1>
 
         <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground">
-          Discord bot hỗ trợ music player mạnh mẽ, hệ thống XP & Level, quản lý server dễ dàng.
-          Tất cả trong một bot với dashboard web hiện đại.
+          Chatbot AI, music player, XP &amp; level, chào mừng bằng ảnh, đọc chat
+          giọng nói — tất cả trong một bot với dashboard web hiện đại.
         </p>
 
         <div className="mt-10 flex items-center justify-center gap-4">

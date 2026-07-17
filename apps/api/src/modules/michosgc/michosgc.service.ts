@@ -165,13 +165,17 @@ export class MichosgcService implements OnModuleInit {
         }
         embed.setDescription(desc);
 
-        // Tags
+        // Tags — respect the configured mode:
+        //   'common'  → tag a single shared role for every giftcode
+        //   'perGame' → tag the role specific to this game
         let content = '';
         const tags: string[] = [];
-        if (config.roleCommon) tags.push(`<@&${config.roleCommon}>`);
-
-        const specificRole = config.roles[game as keyof typeof config.roles];
-        if (specificRole) tags.push(`<@&${specificRole}>`);
+        if (config.mode === 'perGame') {
+          const specificRole = config.roles[game as keyof typeof config.roles];
+          if (specificRole) tags.push(`<@&${specificRole}>`);
+        } else {
+          if (config.roleCommon) tags.push(`<@&${config.roleCommon}>`);
+        }
 
         if (tags.length > 0) {
           content = tags.join(' ');

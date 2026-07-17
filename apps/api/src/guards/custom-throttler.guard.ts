@@ -1,13 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ThrottlerGuard, ThrottlerRequest } from '@nestjs/throttler';
 
-/**
- * Custom throttler guard that applies different rate limits
- * based on whether the request is authenticated or not.
- *
- * Authenticated:  5 req/1s,  30 req/30s
- * Public:         3 req/1s,  15 req/30s,  30 req/60s
- */
 @Injectable()
 export class CustomThrottlerGuard extends ThrottlerGuard {
   protected async getTracker(req: Record<string, any>): Promise<string> {

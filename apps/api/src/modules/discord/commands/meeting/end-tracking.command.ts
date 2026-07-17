@@ -143,49 +143,62 @@ const endTracking: ActionCommand = {
     }
 
     embed.setTimestamp();
-    await ctx.reply({ embeds: [embed] });
 
-    // Send detailed report to initiator via DM
+    // Persist a full report and expose it via a shareable web link, instead of
+    // dumping a long, chunked DM. Falls back gracefully if the DB is unavailable.
+    let reportUrl: string | null = null;
     try {
-      let report = `**📋 Báo cáo cuộc họp: ${voiceChannel.name}**\n\n`;
-      report += `Bắt đầu: <t:${Math.floor(endedSession.startTime / 1000)}:F>\n`;
-      report += `Kết thúc: <t:${Math.floor((endedSession.endTime || Date.now()) / 1000)}:F>\n`;
-      report += `Tổng: ${participants.length} người\n\n**Chi tiết:**\n\n`;
+      const prisma = deps?.prisma;
+      if (prisma?.isConnected) {
+        const reportParticipants = participants.map((pt: any) => ({
+          userId: pt.userId,
+          displayName: pt.displayName,
+          tag: pt.tag,
+          totalDuration: pt.totalDuration,
+          sessions: pt.sessions.map((s: any) => ({
+            joinedAt: s.joinedAt,
+            leftAt: s.leftAt,
+          })),
+        }));
 
-      for (const pt of participants) {
-        const p = pt as any;
-        report += `**${p.displayName}** (@${p.tag})\n`;
-        report += `• Tổng: ${meetingTracker.formatDuration(p.totalDuration)} | Phiên: ${p.sessions.length}\n`;
-        for (let i = 0; i < p.sessions.length; i++) {
-          const s = p.sessions[i];
-          const dur = s.leftAt
-            ? s.leftAt - s.joinedAt
-            : Date.now() - s.joinedAt;
-          report += `  ${i + 1}. <t:${Math.floor(s.joinedAt / 1000)}:t> → <t:${Math.floor((s.leftAt || Date.now()) / 1000)}:t> (${meetingTracker.formatDuration(dur)})\n`;
-        }
-        report += '\n';
-      }
+        const created = await prisma.client.meetingReport.create({
+          data: {
+            guildId: endedSession.guildId,
+            voiceChannelId: voiceChannel.id,
+            channelName: voiceChannel.name,
+            initiatorId: endedSession.initiatorId,
+            startTime: new Date(endedSession.startTime),
+            endTime: new Date(endedSession.endTime || Date.now()),
+            participants: reportParticipants,
+          },
+          select: { id: true },
+        });
 
-      if (report.length > 2000) {
-        const chunks: string[] = [];
-        let current = '';
-        for (const line of report.split('\n')) {
-          if (current.length + line.length + 1 > 1900) {
-            chunks.push(current);
-            current = line + '\n';
-          } else {
-            current += line + '\n';
-          }
-        }
-        if (current) chunks.push(current);
-        for (const chunk of chunks) await ctx.user.send(chunk);
-      } else {
-        await ctx.user.send(report);
+        reportUrl = `${getPublicBaseUrl()}/meetings/${created.id}`;
       }
     } catch {
-      // DM might be disabled
+      // Persisting is best-effort; the embed summary is still sent below.
     }
+
+    if (reportUrl) {
+      embed.addFields({
+        name: '🔗 Báo cáo chi tiết',
+        value: `[Xem báo cáo đầy đủ trên web](${reportUrl})`,
+      });
+    }
+
+    await ctx.reply({ embeds: [embed] });
   },
 };
+
+/** Public base URL used to build shareable links (mirrors auth controller logic). */
+function getPublicBaseUrl(): string {
+  const envDomain =
+    process.env.CUSTOM_DOMAIN || process.env.RAILWAY_PUBLIC_DOMAIN;
+  if (envDomain) {
+    return envDomain.startsWith('http') ? envDomain : `https://${envDomain}`;
+  }
+  return process.env.PUBLIC_BASE_URL || 'http://localhost:3000';
+}
 
 export default endTracking;

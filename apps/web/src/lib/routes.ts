@@ -23,6 +23,9 @@ export const API_ROUTES = {
   GUILD: (id: string) => `/guilds/${id}`,
   GUILD_STATS: (id: string) => `/guilds/${id}/stats`,
   GUILD_SETTINGS: (id: string) => `/guilds/${id}/settings`,
+  GUILD_CHANNELS: (id: string) => `/guilds/${id}/channels`,
+  GUILD_ROLES: (id: string) => `/guilds/${id}/roles`,
+  MEETING_REPORT: (id: string) => `/meetings/${id}`,
   GUILD_MEMBERS: (id: string) => `/guilds/${id}/members`,
   GUILD_MEMBER: (guildId: string, memberId: string) =>
     `/guilds/${guildId}/members/${memberId}`,

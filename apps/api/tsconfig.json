@@ -2,6 +2,7 @@
   "compilerOptions": {
     "strict": true,
     "module": "commonjs",
+    "types": ["jest", "node"],
 
     "esModuleInterop": true,
     "isolatedModules": true,

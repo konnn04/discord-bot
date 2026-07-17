@@ -47,7 +47,15 @@ export interface GuildSettings {
   // Welcome configuration
   welcome: {
     channelId: string | null;
+    // How the welcome is rendered: plain text, a rich embed, or a generated
+    // image card. Defaults to 'canvas'.
+    type: 'text' | 'embed' | 'canvas';
     message: string | null;     // Supports {user}, {server}, {memberCount} placeholders
+    // Canvas card text — supports {user}, {displayName}, {server}, {memberCount}.
+    card: {
+      title: string | null;
+      subtitle: string | null;
+    };
     leaveChannelId: string | null;
     leaveMessage: string | null;
   };
@@ -74,10 +82,13 @@ export interface GuildSettings {
     logChannelId: string | null;
   };
 
-  // Michosgc Settings
+  // Michosgc Settings (giftcode notification)
   michosgc: {
     enabled: boolean;
     channelId: string | null;
+    // 'common': tag one shared role for every giftcode.
+    // 'perGame': tag a separate role per game.
+    mode: 'common' | 'perGame';
     roleCommon: string | null; // Tagged for all games
     roles: {
       genshin: string | null;
@@ -106,7 +117,78 @@ export interface GuildSettings {
   rankApi: {
     enabled: boolean;
   };
+
+  // Role Rank — award a single role when a member reaches a level (non-stack).
+  roleRank: {
+    enabled: boolean;
+    // Each rule maps a level threshold to a role. When a member's level crosses
+    // a threshold, they receive that rule's role and lose the other rank roles.
+    rules: { level: number; roleId: string }[];
+  };
+
+  // AI Chatbot — replies when mentioned. Tools it may call are whitelisted here
+  // so it can never run something dangerous (e.g. kick) unless explicitly allowed.
+  chatbot: {
+    enabled: boolean;
+    provider: 'gemini' | 'deepseek';
+    allowedTools: string[]; // ids from CHATBOT_TOOLS
+  };
 }
+
+/** Metadata for a tool the chatbot can be permitted to use (rendered in the UI). */
+export interface ChatbotToolMeta {
+  id: string;
+  label: string;
+  description: string;
+  /** Higher-impact tools that change server state — off by default. */
+  risky: boolean;
+}
+
+/** Registry of tools the chatbot can call, gated per-guild by allowedTools. */
+export const CHATBOT_TOOLS: ChatbotToolMeta[] = [
+  {
+    id: 'get_giftcode',
+    label: 'Lấy giftcode',
+    description: 'Tra cứu giftcode mới nhất của các game HoYoverse.',
+    risky: false,
+  },
+  {
+    id: 'guild_info',
+    label: 'Thông tin server',
+    description: 'Đọc thông tin cơ bản của server (tên, số thành viên...).',
+    risky: false,
+  },
+  {
+    id: 'list_members',
+    label: 'Danh sách thành viên',
+    description: 'Liệt kê thành viên trong server.',
+    risky: false,
+  },
+  {
+    id: 'member_info',
+    label: 'Chi tiết thành viên',
+    description: 'Xem thông tin chi tiết của một thành viên.',
+    risky: false,
+  },
+  {
+    id: 'play_music',
+    label: 'Phát nhạc',
+    description: 'Phát nhạc trong kênh thoại hiện tại.',
+    risky: false,
+  },
+  {
+    id: 'rename_voice_channel',
+    label: 'Đổi tên kênh thoại',
+    description: 'Đổi tên kênh thoại đang phát.',
+    risky: true,
+  },
+  {
+    id: 'set_voice_bitrate',
+    label: 'Đổi bitrate/region kênh thoại',
+    description: 'Thay đổi băng thông/region của kênh thoại đang phát.',
+    risky: true,
+  },
+];
 
 /** Default global settings */
 export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
@@ -152,7 +234,12 @@ export function createDefaultGuildSettings(guildId: string): GuildSettings {
     },
     welcome: {
       channelId: null,
+      type: 'canvas',
       message: '👋 Chào mừng {user} đến với **{server}**! Bạn là thành viên thứ #{memberCount}.',
+      card: {
+        title: 'Chào mừng {displayName}!',
+        subtitle: 'Thành viên thứ #{memberCount} của {server}',
+      },
       leaveChannelId: null,
       leaveMessage: null,
     },
@@ -175,6 +262,7 @@ export function createDefaultGuildSettings(guildId: string): GuildSettings {
     michosgc: {
       enabled: false,
       channelId: null,
+      mode: 'common',
       roleCommon: null,
       roles: {
         genshin: null,
@@ -196,6 +284,16 @@ export function createDefaultGuildSettings(guildId: string): GuildSettings {
     },
     rankApi: {
       enabled: false,
+    },
+    roleRank: {
+      enabled: false,
+      rules: [],
+    },
+    chatbot: {
+      enabled: false,
+      provider: 'gemini',
+      // Safe, read-only + music tools enabled by default; risky ones opt-in.
+      allowedTools: ['get_giftcode', 'guild_info', 'play_music'],
     },
   };
 }

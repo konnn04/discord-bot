@@ -11,6 +11,7 @@ import { GuildsModule } from './modules/guilds/guilds.module';
 import { XpModule } from './modules/xp/xp.module';
 import { PresenceModule } from './modules/presence/presence.module';
 import { MichosgcModule } from './modules/michosgc/michosgc.module';
+import { MeetingsModule } from './modules/meetings/meetings.module';
 import { CustomThrottlerGuard } from './guards/custom-throttler.guard';
 import { HealthController } from './health.controller';
 
@@ -21,7 +22,14 @@ import { ScheduleModule } from '@nestjs/schedule';
     // Core
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: join(__dirname, '..', '..', '..', '..', '..', '..', '.env'),
+      // Single source of truth: the monorepo-root .env. Candidates cover both
+      // running from the repo root and from apps/api (pnpm --filter api ...).
+      // dotenv uses the first existing file; deploy handles .env.production
+      // separately (e.g. injected env vars or copied to .env).
+      envFilePath: [
+        join(process.cwd(), '.env'),
+        join(process.cwd(), '..', '..', '.env'),
+      ],
     }),
     ScheduleModule.forRoot(),
     PrismaModule,
@@ -42,6 +50,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     XpModule,
     PresenceModule,
     MichosgcModule,
+    MeetingsModule,
   ],
   controllers: [HealthController],
   providers: [

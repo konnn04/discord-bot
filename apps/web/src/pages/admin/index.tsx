@@ -113,6 +113,81 @@ export function AdminPage() {
 
   return (
     <div className="space-y-8">
+      {/* Hero: pick a server to manage — the page's primary job */}
+      <div>
+        <div className="mb-4 flex items-end justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Server của bạn</h1>
+            <p className="text-sm text-muted-foreground">
+              Chọn một server để quản lý bot
+            </p>
+          </div>
+          {!isLoading && managedGuilds.length > 0 && (
+            <Badge variant="secondary" className="shrink-0">
+              {managedGuilds.length} server · {totalMembers.toLocaleString()} thành viên
+            </Badge>
+          )}
+        </div>
+
+        {isLoading ? (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Card key={i}>
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4">
+                    <Skeleton className="h-12 w-12 rounded-full" />
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-32" />
+                      <Skeleton className="h-3 w-20" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : managedGuilds.length === 0 ? (
+          <Card className="border-dashed">
+            <CardContent className="flex flex-col items-center py-12 text-center">
+              <Server className="mb-4 h-12 w-12 text-muted-foreground" />
+              <h3 className="text-lg font-medium">Chưa có server nào</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Bạn cần quyền Quản lý Server để quản lý. Hãy mời bot vào server
+                của bạn.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {managedGuilds.map((guild) => (
+              <Card
+                key={guild.id}
+                className="group cursor-pointer transition-all hover:border-primary/50 hover:shadow-md"
+                onClick={() => navigate(`/admin/${guild.id}/dashboard`)}
+              >
+                <CardContent className="flex items-center gap-4 p-4">
+                  <Avatar className="h-12 w-12 rounded-xl">
+                    <AvatarImage src={guild.icon} />
+                    <AvatarFallback className="rounded-xl text-lg">
+                      {guild.name.slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold truncate">{guild.name}</h3>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Users className="h-3 w-3" />
+                      <span>{guild.memberCount || "?"} thành viên</span>
+                    </div>
+                  </div>
+                  <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <Separator />
+
       {/* Section: System Health */}
       <div>
         <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
@@ -304,73 +379,6 @@ export function AdminPage() {
             </CardContent>
           </Card>
         </div>
-      </div>
-
-      <Separator />
-
-      {/* Server Grid */}
-      <div>
-        <h2 className="mb-4 text-lg font-semibold">Server của bạn</h2>
-
-        {isLoading ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <Card key={i}>
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-4">
-                    <Skeleton className="h-12 w-12 rounded-full" />
-                    <div className="space-y-2">
-                      <Skeleton className="h-4 w-32" />
-                      <Skeleton className="h-3 w-20" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : managedGuilds.length === 0 ? (
-          <Card className="border-dashed">
-            <CardContent className="flex flex-col items-center py-12 text-center">
-              <Server className="mb-4 h-12 w-12 text-muted-foreground" />
-              <h3 className="text-lg font-medium">Chưa có server nào</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Bạn cần quyền Quản lý Server để quản lý. Hãy mời bot vào server
-                của bạn.
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {managedGuilds.map((guild) => (
-              <Card
-                key={guild.id}
-                className="cursor-pointer transition-all hover:border-primary/50 hover:shadow-md"
-                onClick={() => navigate(`/admin/${guild.id}/dashboard`)}
-              >
-                <CardContent className="flex items-center gap-4 p-4">
-                  <Avatar className="h-12 w-12 rounded-xl">
-                    <AvatarImage
-                      src={guild.icon}
-                    />
-                    <AvatarFallback className="rounded-xl text-lg">
-                      {guild.name.slice(0, 2).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold truncate">{guild.name}</h3>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Users className="h-3 w-3" />
-                      <span>{guild.memberCount || "?"} thành viên</span>
-                    </div>
-                  </div>
-                  <Badge variant="secondary" className="shrink-0">
-                    <ChevronRight className="h-4 w-4" />
-                  </Badge>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );

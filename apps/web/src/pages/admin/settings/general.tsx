@@ -5,6 +5,8 @@ import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { GuildChannelSelect } from "@/components/shared/guild-selects";
+import { GuildMultiSelect } from "@/components/shared/guild-multi-select";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { API_ROUTES } from "@/lib/routes";
@@ -174,6 +176,28 @@ export function GeneralSettings() {
               }
             />
           </div>
+          <div className="space-y-2 sm:col-span-2">
+            <Label>Kênh bỏ qua XP</Label>
+            <GuildMultiSelect
+              guildId={guildId}
+              kind="channel"
+              values={data.xp.ignoredChannels}
+              onChange={(ignoredChannels) =>
+                update({ xp: { ...data.xp, ignoredChannels } })
+              }
+            />
+          </div>
+          <div className="space-y-2 sm:col-span-2">
+            <Label>Role bỏ qua XP</Label>
+            <GuildMultiSelect
+              guildId={guildId}
+              kind="role"
+              values={data.xp.ignoredRoles}
+              onChange={(ignoredRoles) =>
+                update({ xp: { ...data.xp, ignoredRoles } })
+              }
+            />
+          </div>
         </CardContent>
       </Card>
 
@@ -227,13 +251,12 @@ export function GeneralSettings() {
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
-            <Label htmlFor="mod-log">Kênh log</Label>
-            <Input
-              id="mod-log"
-              placeholder="Channel ID..."
-              value={data.moderation.logChannelId ?? ""}
-              onChange={(e) =>
-                update({ moderation: { logChannelId: e.target.value || null } })
+            <Label>Kênh log</Label>
+            <GuildChannelSelect
+              guildId={guildId}
+              value={data.moderation.logChannelId}
+              onChange={(logChannelId) =>
+                update({ moderation: { logChannelId } })
               }
             />
           </div>

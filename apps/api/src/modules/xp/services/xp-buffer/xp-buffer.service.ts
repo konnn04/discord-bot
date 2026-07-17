@@ -15,10 +15,8 @@ interface XpBufferItem {
 export class XpBufferService implements OnModuleDestroy {
   private readonly logger = new Logger(XpBufferService.name);
 
-  // Cache for XP points before writing to DB
   private buffer = new Map<string, XpBufferItem>();
 
-  // Cooldown tracking: "userId:guildId" -> timestamp (ms)
   private cooldowns = new Map<string, number>();
   private userHashes = new Map<string, string>();
 
@@ -29,7 +27,6 @@ export class XpBufferService implements OnModuleDestroy {
     private prisma: PrismaService,
     private guildSettings: GuildSettingsService,
   ) {
-    // Flush every 30 seconds
     this.flushInterval = setInterval(() => void this.flush(), 30 * 1000);
   }
 
@@ -73,7 +70,6 @@ export class XpBufferService implements OnModuleDestroy {
     );
   }
 
-  /** Handle voice time for XP */
   addVoiceXp(
     userId: string,
     guildId: string,
@@ -219,6 +215,9 @@ export class XpBufferService implements OnModuleDestroy {
               data.username,
               data.lastChannelId,
             );
+
+            // Award the matching rank role (non-stack)
+            this.applyRoleRank(userId, guildId, newLevel);
           }
 
           // 2. Update Monthly XP
@@ -329,5 +328,61 @@ export class XpBufferService implements OnModuleDestroy {
     } catch (error) {
       this.logger.error('Failed to send level-up message:', error);
     }
+  }
+
+  /**
+   * Award the single rank role matching the member's new level and remove any
+   * other configured rank roles (non-stacking). Best-effort and non-blocking.
+   */
+  private applyRoleRank(
+    discordUserId: string,
+    guildId: string,
+    newLevel: number,
+  ): void {
+    if (!this.discordClient) return;
+
+    void (async () => {
+      try {
+        const settings = this.guildSettings.get(guildId);
+        const roleRank = settings.roleRank;
+        if (!roleRank?.enabled || !roleRank.rules?.length) return;
+
+        const guild = this.discordClient!.guilds.cache.get(guildId);
+        if (!guild) return;
+
+        const member = await guild.members
+          .fetch(discordUserId)
+          .catch(() => null);
+        if (!member) return;
+
+        const allRankRoleIds = roleRank.rules
+          .map((r) => r.roleId)
+          .filter(Boolean);
+        const eligible = roleRank.rules
+          .filter((r) => r.roleId && newLevel >= r.level)
+          .sort((a, b) => b.level - a.level);
+        const targetRoleId = eligible[0]?.roleId ?? null;
+
+        const toRemove = allRankRoleIds.filter(
+          (id) => id !== targetRoleId && member.roles.cache.has(id),
+        );
+        for (const roleId of toRemove) {
+          await member.roles
+            .remove(roleId, 'Role rank: non-stacking cleanup')
+            .catch(() => undefined);
+        }
+
+        if (targetRoleId && !member.roles.cache.has(targetRoleId)) {
+          await member.roles
+            .add(targetRoleId, `Role rank: reached level ${newLevel}`)
+            .catch(() => undefined);
+        }
+      } catch (error) {
+        this.logger.error(
+          `Failed to apply role rank in guild ${guildId}:`,
+          error,
+        );
+      }
+    })();
   }
 }

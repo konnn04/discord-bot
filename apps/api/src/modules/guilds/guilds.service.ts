@@ -7,7 +7,6 @@ import { OnlinePresenceService } from './online-presence.service';
 import { MusicStatsService, MusicStats } from './music-stats.service';
 import type { GuildSettings } from 'shared/src/types/settings.types';
 
-/** TTL cache for member lists — avoids spamming Discord API on every pagination request */
 interface MemberCacheEntry {
   fetchedAt: number;
   members: Map<
@@ -75,6 +74,48 @@ export class GuildsService {
       roles: guild.roles.cache.size,
       ownerId: guild.ownerId,
     };
+  }
+
+  getChannels(guildId: string): {
+    id: string;
+    name: string;
+    type: number;
+    parentId: string | null;
+    position: number;
+  }[] {
+    const guild = this.discordService.client.guilds.cache.get(guildId);
+    if (!guild) {
+      throw new NotFoundException(`Guild ${guildId} not found`);
+    }
+
+    return guild.channels.cache
+      .map((c) => ({
+        id: c.id,
+        name: c.name,
+        type: c.type,
+        parentId: c.parentId ?? null,
+        position: 'position' in c ? (c.position ?? 0) : 0,
+      }))
+      .sort((a, b) => a.position - b.position);
+  }
+
+  /** List guild roles for settings dropdowns, highest first. Excludes @everyone. */
+  getRoles(guildId: string) {
+    const guild = this.discordService.client.guilds.cache.get(guildId);
+    if (!guild) {
+      throw new NotFoundException(`Guild ${guildId} not found`);
+    }
+
+    return guild.roles.cache
+      .filter((r) => r.id !== guild.id) // drop @everyone (id === guild id)
+      .map((r) => ({
+        id: r.id,
+        name: r.name,
+        color: r.color,
+        position: r.position,
+        managed: r.managed,
+      }))
+      .sort((a, b) => b.position - a.position);
   }
 
   /** Get settings for a guild */
@@ -394,32 +435,56 @@ export class GuildsService {
   > {
     if (!this.prisma.isConnected) return [];
 
-    const where = /^\d{4}$/.test(period)
-      ? { guildId, period: { startsWith: period } }
-      : { guildId, period };
+    const parsedLimit = Math.min(Math.max(1, limit), 100);
+    const isYear = /^\d{4}$/.test(period);
 
-    const records = await this.prisma.client.guildMemberXp.findMany({
-      where,
-      orderBy: { xp: 'desc' },
-      take: Math.min(Math.max(1, limit), 100),
-      include: {
-        user: {
-          select: { discordId: true, username: true, avatar: true },
-        },
-      },
+    // For a year period, GuildMemberXp stores one row per month (`YYYY-MM`).
+    // We must aggregate per user, otherwise the same user appears once per
+    // month — causing duplicate leaderboard entries and wrong ranking.
+    let ranked: { userId: string; xp: number }[];
+    if (isYear) {
+      const grouped = await this.prisma.client.guildMemberXp.groupBy({
+        by: ['userId'],
+        where: { guildId, period: { startsWith: period } },
+        _sum: { xp: true },
+        orderBy: { _sum: { xp: 'desc' } },
+        take: parsedLimit,
+      });
+      ranked = grouped.map((g: any) => ({
+        userId: g.userId,
+        xp: g._sum.xp ?? 0,
+      }));
+    } else {
+      const records = await this.prisma.client.guildMemberXp.findMany({
+        where: { guildId, period },
+        orderBy: { xp: 'desc' },
+        take: parsedLimit,
+      });
+      ranked = records.map((r: any) => ({ userId: r.userId, xp: r.xp }));
+    }
+
+    if (ranked.length === 0) return [];
+
+    const users = await this.prisma.client.user.findMany({
+      where: { id: { in: ranked.map((r) => r.userId) } },
+      select: { id: true, discordId: true, username: true, avatar: true },
     });
+    const userMap = new Map(users.map((u: any) => [u.id, u]));
 
     const DISCORD_CDN = 'https://cdn.discordapp.com';
-    return records.map((r: any, i: number) => ({
-      rank: i + 1,
-      userId: r.userId,
-      username: r.user?.username ?? 'Unknown',
-      avatarUrl:
-        r.user?.discordId && r.user?.avatar
-          ? `${DISCORD_CDN}/avatars/${r.user.discordId}/${r.user.avatar}.${r.user.avatar.startsWith('a_') ? 'gif' : 'webp'}?size=256`
-          : null,
-      xp: r.xp,
-    }));
+    return ranked.map((r, i) => {
+      const u: any = userMap.get(r.userId);
+      return {
+        rank: i + 1,
+        userId: r.userId,
+        username: u?.username ?? 'Unknown',
+        avatarUrl:
+          u?.discordId && u?.avatar
+            ? `${DISCORD_CDN}/avatars/${u.discordId}/${u.avatar}.${u.avatar.startsWith('a_') ? 'gif' : 'webp'}?size=256`
+            : null,
+        xp: r.xp,
+      };
+    });
   }
 
   /** Get music statistics for a guild */

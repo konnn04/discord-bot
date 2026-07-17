@@ -4,6 +4,8 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { GuildChannelSelect } from "@/components/shared/guild-selects";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { API_ROUTES } from "@/lib/routes";
@@ -48,31 +50,97 @@ export function WelcomeSettings() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="welcome-channel">Kênh chào mừng</Label>
-            <Input
-              id="welcome-channel"
-              placeholder="Channel ID..."
-              value={data.welcome.channelId ?? ""}
-              onChange={(e) =>
-                update({ welcome: { ...data.welcome, channelId: e.target.value || null } })
+            <Label>Kênh chào mừng</Label>
+            <GuildChannelSelect
+              guildId={guildId}
+              value={data.welcome.channelId}
+              onChange={(channelId) =>
+                update({ welcome: { ...data.welcome, channelId } })
               }
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="welcome-message">Nội dung</Label>
-            <Textarea
-              id="welcome-message"
-              rows={4}
-              value={data.welcome.message ?? ""}
-              onChange={(e) =>
-                update({ welcome: { ...data.welcome, message: e.target.value || null } })
+            <Label>Kiểu hiển thị</Label>
+            <Tabs
+              value={data.welcome.type ?? "canvas"}
+              onValueChange={(v) =>
+                update({
+                  welcome: {
+                    ...data.welcome,
+                    type: v as "text" | "embed" | "canvas",
+                  },
+                })
               }
-            />
-            <p className="text-xs text-muted-foreground">
-              Hỗ trợ: {"{user}"}, {"{server}"}, {"{memberCount}"}
-            </p>
+            >
+              <TabsList>
+                <TabsTrigger value="canvas">Ảnh (Canvas)</TabsTrigger>
+                <TabsTrigger value="embed">Embed</TabsTrigger>
+                <TabsTrigger value="text">Text</TabsTrigger>
+              </TabsList>
+            </Tabs>
           </div>
+
+          {data.welcome.type === "canvas" ? (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="card-title">Tiêu đề trên ảnh</Label>
+                <Input
+                  id="card-title"
+                  placeholder="Chào mừng {displayName}!"
+                  value={data.welcome.card?.title ?? ""}
+                  onChange={(e) =>
+                    update({
+                      welcome: {
+                        ...data.welcome,
+                        card: {
+                          ...(data.welcome.card ?? { title: null, subtitle: null }),
+                          title: e.target.value || null,
+                        },
+                      },
+                    })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="card-subtitle">Phụ đề trên ảnh</Label>
+                <Input
+                  id="card-subtitle"
+                  placeholder="Thành viên thứ #{memberCount} của {server}"
+                  value={data.welcome.card?.subtitle ?? ""}
+                  onChange={(e) =>
+                    update({
+                      welcome: {
+                        ...data.welcome,
+                        card: {
+                          ...(data.welcome.card ?? { title: null, subtitle: null }),
+                          subtitle: e.target.value || null,
+                        },
+                      },
+                    })
+                  }
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Hỗ trợ: {"{displayName}"}, {"{user}"}, {"{server}"}, {"{memberCount}"}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor="welcome-message">Nội dung</Label>
+              <Textarea
+                id="welcome-message"
+                rows={4}
+                value={data.welcome.message ?? ""}
+                onChange={(e) =>
+                  update({ welcome: { ...data.welcome, message: e.target.value || null } })
+                }
+              />
+              <p className="text-xs text-muted-foreground">
+                Hỗ trợ: {"{user}"}, {"{user.mention}"}, {"{server}"}, {"{memberCount}"}
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -88,13 +156,12 @@ export function WelcomeSettings() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="leave-channel">Kênh tạm biệt</Label>
-            <Input
-              id="leave-channel"
-              placeholder="Channel ID..."
-              value={data.welcome.leaveChannelId ?? ""}
-              onChange={(e) =>
-                update({ welcome: { ...data.welcome, leaveChannelId: e.target.value || null } })
+            <Label>Kênh tạm biệt</Label>
+            <GuildChannelSelect
+              guildId={guildId}
+              value={data.welcome.leaveChannelId}
+              onChange={(leaveChannelId) =>
+                update({ welcome: { ...data.welcome, leaveChannelId } })
               }
             />
           </div>

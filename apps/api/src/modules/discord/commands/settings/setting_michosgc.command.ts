@@ -79,6 +79,7 @@ const settingMichosgc: ActionCommand = {
         michosgc: {
           enabled: false,
           channelId: null,
+          mode: 'common',
           roleCommon: null,
           roles: {
             genshin: null,
@@ -115,6 +116,7 @@ const settingMichosgc: ActionCommand = {
       michosgc: {
         enabled: enable,
         channelId: channelId,
+        mode: existingMichosgc?.mode ?? 'common',
         roleCommon: roleCommon?.id || existingMichosgc?.roleCommon || null,
         roles: {
           genshin: roleGenshin?.id || existingMichosgc?.roles?.genshin || null,

@@ -8,6 +8,7 @@ import { LoadingSpinner } from "@/components/shared/loading-spinner";
 const LoginPage = lazy(() => import("@/pages/login").then(m => ({ default: m.LoginPage })));
 const CallbackPage = lazy(() => import("@/pages/callback").then(m => ({ default: m.CallbackPage })));
 const LandingPage = lazy(() => import("@/pages/landing").then(m => ({ default: m.LandingPage })));
+const MeetingReportPage = lazy(() => import("@/pages/meeting-report").then(m => ({ default: m.MeetingReportPage })));
 const AdminLayout = lazy(() => import("@/components/layout/admin-layout").then(m => ({ default: m.AdminLayout })));
 const AdminPage = lazy(() => import("@/pages/admin/index").then(m => ({ default: m.AdminPage })));
 const DashboardPage = lazy(() => import("@/pages/admin/dashboard").then(m => ({ default: m.DashboardPage })));
@@ -18,6 +19,8 @@ const WelcomeSettings = lazy(() => import("@/pages/admin/settings/welcome").then
 const NotificationsSettings = lazy(() => import("@/pages/admin/settings/notifications").then(m => ({ default: m.NotificationsSettings })));
 const GeneralSettings = lazy(() => import("@/pages/admin/settings/general").then(m => ({ default: m.GeneralSettings })));
 const MichosgcSettings = lazy(() => import("@/pages/admin/settings/michosgc").then(m => ({ default: m.MichosgcSettings })));
+const RoleRankSettings = lazy(() => import("@/pages/admin/settings/rolerank").then(m => ({ default: m.RoleRankSettings })));
+const ChatbotSettings = lazy(() => import("@/pages/admin/settings/chatbot").then(m => ({ default: m.ChatbotSettings })));
 const MusicLayout = lazy(() => import("@/components/layout/music-layout").then(m => ({ default: m.MusicLayout })));
 const MusicSelectPage = lazy(() => import("@/pages/music-select").then(m => ({ default: m.MusicSelectPage })));
 const MusicPage = lazy(() => import("@/pages/music").then(m => ({ default: m.MusicPage })));
@@ -43,6 +46,10 @@ export const router = createBrowserRouter([
   {
     path: "/callback",
     element: <Lazy><CallbackPage /></Lazy>,
+  },
+  {
+    path: "/meetings/:id",
+    element: <Lazy><MeetingReportPage /></Lazy>,
   },
   {
     path: "/admin",
@@ -74,6 +81,8 @@ export const router = createBrowserRouter([
           { path: "notifications", element: <Lazy><NotificationsSettings /></Lazy> },
           { path: "general", element: <Lazy><GeneralSettings /></Lazy> },
           { path: "michosgc", element: <Lazy><MichosgcSettings /></Lazy> },
+          { path: "rolerank", element: <Lazy><RoleRankSettings /></Lazy> },
+          { path: "chatbot", element: <Lazy><ChatbotSettings /></Lazy> },
         ],
       },
     ],
