@@ -1,12 +1,9 @@
+import { HOYOVERSE_GAME_IDS } from 'shared/src/types/settings.types';
+import {
+  HOYOVERSE_REDEEM_LINKS,
+  type GiftcodeEntry,
+} from '../../../giftcode/giftcode-notify';
 import { ok, fail, type ActionResult, type ToolSchema } from '../types';
-
-export interface GiftcodeEntry {
-  code: string;
-  rewards: string;
-  status?: string;
-}
-
-export const GIFTCODE_GAMES = ['genshin', 'hkrpg', 'nap', 'honkai3rd', 'tot'];
 
 export const giftcodeToolSchema: ToolSchema = {
   name: 'get_giftcode',
@@ -16,38 +13,39 @@ export const giftcodeToolSchema: ToolSchema = {
     properties: {
       game: {
         type: 'string',
-        enum: GIFTCODE_GAMES,
-        description: 'Mã game: genshin, hkrpg, nap, honkai3rd, tot',
+        enum: HOYOVERSE_GAME_IDS,
+        description: `Mã game: ${HOYOVERSE_GAME_IDS.join(', ')}`,
       },
     },
     required: ['game'],
   },
 };
 
+/** Live lookup against the HoYoverse codes API — no caching/dedup (see michosgc.service.ts for that). */
 export async function getGiftcodeAction(args: {
   game: string;
 }): Promise<ActionResult<GiftcodeEntry[]>> {
   const game = String(args.game || 'genshin');
-  if (!GIFTCODE_GAMES.includes(game)) {
+  if (!HOYOVERSE_GAME_IDS.includes(game)) {
     return fail(`Game không hợp lệ: ${game}`);
   }
 
   try {
     const res = await fetch(`https://hoyo-codes.seria.moe/codes?game=${game}`);
     const data: any = await res.json();
-    const codes: GiftcodeEntry[] = (data?.codes ?? []).map((c: any) => ({
+    const entries: GiftcodeEntry[] = (data?.codes ?? []).map((c: any) => ({
       code: c.code,
-      rewards: c.rewards || '',
-      status: c.status,
+      rewards: c.rewards || undefined,
+      link: HOYOVERSE_REDEEM_LINKS[game]?.(c.code),
     }));
-    if (!codes.length) {
+    if (!entries.length) {
       return ok(`Hiện không có giftcode cho ${game}.`, []);
     }
-    const summary = codes
+    const summary = entries
       .slice(0, 10)
       .map((c) => `${c.code} — ${c.rewards || 'phần thưởng không rõ'}`)
       .join('\n');
-    return ok(summary, codes);
+    return ok(summary, entries);
   } catch {
     return fail('Không lấy được giftcode lúc này.');
   }

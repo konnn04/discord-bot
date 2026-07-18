@@ -11,7 +11,8 @@ const play: ActionCommand = {
   optionalArgs: [
     {
       name: 'query',
-      description: 'Link YouTube/Spotify hoặc từ khóa tìm kiếm',
+      description:
+        'Link YouTube/Spotify, hoặc 1+ bài "nghệ sĩ - tên bài" cách nhau bằng dấu chấm phẩy ";"',
       type: 'STRING',
       required: true,
     },

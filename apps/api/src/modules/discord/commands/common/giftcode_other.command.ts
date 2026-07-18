@@ -1,12 +1,14 @@
 import type { ActionCommand } from 'shared/src/types/discord.types';
 import { ContextAdapter } from '../../contexts/context-adapter';
-import { EmbedBuilder } from 'discord.js';
 import { contextFromCommand, crawlGiftcodeAction } from '../../actions';
-import { GIFTCODE_GAMES } from 'shared/src/types/settings.types';
+import {
+  buildGiftcodeEmbed,
+  giftcodeGameLabel,
+} from '../../../giftcode/giftcode-notify';
 import { GIFTCODE_CRAWL_SOURCES } from '../../../giftcode-crawler/sources';
 
 const CRAWL_GAME_CHOICES = Object.keys(GIFTCODE_CRAWL_SOURCES).map((id) => ({
-  name: GIFTCODE_GAMES.find((g) => g.id === id)?.label ?? id,
+  name: giftcodeGameLabel(id),
   value: id,
 }));
 
@@ -42,16 +44,7 @@ const giftcodeOtherCommand: ActionCommand = {
       return;
     }
 
-    const label = GIFTCODE_GAMES.find((g) => g.id === game)?.label ?? game;
-    const embed = new EmbedBuilder()
-      .setTitle(`🎁 Giftcode ${label}`)
-      .setColor(0x22c55e)
-      .setDescription(result.data.codes.map((c) => `**\`${c}\`**`).join('\n'))
-      .setFooter({
-        text: 'Tự động cào từ web — kiểm tra hạn dùng trước khi nhập.',
-      })
-      .setTimestamp();
-
+    const embed = buildGiftcodeEmbed(giftcodeGameLabel(game), result.data.entries);
     await ctx.editReply({ embeds: [embed] });
   },
 };

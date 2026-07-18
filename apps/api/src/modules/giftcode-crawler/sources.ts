@@ -5,10 +5,11 @@ import {
   extractFromTables,
   extractSelfText,
 } from './extract-utils';
+import type { GiftcodeEntry } from '../giftcode/giftcode-notify';
 
 export interface GiftcodeCrawlSource {
   url: string;
-  extract: (html: string) => string[];
+  extract: (html: string) => GiftcodeEntry[];
 }
 
 /**

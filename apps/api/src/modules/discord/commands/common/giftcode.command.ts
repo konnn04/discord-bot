@@ -1,23 +1,11 @@
 import type { ActionCommand } from 'shared/src/types/discord.types';
 import { ContextAdapter } from '../../contexts/context-adapter';
-import { EmbedBuilder } from 'discord.js';
 import { getGiftcodeAction } from '../../actions';
-
-const gameNames: Record<string, string> = {
-  genshin: 'Genshin Impact',
-  hkrpg: 'Honkai: Star Rail',
-  honkai3rd: 'Honkai Impact 3rd',
-  nap: 'Zenless Zone Zero',
-  tot: 'Tears of Themis',
-};
-
-const gameColors: Record<string, number> = {
-  genshin: 0xffffff,
-  hkrpg: 0x3d3580,
-  honkai3rd: 0x00d4ff,
-  nap: 0x111111,
-  tot: 0xd82b2b,
-};
+import {
+  buildGiftcodeEmbed,
+  giftcodeGameLabel,
+} from '../../../giftcode/giftcode-notify';
+import { HOYOVERSE_GAME_IDS } from 'shared/src/types/settings.types';
 
 const giftcodeCommand: ActionCommand = {
   name: 'giftcode',
@@ -29,13 +17,10 @@ const giftcodeCommand: ActionCommand = {
       description: 'Chọn game bạn muốn xem giftcode',
       type: 'STRING',
       required: true,
-      choices: [
-        { name: 'Genshin Impact', value: 'genshin' },
-        { name: 'Honkai: Star Rail', value: 'hkrpg' },
-        { name: 'Honkai Impact 3rd', value: 'honkai3rd' },
-        { name: 'Zenless Zone Zero', value: 'nap' },
-        { name: 'Tears of Themis', value: 'tot' },
-      ],
+      choices: HOYOVERSE_GAME_IDS.map((id) => ({
+        name: giftcodeGameLabel(id),
+        value: id,
+      })),
     },
   ],
 
@@ -49,41 +34,15 @@ const giftcodeCommand: ActionCommand = {
       await ctx.editReply(`❌ ${result.message}`);
       return;
     }
-    const codes = result.data ?? [];
-    if (codes.length === 0) {
+    const entries = result.data ?? [];
+    if (entries.length === 0) {
       await ctx.editReply(
         '❌ Hiện tại không có giftcode nào khả dụng cho game này.',
       );
       return;
     }
 
-    const embed = new EmbedBuilder()
-      .setTitle(`🎁 Giftcode ${gameNames[game] || game}`)
-      .setColor(gameColors[game] || 0xffffff)
-      .setFooter({
-        text: 'Dữ liệu từ seria.moe',
-        iconURL:
-          'https://cdn.discordapp.com/emojis/1149957778942369873.webp?size=96&quality=lossless',
-      })
-      .setTimestamp();
-
-    let desc = '';
-    for (const c of codes) {
-      let link = '';
-      if (game === 'genshin')
-        link = `https://genshin.hoyoverse.com/vi/gift?code=${c.code}`;
-      else if (game === 'hkrpg')
-        link = `https://hsr.hoyoverse.com/gift?code=${c.code}`;
-      else if (game === 'nap')
-        link = `https://zenless.hoyoverse.com/redemption?code=${c.code}`;
-
-      const displayCode = link
-        ? `**[${c.code}](${link})**`
-        : `**\`${c.code}\`**`;
-      desc += `${displayCode}\n└ 🎁 ${c.rewards || 'Không rõ'}\n\n`;
-    }
-
-    embed.setDescription(desc);
+    const embed = buildGiftcodeEmbed(giftcodeGameLabel(game), entries);
     await ctx.editReply({ embeds: [embed] });
   },
 };

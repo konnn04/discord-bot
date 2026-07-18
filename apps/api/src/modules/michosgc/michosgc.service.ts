@@ -9,6 +9,8 @@ import { HOYOVERSE_GAME_IDS } from 'shared/src/types/settings.types';
 import {
   notifyGuildsForGiftcode,
   getActiveGiftcodeGameIds,
+  giftcodeGameLabel,
+  HOYOVERSE_REDEEM_LINKS,
   type GiftcodeEntry,
 } from '../giftcode/giftcode-notify';
 
@@ -22,20 +24,6 @@ interface HoyoApiResponse {
   }>;
   game: string;
 }
-
-const GAME_LABELS: Record<string, string> = {
-  genshin: 'Genshin Impact',
-  hkrpg: 'Honkai: Star Rail',
-  honkai3rd: 'Honkai Impact 3rd',
-  nap: 'Zenless Zone Zero',
-  tot: 'Tears of Themis',
-};
-
-const REDEEM_LINKS: Record<string, (code: string) => string> = {
-  genshin: (code) => `https://genshin.hoyoverse.com/vi/gift?code=${code}`,
-  hkrpg: (code) => `https://hsr.hoyoverse.com/gift?code=${code}`,
-  nap: (code) => `https://zenless.hoyoverse.com/redemption?code=${code}`,
-};
 
 /**
  * Polls the HoYoverse codes API (hoyo-codes.seria.moe) for the 5 HoYoverse
@@ -117,13 +105,13 @@ export class MichosgcService implements OnModuleInit {
           const entries: GiftcodeEntry[] = newCodes.map((c) => ({
             code: c.code,
             rewards: c.rewards || undefined,
-            link: REDEEM_LINKS[game]?.(c.code),
+            link: HOYOVERSE_REDEEM_LINKS[game]?.(c.code),
           }));
           await notifyGuildsForGiftcode(
             this.discordClient,
             this.guildSettings,
             game,
-            GAME_LABELS[game] ?? game,
+            giftcodeGameLabel(game),
             entries,
           );
         }

@@ -1,4 +1,5 @@
-import { GIFTCODE_GAMES } from 'shared/src/types/settings.types';
+import { giftcodeGameLabel } from '../../../giftcode/giftcode-notify';
+import type { GiftcodeEntry } from '../../../giftcode/giftcode-notify';
 import { GIFTCODE_CRAWL_SOURCES } from '../../../giftcode-crawler/sources';
 import {
   ok,
@@ -10,10 +11,6 @@ import {
 
 /** Games this action can crawl on-demand — the web-scraped ones, not HoYoverse. */
 const GAME_IDS = Object.keys(GIFTCODE_CRAWL_SOURCES);
-
-function labelFor(gameId: string): string {
-  return GIFTCODE_GAMES.find((g) => g.id === gameId)?.label ?? gameId;
-}
 
 export const crawlGiftcodeToolSchema: ToolSchema = {
   name: 'crawl_giftcode',
@@ -35,7 +32,7 @@ export const crawlGiftcodeToolSchema: ToolSchema = {
 };
 
 export interface CrawlGiftcodeData {
-  codes: string[];
+  entries: GiftcodeEntry[];
 }
 
 /** On-demand crawl for a single non-HoYoverse game. Shares GiftcodeCrawlerService with the 30-min schedule. */
@@ -46,12 +43,14 @@ export async function crawlGiftcodeAction(
   const gameId = String(args.game || '');
   if (!GAME_IDS.includes(gameId)) return fail(`Game không hỗ trợ: ${gameId}`);
 
-  const label = labelFor(gameId);
+  const label = giftcodeGameLabel(gameId);
   const result = await ctx.deps.giftcodeCrawler.crawlGameNow(gameId);
-  if (!result || result.codes.length === 0) {
+  if (!result || result.entries.length === 0) {
     return fail(`Hiện chưa cào được giftcode nào cho ${label}.`);
   }
 
-  const summary = result.codes.map((c) => `\`${c}\``).join(', ');
-  return ok(`Giftcode ${label}: ${summary}`, { codes: result.codes });
+  const summary = result.entries
+    .map((e) => (e.rewards ? `${e.code} (${e.rewards})` : e.code))
+    .join(', ');
+  return ok(`Giftcode ${label}: ${summary}`, { entries: result.entries });
 }

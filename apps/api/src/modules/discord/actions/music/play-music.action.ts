@@ -6,23 +6,30 @@ import {
   type ActionResult,
   type ToolSchema,
 } from '../types';
-
-export const playMusicToolSchema: ToolSchema = {
-  name: 'play_music',
-  description: 'Phát nhạc theo từ khoá trong kênh thoại của người yêu cầu.',
-  parameters: {
-    type: 'object',
-    properties: {
-      query: { type: 'string', description: 'Từ khoá hoặc tên bài hát' },
-    },
-    required: ['query'],
-  },
-};
 import { getMusicApi } from '../../services/music/music-api.client';
 import { getQueueManager } from '../../services/music/queue-manager';
 import { getPlayerManager } from '../../services/music/player-manager';
 import { getSpeakManager } from '../../services/speak/speak-manager';
 import { isUrl } from '../../services/music/utils';
+
+export const playMusicToolSchema: ToolSchema = {
+  name: 'play_music',
+  description:
+    'Phát nhạc theo từ khoá (tên nghệ sĩ + tên bài) trong kênh thoại của người ' +
+    'yêu cầu. Muốn thêm nhiều bài cùng lúc thì liệt kê từng bài cách nhau bằng ' +
+    'dấu chấm phẩy ";", ví dụ "Sơn Tùng M-TP - Chúng Ta Của Hiện Tại; Đen - Lối Nhỏ".',
+  parameters: {
+    type: 'object',
+    properties: {
+      query: {
+        type: 'string',
+        description:
+          'Link nhạc, hoặc 1-10 bài hát dạng "nghệ sĩ - tên bài" cách nhau bằng dấu chấm phẩy ";"',
+      },
+    },
+    required: ['query'],
+  },
+};
 
 export interface PlayMusicData {
   /** Whether playback was started now (vs. queued behind current track). */
@@ -33,9 +40,65 @@ export interface PlayMusicData {
   queuePosition: number | null;
 }
 
+const MAX_QUERIES = 10;
+
 /**
- * Resolve a query (URL, playlist, or keyword), add it to the guild's queue and
- * start playback if idle. Shared by the /play command and the chatbot tool.
+ * Split "Artist A - Song A; Artist B - Song B" into individual search queries.
+ * Semicolon (not comma) is the separator — artist/song names legitimately
+ * contain commas, so comma-splitting would mangle them.
+ */
+function splitQueries(raw: string): string[] {
+  return raw
+    .split(/[;\n]+/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, MAX_QUERIES);
+}
+
+/**
+ * Resolve one keyword search to a track, preferring Spotify (better matches
+ * "artist + title" searches than raw YouTube full-text search). Falls back to
+ * the music server's generic search if Spotify has no result for the query.
+ */
+async function resolveKeyword(
+  api: ReturnType<typeof getMusicApi>,
+  query: string,
+  requestedBy: string,
+  requestedById: string,
+): Promise<QueueTrack | null> {
+  try {
+    const spotifyResults = await api.search(query, 'spotify', 1);
+    const track = spotifyResults[0];
+    if (track) {
+      const item: QueueTrack = { track, youtubeId: undefined, requestedBy, requestedById };
+      // Resolve a playable YouTube id in the background, same as the URL/playlist path.
+      api
+        .resolve(track.sourceId)
+        .then((r) => (item.youtubeId = r.youtube.sourceId))
+        .catch(() => {});
+      return item;
+    }
+  } catch {
+    // fall through to generic search below
+  }
+
+  try {
+    const result = await api.searchAndResolve(query);
+    return {
+      track: result.track,
+      youtubeId: result.youtubeId,
+      requestedBy,
+      requestedById,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Resolve a query (URL, playlist, or one-to-many keyword searches), add it to
+ * the guild's queue and start playback if idle. Shared by the /play command
+ * and the chatbot tool.
  */
 export async function playMusicAction(
   ctx: ActionContext,
@@ -115,13 +178,14 @@ export async function playMusicAction(
         }
       }
     } else {
-      const result = await api.searchAndResolve(query);
-      tracksToAdd.push({
-        track: result.track,
-        youtubeId: result.youtubeId,
-        requestedBy,
-        requestedById,
-      });
+      // Keyword search — may contain multiple songs separated by commas/newlines.
+      const keywords = splitQueries(query);
+      const resolved = await Promise.all(
+        keywords.map((k) => resolveKeyword(api, k, requestedBy, requestedById)),
+      );
+      for (const item of resolved) {
+        if (item) tracksToAdd.push(item);
+      }
     }
 
     if (tracksToAdd.length === 0) {
@@ -142,7 +206,11 @@ export async function playMusicAction(
       pm.playWithAutoSkip(guildId, ctx.client).catch((err) =>
         console.error('[play-music.action] playback error:', err),
       );
-      return ok(`Đã thêm và phát: ${tracksToAdd[0].track.title}`, {
+      const message =
+        totalAdded === 1
+          ? `Đã thêm và phát: ${tracksToAdd[0].track.title}`
+          : `Đã thêm ${totalAdded} bài và bắt đầu phát: ${tracksToAdd[0].track.title}`;
+      return ok(message, {
         startedPlaying: true,
         added: tracksToAdd,
         totalAdded,
@@ -151,7 +219,11 @@ export async function playMusicAction(
     }
 
     const queuePosition = qm.get(guildId)!.tracks.length;
-    return ok(`Đã thêm vào hàng đợi: ${tracksToAdd[0].track.title}`, {
+    const message =
+      totalAdded === 1
+        ? `Đã thêm vào hàng đợi: ${tracksToAdd[0].track.title}`
+        : `Đã thêm ${totalAdded} bài vào hàng đợi, bắt đầu từ: ${tracksToAdd[0].track.title}`;
+    return ok(message, {
       startedPlaying: false,
       added: tracksToAdd,
       totalAdded,

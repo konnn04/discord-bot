@@ -1,11 +1,28 @@
 import { Client, EmbedBuilder } from 'discord.js';
 import type { GuildSettingsService } from '../settings/guild-settings.service';
+import { GIFTCODE_GAMES } from 'shared/src/types/settings.types';
 
 export interface GiftcodeEntry {
   code: string;
   rewards?: string;
   link?: string;
 }
+
+/** Display label for a game id, from the shared registry. */
+export function giftcodeGameLabel(gameId: string): string {
+  return GIFTCODE_GAMES.find((g) => g.id === gameId)?.label ?? gameId;
+}
+
+/**
+ * Per-code redemption deep links for the HoYoverse games that support one.
+ * Games without an entry here (e.g. Honkai Impact 3rd, Tears of Themis) have
+ * no official code-in-URL redemption page — codes are shown without a link.
+ */
+export const HOYOVERSE_REDEEM_LINKS: Record<string, (code: string) => string> = {
+  genshin: (code) => `https://genshin.hoyoverse.com/vi/gift?code=${code}`,
+  hkrpg: (code) => `https://hsr.hoyoverse.com/gift?code=${code}`,
+  nap: (code) => `https://zenless.hoyoverse.com/redemption?code=${code}`,
+};
 
 /**
  * One consistent embed format for every game's giftcode notification,

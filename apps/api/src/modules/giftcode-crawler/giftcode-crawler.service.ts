@@ -4,16 +4,13 @@ import { createHash } from 'crypto';
 import { Client } from 'discord.js';
 import { GuildSettingsService } from '../settings/guild-settings.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { GIFTCODE_GAMES } from 'shared/src/types/settings.types';
 import { GIFTCODE_CRAWL_SOURCES } from './sources';
 import {
   notifyGuildsForGiftcode,
   getActiveGiftcodeGameIds,
+  giftcodeGameLabel,
+  type GiftcodeEntry,
 } from '../giftcode/giftcode-notify';
-
-const GAME_LABELS: Record<string, string> = Object.fromEntries(
-  GIFTCODE_GAMES.map((g) => [g.id, g.label]),
-);
 
 /** Games this crawler knows how to scrape (i.e. NOT the HoYoverse API games). */
 const CRAWL_GAME_IDS = Object.keys(GIFTCODE_CRAWL_SOURCES);
@@ -29,8 +26,10 @@ const FETCH_HEADERS: Record<string, string> = {
 
 export interface CrawlResult {
   gameId: string;
-  codes: string[];
-  newCodes: string[];
+  /** Every code currently found on the source page, with reward text + a link back to that page. */
+  entries: GiftcodeEntry[];
+  /** The subset of `entries` not seen in a previous crawl. */
+  newEntries: GiftcodeEntry[];
 }
 
 /**
@@ -90,7 +89,8 @@ export class GiftcodeCrawlerService implements OnModuleInit {
     opts: { notify?: boolean } = {},
   ): Promise<CrawlResult> {
     const sources = GIFTCODE_CRAWL_SOURCES[gameId];
-    let codes: string[] = [];
+    let entries: GiftcodeEntry[] = [];
+    let sourceUrl: string | undefined;
 
     if (sources?.length) {
       for (const source of sources) {
@@ -98,8 +98,11 @@ export class GiftcodeCrawlerService implements OnModuleInit {
           const res = await fetch(source.url, { headers: FETCH_HEADERS });
           if (!res.ok) continue;
           const html = await res.text();
-          codes = source.extract(html);
-          if (codes.length > 0) break; // primary source succeeded — skip fallback
+          entries = source.extract(html);
+          if (entries.length > 0) {
+            sourceUrl = source.url; // primary source succeeded — skip fallback
+            break;
+          }
         } catch (err) {
           this.logger.warn(
             `Source failed for ${gameId} (${source.url}): ${String(err)}`,
@@ -108,11 +111,16 @@ export class GiftcodeCrawlerService implements OnModuleInit {
       }
     }
 
-    if (codes.length === 0) {
-      return { gameId, codes: [], newCodes: [] };
+    if (entries.length === 0) {
+      return { gameId, entries: [], newEntries: [] };
     }
 
-    const payload = [...codes].sort().join(',');
+    // Link every code back to the page it was found on — accurate since it's
+    // the page we just successfully scraped, unlike guessing a redeem URL.
+    const entriesWithLink = entries.map((e) => ({ ...e, link: sourceUrl }));
+
+    const codeStrings = entriesWithLink.map((e) => e.code);
+    const payload = [...codeStrings].sort().join(',');
     const currentHash = createHash('md5').update(payload).digest('hex');
 
     const dbCache = await this.prisma.giftcodeCache.findUnique({
@@ -120,22 +128,22 @@ export class GiftcodeCrawlerService implements OnModuleInit {
     });
 
     const known = dbCache ? (dbCache.codes as string[]) : [];
-    const newCodes = codes.filter((c) => !known.includes(c));
+    const newEntries = entriesWithLink.filter((e) => !known.includes(e.code));
     const unchanged = dbCache?.hash === currentHash;
 
-    if (newCodes.length > 0 && (opts.notify || !unchanged) && this.discordClient) {
-      this.logger.log(`Found ${newCodes.length} new code(s) for ${gameId}`);
+    if (newEntries.length > 0 && (opts.notify || !unchanged) && this.discordClient) {
+      this.logger.log(`Found ${newEntries.length} new code(s) for ${gameId}`);
       await notifyGuildsForGiftcode(
         this.discordClient,
         this.guildSettings,
         gameId,
-        GAME_LABELS[gameId] ?? gameId,
-        newCodes.map((code) => ({ code })),
+        giftcodeGameLabel(gameId),
+        newEntries,
       );
     }
 
     if (!unchanged) {
-      const updatedKnown = [...new Set([...known, ...codes])];
+      const updatedKnown = [...new Set([...known, ...codeStrings])];
       await this.prisma.giftcodeCache.upsert({
         where: { game: gameId },
         update: { hash: currentHash, codes: updatedKnown },
@@ -143,6 +151,6 @@ export class GiftcodeCrawlerService implements OnModuleInit {
       });
     }
 
-    return { gameId, codes, newCodes };
+    return { gameId, entries: entriesWithLink, newEntries };
   }
 }

@@ -1,11 +1,13 @@
 import { parse, type HTMLElement } from 'node-html-parser';
+import type { GiftcodeEntry } from '../giftcode/giftcode-notify';
 
 /**
- * Heuristic extraction of gift-code-like tokens from scraped HTML text.
- * Game sites change markup often and vary wildly in structure, so this stays
- * intentionally simple — a token regex plus a noise-word blacklist — rather
- * than brittle per-site text parsing. Tune CODE_TOKEN_REGEX / NOISE_WORDS
- * here if a source starts producing junk or missing real codes.
+ * Heuristic extraction of gift-code-like tokens (and their nearby reward
+ * text) from scraped HTML text. Game sites change markup often and vary
+ * wildly in structure, so this stays intentionally simple — a token regex
+ * plus a noise-word blacklist — rather than brittle per-site text parsing.
+ * Tune CODE_TOKEN_REGEX / NOISE_WORDS here if a source starts producing junk
+ * or missing real codes.
  */
 const CODE_TOKEN_REGEX = /\b[A-Z0-9]{4,24}\b/g;
 
@@ -46,6 +48,34 @@ export function firstCodeToken(text: string): string | null {
   return extractCodeTokens(text)[0] ?? null;
 }
 
+const REWARD_MAX_LENGTH = 140;
+
+/**
+ * Best-effort reward description: the given text with the code token (and
+ * common leftover separators like "-", ":", "|") stripped out. Returns
+ * undefined when what's left is too short to be meaningful.
+ */
+export function extractRewardNear(text: string, code: string): string | undefined {
+  const withoutCode = text.replace(code, ' ').replace(/\s+/g, ' ').trim();
+  const cleaned = withoutCode.replace(/^[-:|–—•\s]+|[-:|–—•\s]+$/g, '').trim();
+  if (cleaned.length < 3) return undefined;
+  return cleaned.length > REWARD_MAX_LENGTH
+    ? `${cleaned.slice(0, REWARD_MAX_LENGTH - 1)}…`
+    : cleaned;
+}
+
+/** Dedupe entries by code, keeping the first occurrence's reward text. */
+function dedupeByCode(entries: GiftcodeEntry[]): GiftcodeEntry[] {
+  const seen = new Set<string>();
+  const out: GiftcodeEntry[] = [];
+  for (const e of entries) {
+    if (seen.has(e.code)) continue;
+    seen.add(e.code);
+    out.push(e);
+  }
+  return out;
+}
+
 export type SelectorSpec =
   | { type: 'class'; value: string; index?: number }
   | { type: 'tag'; value: string; index?: number };
@@ -71,67 +101,79 @@ export function parseHtml(html: string): HTMLElement {
   return parse(html);
 }
 
-/** One code per matched "card" element — the first token in its full text. */
+/** One entry per matched "card" element — code + the rest of its text as the reward. */
 export function extractFromCards(
   root: HTMLElement,
   spec: SelectorSpec,
-): string[] {
-  const codes: string[] = [];
+): GiftcodeEntry[] {
+  const entries: GiftcodeEntry[] = [];
   for (const el of select(root, spec)) {
     const code = firstCodeToken(el.text);
-    if (code) codes.push(code);
+    if (code) entries.push({ code, rewards: extractRewardNear(el.text, code) });
   }
-  return [...new Set(codes)];
+  return dedupeByCode(entries);
 }
 
-/** One code per `<li>` inside the matched container(s) (falls back to the container itself). */
+/** One entry per `<li>` inside the matched container(s) (falls back to the container itself). */
 export function extractFromListItems(
   root: HTMLElement,
   spec: SelectorSpec,
-): string[] {
-  const codes: string[] = [];
+): GiftcodeEntry[] {
+  const entries: GiftcodeEntry[] = [];
   for (const container of select(root, spec)) {
     const items = container.querySelectorAll('li');
     const targets = items.length > 0 ? items : [container];
     for (const item of targets) {
       const code = firstCodeToken(item.text);
-      if (code) codes.push(code);
+      if (code) {
+        entries.push({ code, rewards: extractRewardNear(item.text, code) });
+      }
     }
   }
-  return [...new Set(codes)];
+  return dedupeByCode(entries);
 }
 
-/** One code per table row — the first `<td>` cell's text (header rows have none). */
+/** One entry per table row — code from the first `<td>`, reward from the second (if present). */
 export function extractFromTables(
   root: HTMLElement,
   spec: SelectorSpec,
-): string[] {
-  const codes: string[] = [];
+): GiftcodeEntry[] {
+  const entries: GiftcodeEntry[] = [];
   for (const container of select(root, spec)) {
     const table =
       container.tagName === 'TABLE' ? container : container.querySelector('table');
     if (!table) continue;
     for (const row of table.querySelectorAll('tr')) {
-      const cell = row.querySelector('td');
-      if (!cell) continue;
-      const code = firstCodeToken(cell.text);
-      if (code) codes.push(code);
+      const cells = row.querySelectorAll('td');
+      if (cells.length === 0) continue; // header row (th only)
+      const code = firstCodeToken(cells[0].text);
+      if (!code) continue;
+      const rewards =
+        cells.length > 1
+          ? extractRewardNear(cells[1].text, '') || undefined
+          : extractRewardNear(row.text, code);
+      entries.push({ code, rewards });
     }
   }
-  return [...new Set(codes)];
+  return dedupeByCode(entries);
 }
 
-/** Each matched element IS (or directly contains) a code — use its own text. */
+/**
+ * Each matched element IS (or directly contains) a code — use its own text.
+ * These elements are usually just a bare `<code>`/span with no surrounding
+ * reward context, so rewards are left undefined here (best to avoid
+ * capturing a whole unrelated paragraph as "reward" text).
+ */
 export function extractSelfText(
   root: HTMLElement,
   spec: SelectorSpec,
-): string[] {
-  const codes: string[] = [];
+): GiftcodeEntry[] {
+  const entries: GiftcodeEntry[] = [];
   for (const el of select(root, spec)) {
     const trimmed = el.text.trim().toUpperCase();
     const code =
       /^[A-Z0-9]{4,24}$/.test(trimmed) ? trimmed : firstCodeToken(el.text);
-    if (code) codes.push(code);
+    if (code) entries.push({ code });
   }
-  return [...new Set(codes)];
+  return dedupeByCode(entries);
 }
