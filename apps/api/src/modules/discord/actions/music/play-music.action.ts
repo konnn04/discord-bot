@@ -42,6 +42,12 @@ export interface PlayMusicData {
 
 const MAX_QUERIES = 10;
 
+/** Stable dedup key for a track — built from source+sourceId rather than
+ * trusting `track.id` to always be populated consistently by the music API. */
+function trackKey(track: QueueTrack['track']): string {
+  return `${track.source}:${track.sourceId}`;
+}
+
 /**
  * Split "Artist A - Song A; Artist B - Song B" into individual search queries.
  * Semicolon (not comma) is the separator — artist/song names legitimately
@@ -192,15 +198,44 @@ export async function playMusicAction(
       return fail('Không tìm thấy bài hát nào.');
     }
 
-    const totalAdded = tracksToAdd.length;
+    // Skip tracks already in the queue (by source:sourceId) — both against
+    // what's already queued and against duplicates within this same batch —
+    // so asking the bot to add music never double-queues the same song.
+    const existingIds = new Set(
+      (qm.get(guildId)?.tracks ?? []).map((t) => trackKey(t.track)),
+    );
+    const uniqueTracks: QueueTrack[] = [];
+    const duplicateTitles: string[] = [];
+    for (const t of tracksToAdd) {
+      const key = trackKey(t.track);
+      if (existingIds.has(key)) {
+        duplicateTitles.push(t.track.title);
+        continue;
+      }
+      existingIds.add(key);
+      uniqueTracks.push(t);
+    }
+
+    if (uniqueTracks.length === 0) {
+      return fail(
+        `Bài này đã có trong hàng đợi rồi: ${duplicateTitles.join(', ')}.`,
+      );
+    }
+
+    const dupSuffix =
+      duplicateTitles.length > 0
+        ? ` (bỏ qua ${duplicateTitles.length} bài đã có trong hàng đợi)`
+        : '';
+
+    const totalAdded = uniqueTracks.length;
     const wasEmpty = !qm.getCurrent(guildId);
     const isCurrentlyPlaying = pm.isPlaying(guildId);
 
-    qm.addTracks(guildId, textChannelId, tracksToAdd);
+    qm.addTracks(guildId, textChannelId, uniqueTracks);
 
     if (wasEmpty || !isCurrentlyPlaying) {
       const q = qm.get(guildId)!;
-      q.current = q.tracks.length - tracksToAdd.length;
+      q.current = q.tracks.length - uniqueTracks.length;
       pm.join(voiceChannel);
       // Fire-and-forget: the player auto-skips failed tracks and logs errors.
       pm.playWithAutoSkip(guildId, ctx.client).catch((err) =>
@@ -208,11 +243,11 @@ export async function playMusicAction(
       );
       const message =
         totalAdded === 1
-          ? `Đã thêm và phát: ${tracksToAdd[0].track.title}`
-          : `Đã thêm ${totalAdded} bài và bắt đầu phát: ${tracksToAdd[0].track.title}`;
+          ? `Đã thêm và phát: ${uniqueTracks[0].track.title}${dupSuffix}`
+          : `Đã thêm ${totalAdded} bài và bắt đầu phát: ${uniqueTracks[0].track.title}${dupSuffix}`;
       return ok(message, {
         startedPlaying: true,
-        added: tracksToAdd,
+        added: uniqueTracks,
         totalAdded,
         queuePosition: null,
       });
@@ -221,11 +256,11 @@ export async function playMusicAction(
     const queuePosition = qm.get(guildId)!.tracks.length;
     const message =
       totalAdded === 1
-        ? `Đã thêm vào hàng đợi: ${tracksToAdd[0].track.title}`
-        : `Đã thêm ${totalAdded} bài vào hàng đợi, bắt đầu từ: ${tracksToAdd[0].track.title}`;
+        ? `Đã thêm vào hàng đợi: ${uniqueTracks[0].track.title}${dupSuffix}`
+        : `Đã thêm ${totalAdded} bài vào hàng đợi, bắt đầu từ: ${uniqueTracks[0].track.title}${dupSuffix}`;
     return ok(message, {
       startedPlaying: false,
-      added: tracksToAdd,
+      added: uniqueTracks,
       totalAdded,
       queuePosition,
     });

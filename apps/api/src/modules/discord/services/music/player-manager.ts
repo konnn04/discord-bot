@@ -213,14 +213,39 @@ export class PlayerManager {
         throw new Error(`Stream fetch failed: ${response.status}`);
       }
 
-      // Pipeline playback: pipe the HTTP body straight into the player so audio
-      // starts as bytes arrive, instead of buffering the whole file first.
-      const { Readable } = await import('stream');
-      const nodeStream = Readable.fromWeb(
+      // Pipeline playback: start feeding the player as soon as bytes arrive,
+      // but drain the network as fast as it delivers regardless of how fast
+      // the player consumes — i.e. decouple download speed from playback
+      // speed. If we instead pipe the raw HTTP body straight into the audio
+      // resource, Node applies backpressure: whenever the player is momentarily
+      // slower than the network (encode jitter, event-loop hiccup), the read
+      // pauses, the origin connection sits idle, and once it exceeds the
+      // server's idle timeout the stream gets closed early — the player then
+      // sees a premature end-of-stream and treats it as "track finished",
+      // auto-skipping to the next track despite time remaining. Buffering into
+      // a PassThrough and pumping it eagerly (ignoring backpressure) avoids
+      // that: the full file keeps downloading in the background no matter what
+      // the player is doing, so a later playback stall can never truncate it.
+      const { Readable, PassThrough } = await import('stream');
+      const sourceStream = Readable.fromWeb(
         response.body as Parameters<typeof Readable.fromWeb>[0],
       );
+      const buffer = new PassThrough({ highWaterMark: 1 << 24 }); // 16MB headroom
 
-      nodeStream.on('error', (err) => {
+      void (async () => {
+        try {
+          for await (const chunk of sourceStream) {
+            // Intentionally ignore the backpressure return value — we want the
+            // network read to keep going even if the player hasn't drained yet.
+            buffer.write(chunk);
+          }
+          buffer.end();
+        } catch (err: any) {
+          buffer.destroy(err);
+        }
+      })();
+
+      buffer.on('error', (err) => {
         console.error(
           `[PlayerManager] Stream error in guild ${guildId}:`,
           err.message,
@@ -228,7 +253,7 @@ export class PlayerManager {
         gp.player.stop(true);
       });
 
-      const resource = createAudioResource(nodeStream, {
+      const resource = createAudioResource(buffer, {
         inputType: StreamType.WebmOpus,
         inlineVolume: true,
       });
