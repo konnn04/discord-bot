@@ -12,9 +12,10 @@ import { MusicController } from './controllers/music.controller';
 import { MusicGateway } from './gateways/music.gateway';
 
 import { MichosgcModule } from '../michosgc/michosgc.module';
+import { GiftcodeCrawlerModule } from '../giftcode-crawler/giftcode-crawler.module';
 
 @Module({
-  imports: [MichosgcModule],
+  imports: [MichosgcModule, GiftcodeCrawlerModule],
   controllers: [MusicController],
   providers: [
     DiscordService,
