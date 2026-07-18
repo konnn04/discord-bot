@@ -9,6 +9,7 @@ import type { XpBufferService } from '../xp/services/xp-buffer/xp-buffer.service
 import type { PrismaService } from '../prisma/prisma.service';
 import type { VoiceTagService } from './services/voice-tag.service';
 import type { MeetingTracker } from './utils/meeting-tracker';
+import type { GiftcodeCrawlerService } from '../giftcode-crawler/giftcode-crawler.service';
 
 export interface DiscordDeps {
   commandLoader: CommandLoaderService;
@@ -22,4 +23,5 @@ export interface DiscordDeps {
   meetingTracker: MeetingTracker;
   discordClient: Client;
   voiceTagService: VoiceTagService;
+  giftcodeCrawler: GiftcodeCrawlerService;
 }

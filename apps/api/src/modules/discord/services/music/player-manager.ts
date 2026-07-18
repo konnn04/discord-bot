@@ -213,15 +213,12 @@ export class PlayerManager {
         throw new Error(`Stream fetch failed: ${response.status}`);
       }
 
-      const arrayBuffer = await response.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-
-      console.log(
-        `[PlayerManager] Preloaded ${(buffer.length / 1024 / 1024).toFixed(1)}MB for guild ${guildId}: ${current.track.title}`,
-      );
-
+      // Pipeline playback: pipe the HTTP body straight into the player so audio
+      // starts as bytes arrive, instead of buffering the whole file first.
       const { Readable } = await import('stream');
-      const nodeStream = Readable.from(buffer);
+      const nodeStream = Readable.fromWeb(
+        response.body as Parameters<typeof Readable.fromWeb>[0],
+      );
 
       nodeStream.on('error', (err) => {
         console.error(

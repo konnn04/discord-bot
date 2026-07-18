@@ -75,7 +75,9 @@ export class ChatbotService {
         ? `Đang trong kênh thoại: #${voiceState.name}`
         : 'KHÔNG ở trong kênh thoại nào.',
     ].join('\n');
-    const systemWithContext = `${this.systemPrompt}\n\n## Trạng thái hiện tại\n${userContext}`;
+    const systemWithContext =
+      `${this.systemPrompt}\n\n## Trạng thái hiện tại\n${userContext}` +
+      this.buildToolSection(tools);
     const messages: LlmMessage[] = [
       { role: 'system', content: systemWithContext },
       ...channelMem,
@@ -160,6 +162,23 @@ export class ChatbotService {
         //
       }
     }
+  }
+
+  /**
+   * Dynamic prompt section listing only the tools enabled for this guild, so the
+   * model is told exactly what it may use. The hard gate stays elsewhere: only
+   * these tools are sent to the LLM and executed.
+   */
+  private buildToolSection(tools: LlmTool[]): string {
+    if (tools.length === 0) {
+      return (
+        '\n\n## Công cụ được cấp quyền\n' +
+        'Hiện bạn KHÔNG được cấp công cụ nào. Trả lời bằng kiến thức của bạn và ' +
+        'đừng nhắc tới việc dùng công cụ.'
+      );
+    }
+    const lines = tools.map((t) => `- \`${t.name}\`: ${t.description}`);
+    return `\n\n## Công cụ được cấp quyền\n${lines.join('\n')}`;
   }
 
   private stripMention(message: Message): string {

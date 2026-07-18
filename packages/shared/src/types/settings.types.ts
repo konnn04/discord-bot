@@ -99,6 +99,13 @@ export interface GuildSettings {
     };
   };
 
+  giftcodeCrawl: {
+    enabled: boolean;
+    channelId: string | null;
+    roleId: string | null; // optional — codes are sent with or without a tag
+    games: string[]; // ids from GIFTCODE_CRAWL_GAMES
+  };
+
   // Music Settings
   music: {
     defaultVolume: number;
@@ -153,6 +160,13 @@ export const CHATBOT_TOOLS: ChatbotToolMeta[] = [
     risky: false,
   },
   {
+    id: 'crawl_giftcode',
+    label: 'Cào giftcode (game khác)',
+    description:
+      'Cào giftcode ngay cho game chưa có API (NTE, Wuthering Waves, Arknights...).',
+    risky: false,
+  },
+  {
     id: 'guild_info',
     label: 'Thông tin server',
     description: 'Đọc thông tin cơ bản của server (tên, số thành viên...).',
@@ -173,7 +187,37 @@ export const CHATBOT_TOOLS: ChatbotToolMeta[] = [
   {
     id: 'play_music',
     label: 'Phát nhạc',
-    description: 'Phát nhạc trong kênh thoại hiện tại.',
+    description: 'Phát/thêm nhạc vào hàng chờ theo từ khoá hoặc link.',
+    risky: false,
+  },
+  {
+    id: 'skip_music',
+    label: 'Bỏ qua bài',
+    description: 'Bỏ qua bài đang phát, sang bài kế tiếp.',
+    risky: false,
+  },
+  {
+    id: 'pause_music',
+    label: 'Tạm dừng nhạc',
+    description: 'Tạm dừng bài đang phát.',
+    risky: false,
+  },
+  {
+    id: 'resume_music',
+    label: 'Tiếp tục nhạc',
+    description: 'Tiếp tục phát bài đang tạm dừng.',
+    risky: false,
+  },
+  {
+    id: 'stop_music',
+    label: 'Dừng nhạc',
+    description: 'Dừng nhạc và xoá hàng chờ.',
+    risky: false,
+  },
+  {
+    id: 'now_playing',
+    label: 'Bài đang phát',
+    description: 'Xem bài nhạc đang phát.',
     risky: false,
   },
   {
@@ -188,6 +232,24 @@ export const CHATBOT_TOOLS: ChatbotToolMeta[] = [
     description: 'Thay đổi băng thông/region của kênh thoại đang phát.',
     risky: true,
   },
+];
+
+/** Metadata for a game the giftcode crawler supports (rendered in the UI). */
+export interface GiftcodeCrawlGameMeta {
+  id: string;
+  label: string;
+}
+
+/**
+ * Games scraped by the giftcode crawler — i.e. NOT covered by the michosgc
+ * HoYoverse API. Gated per-guild by GuildSettings.giftcodeCrawl.games.
+ */
+export const GIFTCODE_CRAWL_GAMES: GiftcodeCrawlGameMeta[] = [
+  { id: 'nte', label: 'Neverness to Everness' },
+  { id: 'wuwa', label: 'Wuthering Waves' },
+  { id: 'endfield', label: 'Arknights: Endfield' },
+  { id: 'arknights', label: 'Arknights' },
+  { id: 'wwm', label: 'Where Winds Meet' },
 ];
 
 /** Default global settings */
@@ -271,6 +333,12 @@ export function createDefaultGuildSettings(guildId: string): GuildSettings {
         nap: null,
         tot: null,
       },
+    },
+    giftcodeCrawl: {
+      enabled: false,
+      channelId: null,
+      roleId: null,
+      games: [],
     },
     music: {
       defaultVolume: 80,

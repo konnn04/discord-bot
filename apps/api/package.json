@@ -43,6 +43,7 @@
     "edge-tts-universal": "^1.4.0",
     "ioredis": "^5.10.1",
     "nestjs-pino": "^4.6.1",
+    "node-html-parser": "^9.0.0",
     "opusscript": "^0.1.1",
     "pg": "^8.20.0",
     "pino": "^10.3.1",

@@ -31,11 +31,6 @@ export interface PlayMusicData {
   totalAdded: number;
   /** 1-based position in queue when added behind the current track. */
   queuePosition: number | null;
-  /** Background playback promise (started only when startedPlaying). */
-  playbackPromise: Promise<{
-    success: boolean;
-    autoSkippedCount: number;
-  }> | null;
 }
 
 /**
@@ -143,8 +138,8 @@ export async function playMusicAction(
       const q = qm.get(guildId)!;
       q.current = q.tracks.length - tracksToAdd.length;
       pm.join(voiceChannel);
-      const playbackPromise = pm.playWithAutoSkip(guildId, ctx.client);
-      playbackPromise.catch((err) =>
+      // Fire-and-forget: the player auto-skips failed tracks and logs errors.
+      pm.playWithAutoSkip(guildId, ctx.client).catch((err) =>
         console.error('[play-music.action] playback error:', err),
       );
       return ok(`Đã thêm và phát: ${tracksToAdd[0].track.title}`, {
@@ -152,7 +147,6 @@ export async function playMusicAction(
         added: tracksToAdd,
         totalAdded,
         queuePosition: null,
-        playbackPromise,
       });
     }
 
@@ -162,7 +156,6 @@ export async function playMusicAction(
       added: tracksToAdd,
       totalAdded,
       queuePosition,
-      playbackPromise: null,
     });
   } catch (error: any) {
     return fail(`Lỗi: ${error?.message || 'Không thể xử lý yêu cầu.'}`);

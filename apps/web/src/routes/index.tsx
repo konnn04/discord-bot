@@ -19,6 +19,7 @@ const WelcomeSettings = lazy(() => import("@/pages/admin/settings/welcome").then
 const NotificationsSettings = lazy(() => import("@/pages/admin/settings/notifications").then(m => ({ default: m.NotificationsSettings })));
 const GeneralSettings = lazy(() => import("@/pages/admin/settings/general").then(m => ({ default: m.GeneralSettings })));
 const MichosgcSettings = lazy(() => import("@/pages/admin/settings/michosgc").then(m => ({ default: m.MichosgcSettings })));
+const GiftcodeCrawlSettings = lazy(() => import("@/pages/admin/settings/giftcode-crawl").then(m => ({ default: m.GiftcodeCrawlSettings })));
 const RoleRankSettings = lazy(() => import("@/pages/admin/settings/rolerank").then(m => ({ default: m.RoleRankSettings })));
 const ChatbotSettings = lazy(() => import("@/pages/admin/settings/chatbot").then(m => ({ default: m.ChatbotSettings })));
 const MusicLayout = lazy(() => import("@/components/layout/music-layout").then(m => ({ default: m.MusicLayout })));
@@ -81,6 +82,7 @@ export const router = createBrowserRouter([
           { path: "notifications", element: <Lazy><NotificationsSettings /></Lazy> },
           { path: "general", element: <Lazy><GeneralSettings /></Lazy> },
           { path: "michosgc", element: <Lazy><MichosgcSettings /></Lazy> },
+          { path: "giftcode-crawl", element: <Lazy><GiftcodeCrawlSettings /></Lazy> },
           { path: "rolerank", element: <Lazy><RoleRankSettings /></Lazy> },
           { path: "chatbot", element: <Lazy><ChatbotSettings /></Lazy> },
         ],

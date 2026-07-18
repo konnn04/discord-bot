@@ -1,107 +1,95 @@
-import type { Message } from 'discord.js';
-import type { LlmTool } from './llm-client';
 import {
-  contextFromMessage,
   getGiftcodeAction,
+  crawlGiftcodeAction,
   guildInfoAction,
   listMembersAction,
   memberInfoAction,
   playMusicAction,
   renameVoiceChannelAction,
   setVoiceBitrateAction,
+  skipMusicAction,
+  pauseMusicAction,
+  resumeMusicAction,
+  stopMusicAction,
+  nowPlayingAction,
   giftcodeToolSchema,
+  crawlGiftcodeToolSchema,
   guildInfoToolSchema,
   listMembersToolSchema,
   memberInfoToolSchema,
   playMusicToolSchema,
   renameVoiceChannelToolSchema,
   setVoiceBitrateToolSchema,
+  skipMusicToolSchema,
+  pauseMusicToolSchema,
+  resumeMusicToolSchema,
+  stopMusicToolSchema,
+  nowPlayingToolSchema,
 } from '../actions';
+import { guildTool, plainTool, type ChatTool } from './tool-helpers';
 
-export interface ChatToolContext {
-  message: Message;
-  deps: any;
-}
+export type { ChatTool, ChatToolContext } from './tool-helpers';
 
-export interface ChatTool {
-  meta: LlmTool;
-  handler: (
-    args: Record<string, unknown>,
-    ctx: ChatToolContext,
-  ) => string | Promise<string>;
-}
+const str = (v: unknown) => (typeof v === 'string' ? v : '');
 
+/**
+ * Tools the chatbot can use. Each is a thin adapter over a shared action in
+ * ../actions, built with guildTool/plainTool so there's no repeated
+ * context-building or null-checking boilerplate.
+ */
 export const CHAT_TOOLS: Record<string, ChatTool> = {
-  get_giftcode: {
-    meta: giftcodeToolSchema,
-    async handler(args) {
-      const game = typeof args.game === 'string' ? args.game : '';
-      const r = await getGiftcodeAction({ game });
-      return r.message;
-    },
-  },
+  get_giftcode: plainTool(giftcodeToolSchema, getGiftcodeAction, (a) => ({
+    game: str(a.game),
+  })),
 
-  guild_info: {
-    meta: guildInfoToolSchema,
-    handler(_args, ctx) {
-      const actionCtx = contextFromMessage(ctx.message, ctx.deps);
-      if (!actionCtx) return 'Không ở trong server.';
-      return guildInfoAction(actionCtx).message;
-    },
-  },
+  crawl_giftcode: guildTool(
+    crawlGiftcodeToolSchema,
+    crawlGiftcodeAction,
+    (a) => ({ game: str(a.game) }),
+  ),
 
-  list_members: {
-    meta: listMembersToolSchema,
-    handler(args, ctx) {
-      const actionCtx = contextFromMessage(ctx.message, ctx.deps);
-      if (!actionCtx) return 'Không ở trong server.';
-      return listMembersAction(actionCtx, { limit: Number(args.limit) })
-        .message;
-    },
-  },
+  guild_info: guildTool(guildInfoToolSchema, guildInfoAction, () => undefined),
 
-  member_info: {
-    meta: memberInfoToolSchema,
-    handler(args, ctx) {
-      const actionCtx = contextFromMessage(ctx.message, ctx.deps);
-      if (!actionCtx) return 'Không ở trong server.';
-      const query = typeof args.query === 'string' ? args.query : '';
-      return memberInfoAction(actionCtx, { query }).message;
-    },
-  },
+  list_members: guildTool(listMembersToolSchema, listMembersAction, (a) => ({
+    limit: Number(a.limit),
+  })),
 
-  play_music: {
-    meta: playMusicToolSchema,
-    async handler(args, ctx) {
-      const actionCtx = contextFromMessage(ctx.message, ctx.deps);
-      if (!actionCtx) return 'Không ở trong server.';
-      const query = typeof args.query === 'string' ? args.query : '';
-      return (await playMusicAction(actionCtx, { query })).message;
-    },
-  },
+  member_info: guildTool(memberInfoToolSchema, memberInfoAction, (a) => ({
+    query: str(a.query),
+  })),
 
-  rename_voice_channel: {
-    meta: renameVoiceChannelToolSchema,
-    async handler(args, ctx) {
-      const actionCtx = contextFromMessage(ctx.message, ctx.deps);
-      if (!actionCtx) return 'Không ở trong server.';
-      const name = typeof args.name === 'string' ? args.name : '';
-      return (await renameVoiceChannelAction(actionCtx, { name })).message;
-    },
-  },
+  play_music: guildTool(playMusicToolSchema, playMusicAction, (a) => ({
+    query: str(a.query),
+  })),
 
-  set_voice_bitrate: {
-    meta: setVoiceBitrateToolSchema,
-    async handler(args, ctx) {
-      const actionCtx = contextFromMessage(ctx.message, ctx.deps);
-      if (!actionCtx) return 'Không ở trong server.';
-      const region = typeof args.region === 'string' ? args.region : undefined;
-      return (
-        await setVoiceBitrateAction(actionCtx, {
-          bitrate: args.bitrate != null ? Number(args.bitrate) : undefined,
-          region,
-        })
-      ).message;
-    },
-  },
+  rename_voice_channel: guildTool(
+    renameVoiceChannelToolSchema,
+    renameVoiceChannelAction,
+    (a) => ({ name: str(a.name) }),
+  ),
+
+  set_voice_bitrate: guildTool(
+    setVoiceBitrateToolSchema,
+    setVoiceBitrateAction,
+    (a) => ({
+      bitrate: a.bitrate != null ? Number(a.bitrate) : undefined,
+      region: a.region != null ? String(a.region) : undefined,
+    }),
+  ),
+
+  skip_music: guildTool(skipMusicToolSchema, skipMusicAction, (a) => ({
+    count: a.count != null ? Number(a.count) : undefined,
+  })),
+
+  pause_music: guildTool(pauseMusicToolSchema, pauseMusicAction, () => undefined),
+
+  resume_music: guildTool(
+    resumeMusicToolSchema,
+    resumeMusicAction,
+    () => undefined,
+  ),
+
+  stop_music: guildTool(stopMusicToolSchema, stopMusicAction, () => undefined),
+
+  now_playing: guildTool(nowPlayingToolSchema, nowPlayingAction, () => undefined),
 };

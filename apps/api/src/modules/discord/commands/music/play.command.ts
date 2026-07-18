@@ -38,13 +38,7 @@ const play: ActionCommand = {
       return;
     }
 
-    const {
-      startedPlaying,
-      added,
-      totalAdded,
-      queuePosition,
-      playbackPromise,
-    } = result.data;
+    const { startedPlaying, added, totalAdded, queuePosition } = result.data;
     const first = added[0];
 
     if (startedPlaying) {
@@ -71,25 +65,6 @@ const play: ActionCommand = {
           );
         await ctx.editReply({ embeds: [embed] });
       }
-
-      // Surface late playback failures (all tracks errored).
-      playbackPromise
-        ?.then((r) => {
-          if (!r.success) {
-            const extra =
-              r.autoSkippedCount > 0
-                ? ` (đã thử ${r.autoSkippedCount + 1} bài nhưng đều bị lỗi)`
-                : '';
-            ctx
-              .editReply(
-                `❌ Không thể phát bài hát nào${extra}. Thử bài khác nhé.`,
-              )
-              .catch(() => {});
-          }
-        })
-        .catch((err) =>
-          console.error('[play] Background playback error:', err),
-        );
       return;
     }
 

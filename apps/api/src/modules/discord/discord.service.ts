@@ -16,6 +16,7 @@ import { GlobalSettingsService } from '../settings/global-settings.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { XpBufferService } from '../xp/services/xp-buffer/xp-buffer.service';
 import { MichosgcService } from '../michosgc/michosgc.service';
+import { GiftcodeCrawlerService } from '../giftcode-crawler/giftcode-crawler.service';
 import { VoiceTagService } from './services/voice-tag.service';
 import { LeetcodeSchedulerService } from './services/leetcode-scheduler.service';
 import { AnimeSchedulerService } from './services/anime-scheduler.service';
@@ -50,6 +51,7 @@ export class DiscordService implements OnModuleInit, OnModuleDestroy {
     private globalSettings: GlobalSettingsService,
     private xpBuffer: XpBufferService,
     private michosgc: MichosgcService,
+    private giftcodeCrawler: GiftcodeCrawlerService,
     private voiceTagService: VoiceTagService,
     private leetcodeScheduler: LeetcodeSchedulerService,
     private animeScheduler: AnimeSchedulerService,
@@ -85,6 +87,7 @@ export class DiscordService implements OnModuleInit, OnModuleDestroy {
       meetingTracker: this.meetingTracker,
       discordClient: this.client,
       voiceTagService: this.voiceTagService,
+      giftcodeCrawler: this.giftcodeCrawler,
     };
 
     // Load commands and events, automatically injecting dependencies
@@ -116,6 +119,7 @@ export class DiscordService implements OnModuleInit, OnModuleDestroy {
 
       this.xpBuffer.setClient(this.client);
       this.michosgc.setClient(this.client);
+      this.giftcodeCrawler.setClient(this.client);
       this.voiceTagService.setClient(this.client);
       this.leetcodeScheduler.setClient(this.client);
       this.animeScheduler.setClient(this.client);

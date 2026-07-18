@@ -11,6 +11,7 @@ import { GuildsModule } from './modules/guilds/guilds.module';
 import { XpModule } from './modules/xp/xp.module';
 import { PresenceModule } from './modules/presence/presence.module';
 import { MichosgcModule } from './modules/michosgc/michosgc.module';
+import { GiftcodeCrawlerModule } from './modules/giftcode-crawler/giftcode-crawler.module';
 import { MeetingsModule } from './modules/meetings/meetings.module';
 import { CustomThrottlerGuard } from './guards/custom-throttler.guard';
 import { HealthController } from './health.controller';
@@ -50,6 +51,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     XpModule,
     PresenceModule,
     MichosgcModule,
+    GiftcodeCrawlerModule,
     MeetingsModule,
   ],
   controllers: [HealthController],
