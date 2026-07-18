@@ -1,15 +1,22 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { createHash } from 'crypto';
-import { Client, EmbedBuilder } from 'discord.js';
+import { Client } from 'discord.js';
 import { GuildSettingsService } from '../settings/guild-settings.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { GIFTCODE_CRAWL_GAMES } from 'shared/src/types/settings.types';
+import { GIFTCODE_GAMES } from 'shared/src/types/settings.types';
 import { GIFTCODE_CRAWL_SOURCES } from './sources';
+import {
+  notifyGuildsForGiftcode,
+  getActiveGiftcodeGameIds,
+} from '../giftcode/giftcode-notify';
 
 const GAME_LABELS: Record<string, string> = Object.fromEntries(
-  GIFTCODE_CRAWL_GAMES.map((g) => [g.id, g.label]),
+  GIFTCODE_GAMES.map((g) => [g.id, g.label]),
 );
+
+/** Games this crawler knows how to scrape (i.e. NOT the HoYoverse API games). */
+const CRAWL_GAME_IDS = Object.keys(GIFTCODE_CRAWL_SOURCES);
 
 // A realistic browser UA + headers reduce the chance of being blocked as a bot.
 const FETCH_HEADERS: Record<string, string> = {
@@ -30,7 +37,8 @@ export interface CrawlResult {
  * Scrapes giftcode pages for games not covered by the michosgc HoYoverse API
  * (NTE, Wuthering Waves, Arknights/Endfield, Where Winds Meet) every 30
  * minutes, tracks known codes the same way michosgc does (hash + code list in
- * GiftcodeCache), and notifies guilds that opted in per game.
+ * GiftcodeCache). Sending is unified with michosgc via giftcode-notify.ts —
+ * see GuildSettings.giftcode for the shared per-guild configuration.
  */
 @Injectable()
 export class GiftcodeCrawlerService implements OnModuleInit {
@@ -55,16 +63,16 @@ export class GiftcodeCrawlerService implements OnModuleInit {
   async crawlAll(): Promise<void> {
     if (!this.discordClient || !this.prisma.isConnected) return;
 
-    // Crawling is shared across guilds — one fetch per game feeds every guild
-    // that opted in (see notifyGuilds). Skip games nobody has enabled at all.
-    const activeGameIds = this.getActiveGameIds();
+    // Shared across guilds — one fetch per game feeds every guild that opted
+    // in (see notifyGuildsForGiftcode). Skip games nobody has enabled at all.
+    const activeGameIds = getActiveGiftcodeGameIds(this.guildSettings);
 
-    for (const game of GIFTCODE_CRAWL_GAMES) {
-      if (!activeGameIds.has(game.id)) continue;
+    for (const gameId of CRAWL_GAME_IDS) {
+      if (!activeGameIds.has(gameId)) continue;
       try {
-        await this.crawlGame(game.id);
+        await this.crawlGame(gameId);
       } catch (err) {
-        this.logger.error(`Crawl failed for ${game.id}:`, err);
+        this.logger.error(`Crawl failed for ${gameId}:`, err);
       }
       // Be polite between sites — avoid hammering multiple hosts back-to-back.
       await new Promise((r) => setTimeout(r, 5000));
@@ -75,17 +83,6 @@ export class GiftcodeCrawlerService implements OnModuleInit {
   async crawlGameNow(gameId: string): Promise<CrawlResult | null> {
     if (!GIFTCODE_CRAWL_SOURCES[gameId]) return null;
     return this.crawlGame(gameId, { notify: true });
-  }
-
-  /** The set of game ids at least one guild has enabled crawling for. */
-  private getActiveGameIds(): Set<string> {
-    const active = new Set<string>();
-    for (const settings of this.guildSettings.getAll().values()) {
-      const config = settings.giftcodeCrawl;
-      if (!config?.enabled || !config.channelId) continue;
-      for (const gameId of config.games ?? []) active.add(gameId);
-    }
-    return active;
   }
 
   private async crawlGame(
@@ -126,9 +123,15 @@ export class GiftcodeCrawlerService implements OnModuleInit {
     const newCodes = codes.filter((c) => !known.includes(c));
     const unchanged = dbCache?.hash === currentHash;
 
-    if (newCodes.length > 0 && (opts.notify || !unchanged)) {
+    if (newCodes.length > 0 && (opts.notify || !unchanged) && this.discordClient) {
       this.logger.log(`Found ${newCodes.length} new code(s) for ${gameId}`);
-      await this.notifyGuilds(gameId, newCodes);
+      await notifyGuildsForGiftcode(
+        this.discordClient,
+        this.guildSettings,
+        gameId,
+        GAME_LABELS[gameId] ?? gameId,
+        newCodes.map((code) => ({ code })),
+      );
     }
 
     if (!unchanged) {
@@ -141,42 +144,5 @@ export class GiftcodeCrawlerService implements OnModuleInit {
     }
 
     return { gameId, codes, newCodes };
-  }
-
-  private async notifyGuilds(gameId: string, newCodes: string[]): Promise<void> {
-    if (!this.discordClient) return;
-    const label = GAME_LABELS[gameId] ?? gameId;
-    const allGuildSettings = this.guildSettings.getAll();
-
-    for (const [guildId, settings] of allGuildSettings.entries()) {
-      const config = settings.giftcodeCrawl;
-      if (!config?.enabled || !config.channelId) continue;
-      if (!config.games?.includes(gameId)) continue;
-
-      try {
-        const channel = await this.discordClient.channels.fetch(
-          config.channelId,
-        );
-        if (!channel || !channel.isTextBased()) continue;
-
-        const embed = new EmbedBuilder()
-          .setTitle(`🎁 Mã quà tặng mới cho ${label}!`)
-          .setColor(0x22c55e)
-          .setDescription(newCodes.map((c) => `**\`${c}\`**`).join('\n'))
-          .setFooter({
-            text: 'Tự động cào từ web — kiểm tra hạn dùng trước khi nhập.',
-          })
-          .setTimestamp();
-
-        const content = config.roleId ? `<@&${config.roleId}>` : undefined;
-
-        await (channel as any).send({ content, embeds: [embed] });
-      } catch (err) {
-        this.logger.error(
-          `Failed to notify guild ${guildId} for ${gameId}:`,
-          err,
-        );
-      }
-    }
   }
 }

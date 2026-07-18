@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { API_ROUTES } from "@/lib/routes";
 import type { GuildSettings } from "shared/src/types/settings.types";
-import { Brain, Gift, Trophy, MicVocal, ArrowUp } from "lucide-react";
+import { Brain, Trophy, MicVocal, ArrowUp } from "lucide-react";
 
 type Ctx = { data: GuildSettings; setData: (d: GuildSettings) => void; guildId: string };
 
@@ -86,43 +86,6 @@ export function NotificationsSettings() {
               guildId={guildId}
               value={data.leetcodeContest.channelId}
               onChange={(channelId) => update({ leetcodeContest: { channelId } })}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Separator />
-
-      {/* Michosgc - Giftcode */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Gift className="h-4 w-4 text-chart-3" />
-            Giftcode Game
-          </CardTitle>
-          <CardDescription>
-            Tự động kiểm tra và thông báo giftcode game
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="michosgc-enabled">Bật giftcode</Label>
-            <Switch
-              id="michosgc-enabled"
-              checked={data.michosgc.enabled}
-              onCheckedChange={(v) =>
-                update({ michosgc: { ...data.michosgc, enabled: v } })
-              }
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Kênh gửi</Label>
-            <GuildChannelSelect
-              guildId={guildId}
-              value={data.michosgc.channelId}
-              onChange={(channelId) =>
-                update({ michosgc: { ...data.michosgc, channelId } })
-              }
             />
           </div>
         </CardContent>

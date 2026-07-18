@@ -3,8 +3,14 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { GlobalSettingsService } from '../settings/global-settings.service';
 import { GuildSettingsService } from '../settings/guild-settings.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { Client, EmbedBuilder } from 'discord.js';
+import { Client } from 'discord.js';
 import { createHash } from 'crypto';
+import { HOYOVERSE_GAME_IDS } from 'shared/src/types/settings.types';
+import {
+  notifyGuildsForGiftcode,
+  getActiveGiftcodeGameIds,
+  type GiftcodeEntry,
+} from '../giftcode/giftcode-notify';
 
 interface HoyoApiResponse {
   codes: Array<{
@@ -17,12 +23,30 @@ interface HoyoApiResponse {
   game: string;
 }
 
+const GAME_LABELS: Record<string, string> = {
+  genshin: 'Genshin Impact',
+  hkrpg: 'Honkai: Star Rail',
+  honkai3rd: 'Honkai Impact 3rd',
+  nap: 'Zenless Zone Zero',
+  tot: 'Tears of Themis',
+};
+
+const REDEEM_LINKS: Record<string, (code: string) => string> = {
+  genshin: (code) => `https://genshin.hoyoverse.com/vi/gift?code=${code}`,
+  hkrpg: (code) => `https://hsr.hoyoverse.com/gift?code=${code}`,
+  nap: (code) => `https://zenless.hoyoverse.com/redemption?code=${code}`,
+};
+
+/**
+ * Polls the HoYoverse codes API (hoyo-codes.seria.moe) for the 5 HoYoverse
+ * games. Sending is unified with the web-scraped games via giftcode-notify.ts
+ * — see GuildSettings.giftcode for the shared per-guild configuration.
+ */
 @Injectable()
 export class MichosgcService implements OnModuleInit {
   private readonly logger = new Logger(MichosgcService.name);
   private discordClient: Client | null = null;
   private lastRun = 0;
-  private readonly games = ['genshin', 'hkrpg', 'honkai3rd', 'nap', 'tot'];
 
   constructor(
     private globalSettings: GlobalSettingsService,
@@ -58,7 +82,12 @@ export class MichosgcService implements OnModuleInit {
   async checkCodes() {
     if (!this.discordClient) return;
 
-    for (const game of this.games) {
+    // Shared across guilds — only poll a game if at least one guild wants it,
+    // and one fetch feeds every guild that opted in (see notifyGuildsForGiftcode).
+    const activeGameIds = getActiveGiftcodeGameIds(this.guildSettings);
+    const games = HOYOVERSE_GAME_IDS.filter((id) => activeGameIds.has(id));
+
+    for (const game of games) {
       try {
         const response = await fetch(
           `https://hoyo-codes.seria.moe/codes?game=${game}`,
@@ -72,7 +101,6 @@ export class MichosgcService implements OnModuleInit {
         const payload = fetchedCodes.slice().sort().join(',');
         const currentHash = createHash('md5').update(payload).digest('hex');
 
-        // Check DB Cache
         const dbCache = await this.prisma.giftcodeCache.findUnique({
           where: { game },
         });
@@ -86,12 +114,22 @@ export class MichosgcService implements OnModuleInit {
 
         if (newCodes.length > 0) {
           this.logger.log(`Found ${newCodes.length} new codes for ${game}`);
-          await this.notifyGuilds(game, newCodes);
+          const entries: GiftcodeEntry[] = newCodes.map((c) => ({
+            code: c.code,
+            rewards: c.rewards || undefined,
+            link: REDEEM_LINKS[game]?.(c.code),
+          }));
+          await notifyGuildsForGiftcode(
+            this.discordClient,
+            this.guildSettings,
+            game,
+            GAME_LABELS[game] ?? game,
+            entries,
+          );
         }
 
-        // Save to DB
         const updatedKnown = [...new Set([...known, ...fetchedCodes])];
-        await (this.prisma as any).giftcodeCache.upsert({
+        await this.prisma.giftcodeCache.upsert({
           where: { game },
           update: { hash: currentHash, codes: updatedKnown },
           create: { game, hash: currentHash, codes: updatedKnown },
@@ -100,98 +138,8 @@ export class MichosgcService implements OnModuleInit {
         this.logger.error(`Error fetching codes for ${game}:`, err);
       }
 
-      // Delay 10s between requests to avoid rate limits
+      // Delay between requests to avoid rate limits.
       await new Promise((resolve) => setTimeout(resolve, 10000));
-    }
-  }
-
-  private async notifyGuilds(game: string, newCodes: HoyoApiResponse['codes']) {
-    const allGuildSettings = this.guildSettings.getAll();
-
-    for (const [guildId, settings] of allGuildSettings.entries()) {
-      const config = settings.michosgc;
-      if (!config || !config.enabled || !config.channelId) continue;
-
-      try {
-        const channel = await this.discordClient!.channels.fetch(
-          config.channelId,
-        );
-        if (!channel || !channel.isTextBased()) {
-          this.logger.warn(
-            `Guild ${guildId}: Channel ${config.channelId} is not text-based or not found.`,
-          );
-          continue;
-        }
-
-        const gameNames: Record<string, string> = {
-          genshin: 'Genshin Impact',
-          hkrpg: 'Honkai: Star Rail',
-          honkai3rd: 'Honkai Impact 3rd',
-          nap: 'Zenless Zone Zero',
-          tot: 'Tears of Themis',
-        };
-        const gameColors: Record<string, number> = {
-          genshin: 0xffffff,
-          hkrpg: 0x3d3580,
-          honkai3rd: 0x00d4ff,
-          nap: 0x111111,
-          tot: 0xd82b2b,
-        };
-        const gName = gameNames[game] || game.toUpperCase();
-
-        const embed = new EmbedBuilder()
-          .setTitle(`🎁 Mã quà tặng mới cho ${gName}!`)
-          .setColor(gameColors[game] || 0xffffff)
-          .setFooter({
-            text: 'Dữ liệu từ seria.moe',
-            iconURL: 'https://docs.hb.seria.moe/img/favicon.ico',
-          })
-          .setTimestamp();
-
-        let desc = '';
-        for (const c of newCodes) {
-          let link = '';
-          if (game === 'genshin')
-            link = `https://genshin.hoyoverse.com/vi/gift?code=${c.code}`;
-          else if (game === 'hkrpg')
-            link = `https://hsr.hoyoverse.com/gift?code=${c.code}`;
-          else if (game === 'nap')
-            link = `https://zenless.hoyoverse.com/redemption?code=${c.code}`;
-
-          const displayCode = link
-            ? `**[${c.code}](${link})**`
-            : `**\`${c.code}\`**`;
-          desc += `${displayCode}\n└ 🎁 ${c.rewards || 'Không rõ phần thưởng'}\n\n`;
-        }
-        embed.setDescription(desc);
-
-        // Tags — respect the configured mode:
-        //   'common'  → tag a single shared role for every giftcode
-        //   'perGame' → tag the role specific to this game
-        let content = '';
-        const tags: string[] = [];
-        if (config.mode === 'perGame') {
-          const specificRole = config.roles[game as keyof typeof config.roles];
-          if (specificRole) tags.push(`<@&${specificRole}>`);
-        } else {
-          if (config.roleCommon) tags.push(`<@&${config.roleCommon}>`);
-        }
-
-        if (tags.length > 0) {
-          content = tags.join(' ');
-        }
-
-        const messagePayload: any = { embeds: [embed] };
-        if (content) messagePayload.content = content;
-
-        if ('send' in channel) {
-          await channel.send(messagePayload);
-        } else {
-          await (channel as any).send(messagePayload);
-        }
-      } catch (err) {
-        this.logger.error(`Failed to send code to guild ${guildId}:`, err);
-      }
     }
   }
 }

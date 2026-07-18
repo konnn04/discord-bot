@@ -82,28 +82,20 @@ export interface GuildSettings {
     logChannelId: string | null;
   };
 
-  // Michosgc Settings (giftcode notification)
-  michosgc: {
+  // Giftcode notifications — one surface covering both the HoYoverse API-polled
+  // games (michosgc) and the web-scraped games (giftcode-crawler). Each game
+  // is fetched by its own backend mechanism, but the settings, channel, and
+  // send format are unified: pick a channel, a tag mode, and which games to
+  // receive notifications for.
+  giftcode: {
     enabled: boolean;
     channelId: string | null;
-    // 'common': tag one shared role for every giftcode.
+    // 'common': tag one shared role for every game's codes.
     // 'perGame': tag a separate role per game.
     mode: 'common' | 'perGame';
-    roleCommon: string | null; // Tagged for all games
-    roles: {
-      genshin: string | null;
-      hkrpg: string | null;
-      honkai3rd: string | null;
-      nap: string | null;
-      tot: string | null;
-    };
-  };
-
-  giftcodeCrawl: {
-    enabled: boolean;
-    channelId: string | null;
-    roleId: string | null; // optional — codes are sent with or without a tag
-    games: string[]; // ids from GIFTCODE_CRAWL_GAMES
+    roleCommon: string | null; // used when mode = 'common'
+    roles: Record<string, string | null>; // gameId -> roleId, used when mode = 'perGame'
+    games: string[]; // ids from GIFTCODE_GAMES the guild wants notifications for
   };
 
   // Music Settings
@@ -234,22 +226,38 @@ export const CHATBOT_TOOLS: ChatbotToolMeta[] = [
   },
 ];
 
-/** Metadata for a game the giftcode crawler supports (rendered in the UI). */
-export interface GiftcodeCrawlGameMeta {
+/** Metadata for a game the giftcode system supports (rendered in the UI). */
+export interface GiftcodeGameMeta {
   id: string;
   label: string;
 }
 
 /**
- * Games scraped by the giftcode crawler — i.e. NOT covered by the michosgc
- * HoYoverse API. Gated per-guild by GuildSettings.giftcodeCrawl.games.
+ * All games the giftcode system covers — both the HoYoverse API-polled games
+ * (michosgc backend) and the web-scraped games (giftcode-crawler backend).
+ * Each guild picks which of these to receive notifications for; the fetch
+ * mechanism per game is an internal backend detail (see HOYOVERSE_GAME_IDS).
  */
-export const GIFTCODE_CRAWL_GAMES: GiftcodeCrawlGameMeta[] = [
+export const GIFTCODE_GAMES: GiftcodeGameMeta[] = [
+  { id: 'genshin', label: 'Genshin Impact' },
+  { id: 'hkrpg', label: 'Honkai: Star Rail' },
+  { id: 'honkai3rd', label: 'Honkai Impact 3rd' },
+  { id: 'nap', label: 'Zenless Zone Zero' },
+  { id: 'tot', label: 'Tears of Themis' },
   { id: 'nte', label: 'Neverness to Everness' },
   { id: 'wuwa', label: 'Wuthering Waves' },
   { id: 'endfield', label: 'Arknights: Endfield' },
   { id: 'arknights', label: 'Arknights' },
   { id: 'wwm', label: 'Where Winds Meet' },
+];
+
+/** Games fetched via the HoYoverse codes API (michosgc backend) — the rest are scraped. */
+export const HOYOVERSE_GAME_IDS = [
+  'genshin',
+  'hkrpg',
+  'honkai3rd',
+  'nap',
+  'tot',
 ];
 
 /** Default global settings */
@@ -321,23 +329,12 @@ export function createDefaultGuildSettings(guildId: string): GuildSettings {
     moderation: {
       logChannelId: null,
     },
-    michosgc: {
+    giftcode: {
       enabled: false,
       channelId: null,
       mode: 'common',
       roleCommon: null,
-      roles: {
-        genshin: null,
-        hkrpg: null,
-        honkai3rd: null,
-        nap: null,
-        tot: null,
-      },
-    },
-    giftcodeCrawl: {
-      enabled: false,
-      channelId: null,
-      roleId: null,
+      roles: {},
       games: [],
     },
     music: {

@@ -1,4 +1,5 @@
-import { GIFTCODE_CRAWL_GAMES } from 'shared/src/types/settings.types';
+import { GIFTCODE_GAMES } from 'shared/src/types/settings.types';
+import { GIFTCODE_CRAWL_SOURCES } from '../../../giftcode-crawler/sources';
 import {
   ok,
   fail,
@@ -7,7 +8,12 @@ import {
   type ToolSchema,
 } from '../types';
 
-const GAME_IDS = GIFTCODE_CRAWL_GAMES.map((g) => g.id);
+/** Games this action can crawl on-demand — the web-scraped ones, not HoYoverse. */
+const GAME_IDS = Object.keys(GIFTCODE_CRAWL_SOURCES);
+
+function labelFor(gameId: string): string {
+  return GIFTCODE_GAMES.find((g) => g.id === gameId)?.label ?? gameId;
+}
 
 export const crawlGiftcodeToolSchema: ToolSchema = {
   name: 'crawl_giftcode',
@@ -38,14 +44,14 @@ export async function crawlGiftcodeAction(
   args: { game: string },
 ): Promise<ActionResult<CrawlGiftcodeData>> {
   const gameId = String(args.game || '');
-  const meta = GIFTCODE_CRAWL_GAMES.find((g) => g.id === gameId);
-  if (!meta) return fail(`Game không hỗ trợ: ${gameId}`);
+  if (!GAME_IDS.includes(gameId)) return fail(`Game không hỗ trợ: ${gameId}`);
 
+  const label = labelFor(gameId);
   const result = await ctx.deps.giftcodeCrawler.crawlGameNow(gameId);
   if (!result || result.codes.length === 0) {
-    return fail(`Hiện chưa cào được giftcode nào cho ${meta.label}.`);
+    return fail(`Hiện chưa cào được giftcode nào cho ${label}.`);
   }
 
   const summary = result.codes.map((c) => `\`${c}\``).join(', ');
-  return ok(`Giftcode ${meta.label}: ${summary}`, { codes: result.codes });
+  return ok(`Giftcode ${label}: ${summary}`, { codes: result.codes });
 }

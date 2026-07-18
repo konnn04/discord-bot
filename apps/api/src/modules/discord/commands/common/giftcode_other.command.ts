@@ -2,7 +2,13 @@ import type { ActionCommand } from 'shared/src/types/discord.types';
 import { ContextAdapter } from '../../contexts/context-adapter';
 import { EmbedBuilder } from 'discord.js';
 import { contextFromCommand, crawlGiftcodeAction } from '../../actions';
-import { GIFTCODE_CRAWL_GAMES } from 'shared/src/types/settings.types';
+import { GIFTCODE_GAMES } from 'shared/src/types/settings.types';
+import { GIFTCODE_CRAWL_SOURCES } from '../../../giftcode-crawler/sources';
+
+const CRAWL_GAME_CHOICES = Object.keys(GIFTCODE_CRAWL_SOURCES).map((id) => ({
+  name: GIFTCODE_GAMES.find((g) => g.id === id)?.label ?? id,
+  value: id,
+}));
 
 const giftcodeOtherCommand: ActionCommand = {
   name: 'giftcode_other',
@@ -15,10 +21,7 @@ const giftcodeOtherCommand: ActionCommand = {
       description: 'Chọn game bạn muốn xem giftcode',
       type: 'STRING',
       required: true,
-      choices: GIFTCODE_CRAWL_GAMES.map((g) => ({
-        name: g.label,
-        value: g.id,
-      })),
+      choices: CRAWL_GAME_CHOICES,
     },
   ],
 
@@ -39,9 +42,9 @@ const giftcodeOtherCommand: ActionCommand = {
       return;
     }
 
-    const meta = GIFTCODE_CRAWL_GAMES.find((g) => g.id === game);
+    const label = GIFTCODE_GAMES.find((g) => g.id === game)?.label ?? game;
     const embed = new EmbedBuilder()
-      .setTitle(`🎁 Giftcode ${meta?.label ?? game}`)
+      .setTitle(`🎁 Giftcode ${label}`)
       .setColor(0x22c55e)
       .setDescription(result.data.codes.map((c) => `**\`${c}\`**`).join('\n'))
       .setFooter({

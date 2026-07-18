@@ -6,7 +6,6 @@ import {
   Gift,
   Trophy,
   Bot,
-  Radar,
 } from "lucide-react";
 
 export type SettingsSection = {
@@ -42,16 +41,10 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     description: "Tự động cấp role theo mốc level",
   },
   {
-    id: "michosgc",
-    label: "Giftcode HoYoverse",
+    id: "giftcode",
+    label: "Giftcode",
     icon: Gift,
-    description: "Genshin, HSR, ZZZ... thông báo & tag role",
-  },
-  {
-    id: "giftcode-crawl",
-    label: "Giftcode — Game khác",
-    icon: Radar,
-    description: "NTE, Wuthering Waves, Arknights... cào tự động",
+    description: "HoYoverse & game khác — thông báo & tag role",
   },
   {
     id: "chatbot",
