@@ -56,6 +56,7 @@ export interface GuildSettings {
       title: string | null;
       subtitle: string | null;
     };
+    embed?: WelcomeEmbedConfig;
     leaveChannelId: string | null;
     leaveMessage: string | null;
   };
@@ -129,9 +130,60 @@ export interface GuildSettings {
   // so it can never run something dangerous (e.g. kick) unless explicitly allowed.
   chatbot: {
     enabled: boolean;
-    provider: 'gemini' | 'deepseek';
+    provider: 'gemini' | 'deepseek' | 'agentrouter';
+    model?: string;
+    apiKey?: string;
+    baseUrl?: string;
     allowedTools: string[]; // ids from CHATBOT_TOOLS
+    readImages?: boolean; // Tự động đọc và phân tích hình ảnh đính kèm (Vision)
+    compressImages?: boolean; // Tự động nén và tối ưu kích thước ảnh trước khi gửi đến AI
   };
+}
+
+export type LlmProviderType = 'gemini' | 'deepseek' | 'agentrouter';
+
+export const LLM_PROVIDERS = [
+  {
+    id: 'gemini',
+    label: 'Google Gemini',
+    desc: 'Nhanh, thông minh, hỗ trợ function calling tốt.',
+    defaultModel: 'gemini-flash-lite-latest',
+  },
+  {
+    id: 'deepseek',
+    label: 'DeepSeek',
+    desc: 'Suy luận mạnh mẽ, tương thích OpenAI chat completions.',
+    defaultModel: 'deepseek-chat',
+  },
+  {
+    id: 'agentrouter',
+    label: 'AgentRouter (OpenAI Compatible)',
+    desc: 'Cổng đa mô hình: GPT-5.6, GLM-5.3, Claude, DeepSeek v4...',
+    defaultModel: 'gpt-5.6-sol',
+  },
+] as const;
+
+export interface WelcomeEmbedField {
+  name: string;
+  value: string;
+  inline?: boolean;
+}
+
+export interface WelcomeEmbedConfig {
+  title?: string | null;
+  titleUrl?: string | null;
+  description?: string | null;
+  color?: string | null; // e.g. #5865F2
+  authorName?: string | null;
+  authorIconUrl?: string | null;
+  authorUrl?: string | null;
+  thumbnailUrl?: string | null;
+  useMemberAvatarAsThumbnail?: boolean;
+  imageUrl?: string | null;
+  footerText?: string | null;
+  footerIconUrl?: string | null;
+  timestamp?: boolean;
+  fields?: WelcomeEmbedField[];
 }
 
 /** Metadata for a tool the chatbot can be permitted to use (rendered in the UI). */
@@ -148,7 +200,7 @@ export const CHATBOT_TOOLS: ChatbotToolMeta[] = [
   {
     id: 'get_giftcode',
     label: 'Lấy giftcode',
-    description: 'Tra cứu giftcode mới nhất của các game HoYoverse.',
+    description: 'Tra cứu giftcode mới nhất của mọi game được hỗ trợ (HoYoverse, WuWa, Arknights, NTE...).',
     risky: false,
   },
   {
@@ -156,6 +208,42 @@ export const CHATBOT_TOOLS: ChatbotToolMeta[] = [
     label: 'Cào giftcode (game khác)',
     description:
       'Cào giftcode ngay cho game chưa có API (NTE, Wuthering Waves, Arknights...).',
+    risky: false,
+  },
+  {
+    id: 'get_chat_history',
+    label: 'Lịch sử trò chuyện',
+    description: 'Đọc 10-200 tin nhắn gần nhất trong kênh chat để tóm tắt hoặc nối tiếp câu chuyện.',
+    risky: false,
+  },
+  {
+    id: 'search_memory',
+    label: 'Tìm kiếm ký ức server',
+    description: 'Tra cứu thông tin/ký ức đã ghi nhớ về người hoặc chủ đề trong server này.',
+    risky: false,
+  },
+  {
+    id: 'get_voice_members',
+    label: 'Xem người trong phòng voice',
+    description: 'Lấy danh sách người đang trong kênh thoại.',
+    risky: false,
+  },
+  {
+    id: 'move_voice_members',
+    label: 'Di chuyển thành viên voice',
+    description: 'Chuyển thành viên trong phòng voice sang kênh thoại khác.',
+    risky: true,
+  },
+  {
+    id: 'change_nickname',
+    label: 'Đổi biệt danh',
+    description: 'Thay đổi biệt danh của thành viên trong server.',
+    risky: true,
+  },
+  {
+    id: 'get_user_activity',
+    label: 'Xem trạng thái / activity',
+    description: 'Xem trạng thái online, game đang chơi hoặc bài hát Spotify của thành viên.',
     risky: false,
   },
   {
@@ -288,6 +376,48 @@ export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
 
 /** Default guild settings factory */
 export function createDefaultGuildSettings(guildId: string): GuildSettings {
+  const procEnv =
+    typeof globalThis !== 'undefined'
+      ? (globalThis as any).process?.env
+      : undefined;
+
+  const envHasAgentRouter = Boolean(
+    procEnv?.OPENROUTER_API_KEY || procEnv?.AGENTROUTER_API_KEY,
+  );
+
+  let defaultModel = 'gemini-flash-lite-latest';
+  const defaultBaseUrl = procEnv?.OPENROUTER_BASE_URL || 'https://agentrouter.org';
+
+  if (procEnv?.OPENROUTER_MODEL) {
+    let rawList: string[] = [];
+    try {
+      const parsed = JSON.parse(
+        procEnv.OPENROUTER_MODEL.replace(/'/g, '"'),
+      );
+      if (Array.isArray(parsed)) {
+        rawList = parsed.map((s) => String(s).trim()).filter(Boolean);
+      }
+    } catch {
+      rawList = procEnv.OPENROUTER_MODEL.replace(/[\[\]'"]/g, '')
+        .split(',')
+        .map((s: string) => s.trim())
+        .filter(Boolean);
+    }
+    const foundDeepseek = rawList.find((m: string) =>
+      m.toLowerCase().includes('deepseek'),
+    );
+    if (foundDeepseek) {
+      defaultModel = 'deepseek-v4-flash';
+    } else if (rawList.length > 0) {
+      const first = rawList[0].toLowerCase();
+      defaultModel = first.includes('5.6') ? 'gpt-5.6-sol' : rawList[0];
+    }
+  } else if (envHasAgentRouter) {
+    defaultModel = 'deepseek-v4-flash';
+  } else if (procEnv?.GEMINI_MODEL) {
+    defaultModel = procEnv.GEMINI_MODEL;
+  }
+
   return {
     guildId,
     prefix: 'f!',
@@ -309,6 +439,22 @@ export function createDefaultGuildSettings(guildId: string): GuildSettings {
       card: {
         title: 'Chào mừng {displayName}!',
         subtitle: 'Thành viên thứ #{memberCount} của {server}',
+      },
+      embed: {
+        title: '🎉 Thành viên mới gia nhập!',
+        titleUrl: null,
+        description: 'Chào mừng {user.mention} đã đến với **{server}**!\nChúc bạn có những giây phút vui vẻ cùng mọi người.',
+        color: '#5865F2',
+        authorName: '{server}',
+        authorIconUrl: null,
+        authorUrl: null,
+        thumbnailUrl: null,
+        useMemberAvatarAsThumbnail: true,
+        imageUrl: null,
+        footerText: 'Thành viên thứ #{memberCount}',
+        footerIconUrl: null,
+        timestamp: true,
+        fields: [],
       },
       leaveChannelId: null,
       leaveMessage: null,
@@ -356,9 +502,14 @@ export function createDefaultGuildSettings(guildId: string): GuildSettings {
     },
     chatbot: {
       enabled: false,
-      provider: 'gemini',
+      provider: envHasAgentRouter ? 'agentrouter' : 'gemini',
+      model: defaultModel,
+      baseUrl: defaultBaseUrl,
+      apiKey: '',
       // Safe, read-only + music tools enabled by default; risky ones opt-in.
       allowedTools: ['get_giftcode', 'guild_info', 'play_music'],
+      readImages: true,
+      compressImages: true,
     },
   };
 }

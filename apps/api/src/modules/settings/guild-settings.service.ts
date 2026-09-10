@@ -22,12 +22,38 @@ export class GuildSettingsService implements OnModuleInit {
       });
 
       for (const guild of guilds) {
+        const defaults = createDefaultGuildSettings(guild.id);
         if (guild.settings) {
           const merged = this.deepMerge(
-            createDefaultGuildSettings(guild.id),
+            defaults,
             guild.settings as any,
           ) as GuildSettings;
+
+          let shouldSyncDb = false;
+          if (!merged.chatbot) {
+            merged.chatbot = defaults.chatbot;
+            shouldSyncDb = true;
+          } else {
+            if (!merged.chatbot.provider) {
+              merged.chatbot.provider = defaults.chatbot.provider;
+              shouldSyncDb = true;
+            }
+            if (!merged.chatbot.model) {
+              merged.chatbot.model = defaults.chatbot.model;
+              shouldSyncDb = true;
+            }
+            if (merged.chatbot.provider === 'agentrouter' && !merged.chatbot.baseUrl) {
+              merged.chatbot.baseUrl = defaults.chatbot.baseUrl;
+              shouldSyncDb = true;
+            }
+          }
+
           this.cache.set(guild.id, merged);
+          if (shouldSyncDb) {
+            this.save(guild.id, merged).catch((err) =>
+              this.logger.error(`Failed to sync env defaults to db for ${guild.id}`, err),
+            );
+          }
         }
       }
       this.logger.log(`Pre-loaded settings for ${this.cache.size} guilds`);

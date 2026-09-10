@@ -268,3 +268,17 @@ model SpotifyToken {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
+
+/// Isolated per-guild memory for AI chatbot to remember user context, topics, keywords
+model GuildMemory {
+  id        String   @id @default(cuid())
+  guildId   String
+  key       String   // e.g. userId, nickname, topic, keyword
+  value     String   // remembered content
+  metadata  Json?    // e.g. authorId, source
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([guildId, key])
+  @@index([guildId])
+}

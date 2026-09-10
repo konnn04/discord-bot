@@ -12,3 +12,7 @@ export * from './voice/rename-voice-channel.action';
 export * from './voice/set-voice-bitrate.action';
 export * from './xp/get-rank.action';
 export * from './xp/get-leaderboard.action';
+export * from './chat/get-chat-history.action';
+export * from './chat/memory.action';
+export * from './guild/voice-management.action';
+export * from './guild/member-management.action';

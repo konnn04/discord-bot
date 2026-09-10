@@ -2,14 +2,15 @@ import type { ActionCommand } from 'shared/src/types/discord.types';
 import { ContextAdapter } from '../../contexts/context-adapter';
 import { getGiftcodeAction } from '../../actions';
 import {
+  buildGiftcodeEmbeds,
   buildGiftcodeEmbed,
   giftcodeGameLabel,
 } from '../../../giftcode/giftcode-notify';
-import { HOYOVERSE_GAME_IDS } from 'shared/src/types/settings.types';
+import { GIFTCODE_GAMES } from 'shared/src/types/settings.types';
 
 const giftcodeCommand: ActionCommand = {
   name: 'giftcode',
-  description: 'Lấy danh sách giftcode mới nhất của các game Hoyoverse',
+  description: 'Lấy danh sách giftcode mới nhất của các game (HoYoverse, WuWa, NTE, Arknights, WWM...)',
   category: 'common',
   optionalArgs: [
     {
@@ -17,9 +18,9 @@ const giftcodeCommand: ActionCommand = {
       description: 'Chọn game bạn muốn xem giftcode',
       type: 'STRING',
       required: true,
-      choices: HOYOVERSE_GAME_IDS.map((id) => ({
-        name: giftcodeGameLabel(id),
-        value: id,
+      choices: GIFTCODE_GAMES.map((g) => ({
+        name: g.label,
+        value: g.id,
       })),
     },
   ],
@@ -42,8 +43,13 @@ const giftcodeCommand: ActionCommand = {
       return;
     }
 
-    const embed = buildGiftcodeEmbed(giftcodeGameLabel(game), entries);
-    await ctx.editReply({ embeds: [embed] });
+    const embeds = buildGiftcodeEmbeds(giftcodeGameLabel(game), entries);
+    await ctx.editReply({ embeds: embeds.slice(0, 10) });
+    for (let i = 10; i < embeds.length; i += 10) {
+      if (ctx.channel) {
+        await ctx.channel.send({ embeds: embeds.slice(i, i + 10) });
+      }
+    }
   },
 };
 

@@ -7,40 +7,55 @@ import {
   NavigationMenuLink,
 } from "@/components/ui/navigation-menu";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
-import { Music, Bot } from "lucide-react";
+import { Music } from "lucide-react";
 
 document.title = "FoxyBot - Dashboard quản lý bot Discord của bạn";
 
 export function LandingLayout() {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background text-foreground">
       {/* Navbar */}
-      <header className="fixed top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
-        <div className="container mx-auto flex h-16 items-center justify-between">
-          <Link
-            to="/"
-            className="flex items-center gap-2 text-xl font-bold"
-          >
-            <Bot className="h-8 w-8 text-primary" />
+      <header className="fixed top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-md">
+        <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6">
+          <Link to="/" className="flex items-center gap-2.5 text-lg font-bold">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-purple-600 font-mono text-sm font-bold text-primary-foreground">
+              F
+            </div>
             <span>FoxyBot</span>
           </Link>
 
-          <NavigationMenu>
-            <NavigationMenuList className="gap-2">
+          <NavigationMenu className="hidden md:flex">
+            <NavigationMenuList className="gap-1">
               <NavigationMenuItem>
                 <NavigationMenuLink
                   asChild
-                  className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+                  className="rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
                 >
-                  <a href="#features">Tính năng</a>
+                  <a href="#demo">Dùng thử</a>
                 </NavigationMenuLink>
               </NavigationMenuItem>
               <NavigationMenuItem>
                 <NavigationMenuLink
                   asChild
-                  className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+                  className="rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
                 >
-                  <a href="#source">Mã nguồn</a>
+                  <a href="#tinh-nang">Tính năng</a>
+                </NavigationMenuLink>
+              </NavigationMenuItem>
+              <NavigationMenuItem>
+                <NavigationMenuLink
+                  asChild
+                  className="rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  <a href="#lenh">Lệnh</a>
+                </NavigationMenuLink>
+              </NavigationMenuItem>
+              <NavigationMenuItem>
+                <NavigationMenuLink
+                  asChild
+                  className="rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  <a href="#dashboard">Dashboard</a>
                 </NavigationMenuLink>
               </NavigationMenuItem>
             </NavigationMenuList>
@@ -48,20 +63,20 @@ export function LandingLayout() {
 
           <div className="flex items-center gap-3">
             <ThemeToggle />
-            <Button variant="outline" asChild>
+            <Button variant="ghost" size="sm" asChild className="hidden sm:inline-flex">
               <Link to="/music">
-                <Music className="mr-2 h-4 w-4" />
+                <Music className="mr-1.5 h-4 w-4" />
                 Music
               </Link>
             </Button>
-            <Button asChild>
-              <Link to="/admin">Quản trị</Link>
+            <Button size="sm" asChild>
+              <Link to="/admin">Thêm vào server</Link>
             </Button>
           </div>
         </div>
       </header>
 
-      <main>
+      <main className="pt-16">
         <Outlet />
       </main>
     </div>

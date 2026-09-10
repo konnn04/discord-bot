@@ -6,6 +6,7 @@ import {
   Gift,
   Trophy,
   Bot,
+  Brain,
 } from "lucide-react";
 
 export type SettingsSection = {
@@ -51,5 +52,11 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     label: "Chatbot AI",
     icon: Bot,
     description: "Bot trả lời khi tag & kiểm soát công cụ",
+  },
+  {
+    id: "memory",
+    label: "Ký ức AI (Memory)",
+    icon: Brain,
+    description: "Xem, thêm & quản lý ký ức tự động của server",
   },
 ];

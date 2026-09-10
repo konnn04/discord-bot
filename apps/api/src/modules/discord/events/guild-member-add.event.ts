@@ -69,16 +69,89 @@ const guildMemberAddEvent: EventHandler = {
         return;
       }
 
-      // Default: embed
+      // Embed welcome
+      const embedCfg = settings.welcome.embed;
+      const embed = new EmbedBuilder();
+
+      // Color
+      let colorInt = 0x5865f2;
+      if (embedCfg?.color) {
+        const hex = embedCfg.color.replace('#', '');
+        const parsed = parseInt(hex, 16);
+        if (!isNaN(parsed)) colorInt = parsed;
+      }
+      embed.setColor(colorInt);
+
+      // Title & Title URL
+      if (embedCfg?.title) {
+        embed.setTitle(fillPlaceholders(embedCfg.title, member));
+        if (embedCfg.titleUrl) {
+          try {
+            embed.setURL(embedCfg.titleUrl);
+          } catch {
+            // invalid url ignored
+          }
+        }
+      }
+
+      // Description
+      const desc = embedCfg?.description
+        ? fillPlaceholders(embedCfg.description, member)
+        : msg;
+      embed.setDescription(desc);
+
+      // Author
+      if (embedCfg?.authorName) {
+        embed.setAuthor({
+          name: fillPlaceholders(embedCfg.authorName, member),
+          iconURL: embedCfg.authorIconUrl || undefined,
+          url: embedCfg.authorUrl || undefined,
+        });
+      }
+
+      // Thumbnail
+      if (embedCfg?.useMemberAvatarAsThumbnail !== false) {
+        embed.setThumbnail(member.user.displayAvatarURL());
+      } else if (embedCfg?.thumbnailUrl) {
+        embed.setThumbnail(embedCfg.thumbnailUrl);
+      }
+
+      // Banner Image
+      if (embedCfg?.imageUrl) {
+        embed.setImage(embedCfg.imageUrl);
+      }
+
+      // Footer
+      if (embedCfg?.footerText) {
+        embed.setFooter({
+          text: fillPlaceholders(embedCfg.footerText, member),
+          iconURL: embedCfg.footerIconUrl || undefined,
+        });
+      } else {
+        embed.setFooter({ text: `Thành viên thứ #${member.guild.memberCount}` });
+      }
+
+      // Timestamp
+      if (embedCfg?.timestamp !== false) {
+        embed.setTimestamp();
+      }
+
+      // Fields
+      if (embedCfg?.fields && Array.isArray(embedCfg.fields)) {
+        for (const f of embedCfg.fields) {
+          if (f.name && f.value) {
+            embed.addFields({
+              name: fillPlaceholders(f.name, member),
+              value: fillPlaceholders(f.value, member),
+              inline: Boolean(f.inline),
+            });
+          }
+        }
+      }
+
       await (ch as any).send({
-        embeds: [
-          new EmbedBuilder()
-            .setColor(0x10b981)
-            .setThumbnail(member.user.displayAvatarURL())
-            .setDescription(msg)
-            .setFooter({ text: `Thành viên thứ #${member.guild.memberCount}` })
-            .setTimestamp(),
-        ],
+        content: `<@${member.id}>`,
+        embeds: [embed],
       });
     } catch {
       // Rendering/sending is best-effort.

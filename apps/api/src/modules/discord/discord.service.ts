@@ -21,6 +21,7 @@ import { VoiceTagService } from './services/voice-tag.service';
 import { LeetcodeSchedulerService } from './services/leetcode-scheduler.service';
 import { AnimeSchedulerService } from './services/anime-scheduler.service';
 import { ReminderSchedulerService } from './services/reminder-scheduler.service';
+import { RedisCacheService } from './services/redis-cache.service';
 import { MeetingTracker } from './utils/meeting-tracker';
 import {
   setPlayerPrisma,
@@ -58,6 +59,7 @@ export class DiscordService implements OnModuleInit, OnModuleDestroy {
     private reminderScheduler: ReminderSchedulerService,
     private prisma: PrismaService,
     private musicGateway: MusicGateway,
+    private redisCache: RedisCacheService,
   ) {
     this.client = new Client({
       intents: [
@@ -88,6 +90,7 @@ export class DiscordService implements OnModuleInit, OnModuleDestroy {
       discordClient: this.client,
       voiceTagService: this.voiceTagService,
       giftcodeCrawler: this.giftcodeCrawler,
+      redisCache: this.redisCache,
     };
 
     // Load commands and events, automatically injecting dependencies

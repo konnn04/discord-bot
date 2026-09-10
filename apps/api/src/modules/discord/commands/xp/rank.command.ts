@@ -3,16 +3,10 @@ import type { ActionCommand } from 'shared/src/types/discord.types';
 import { PermissionLevel } from 'shared/src/types/discord.types';
 import { ContextAdapter } from '../../contexts/context-adapter';
 import { contextFromCommand, getRankAction } from '../../actions';
-import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
-import { join } from 'path';
+import { createCanvas, loadImage } from '@napi-rs/canvas';
+import { initCanvasFonts } from '../../utils/canvas-fonts';
 
-try {
-  const fontDir = join(__dirname, '..', '..', '..', '..', 'assets', 'fonts');
-  GlobalFonts.registerFromPath(join(fontDir, 'Roboto-Regular.ttf'), 'Roboto');
-  GlobalFonts.registerFromPath(join(fontDir, 'Roboto-Bold.ttf'), 'Roboto');
-} catch (e) {
-  console.error('Failed to load Roboto font for rank card:', e);
-}
+initCanvasFonts();
 
 const CARD_W = 900;
 const CARD_H = 280;
@@ -80,25 +74,25 @@ async function drawRankCard(opts: {
   ctx.roundRect(CARD_W - 170, 15, 150, 45, 12);
   ctx.fill();
   ctx.fillStyle = '#fff';
-  ctx.font = 'bold 24px Roboto';
+  ctx.font = 'bold 24px Roboto, sans-serif';
   ctx.textAlign = 'center';
   ctx.fillText(`#${opts.rank}`, CARD_W - 95, 47);
 
   // ── Username ──
   ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 30px Roboto';
+  ctx.font = 'bold 30px Roboto, sans-serif';
   ctx.textAlign = 'left';
   const name = opts.tag.length > 22 ? opts.tag.slice(0, 21) + '…' : opts.tag;
   ctx.fillText(name, 210, 105);
 
   // ── Level ──
   ctx.fillStyle = '#e94560';
-  ctx.font = 'bold 22px Roboto';
+  ctx.font = 'bold 22px Roboto, sans-serif';
   ctx.fillText(`Cấp ${opts.level}`, 210, 145);
 
   // ── XP text ──
   ctx.fillStyle = '#a0a0b8';
-  ctx.font = '16px Roboto';
+  ctx.font = '16px Roboto, sans-serif';
   ctx.fillText(`${opts.xpCurrent} / ${opts.xpNeeded} XP`, 210, 175);
 
   // ── Progress bar background ──
@@ -126,13 +120,13 @@ async function drawRankCard(opts: {
 
   // ── Progress % ──
   ctx.fillStyle = '#fff';
-  ctx.font = 'bold 14px Roboto';
+  ctx.font = 'bold 14px Roboto, sans-serif';
   ctx.textAlign = 'center';
   ctx.fillText(`${progress.toFixed(0)}%`, barX + barW / 2, barY + 17);
 
   // ── Server name (bottom-left) ──
   ctx.fillStyle = '#6c6c80';
-  ctx.font = '16px Roboto';
+  ctx.font = '16px Roboto, sans-serif';
   ctx.textAlign = 'left';
   ctx.fillText(opts.serverName.slice(0, 30), 210, 255);
 
@@ -185,30 +179,39 @@ const rank: ActionCommand = {
       progress,
     } = result.data;
 
-    const serverName = ctx.guild?.name || 'Server';
-    const avatarUrl = targetUser.displayAvatarURL({
-      extension: 'png',
-      size: 256,
-    });
-    const avatarDecorationUrl = targetUser.avatarDecorationURL({
-      extension: 'png',
-      size: 256,
-    });
-    const serverIcon = ctx.guild?.iconURL({ extension: 'png', size: 128 });
+    const cacheKey = `foxy:rank:${ctx.guild?.id}:${targetUser.id}:${xp}`;
+    let buf = await deps?.redisCache?.getBuffer(cacheKey);
 
-    const buf = await drawRankCard({
-      tag: targetUser.username,
-      avatarUrl,
-      avatarDecorationUrl: avatarDecorationUrl || undefined,
-      level,
-      xp,
-      xpCurrent: xpInLvl,
-      xpNeeded: xpNeed,
-      rank: rankPos,
-      progress,
-      serverName,
-      serverIconUrl: serverIcon || undefined,
-    });
+    if (!buf) {
+      const serverName = ctx.guild?.name || 'Server';
+      const avatarUrl = targetUser.displayAvatarURL({
+        extension: 'png',
+        size: 256,
+      });
+      const avatarDecorationUrl = targetUser.avatarDecorationURL({
+        extension: 'png',
+        size: 256,
+      });
+      const serverIcon = ctx.guild?.iconURL({ extension: 'png', size: 128 });
+
+      buf = await drawRankCard({
+        tag: targetUser.username,
+        avatarUrl,
+        avatarDecorationUrl: avatarDecorationUrl || undefined,
+        level,
+        xp,
+        xpCurrent: xpInLvl,
+        xpNeeded: xpNeed,
+        rank: rankPos,
+        progress,
+        serverName,
+        serverIconUrl: serverIcon || undefined,
+      });
+
+      if (deps?.redisCache && buf) {
+        await deps.redisCache.setBuffer(cacheKey, buf, 120);
+      }
+    }
 
     await ctx.editReply({
       files: [new AttachmentBuilder(buf, { name: 'rank.png' })],

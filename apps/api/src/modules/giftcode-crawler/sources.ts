@@ -44,13 +44,33 @@ export const GIFTCODE_CRAWL_SOURCES: Record<string, GiftcodeCrawlSource[]> = {
           value: 'wp-block-table',
         }),
     },
+    {
+      url: 'https://levelgeeks.net/wuthering-waves-codes/',
+      extract: (html) =>
+        extractFromListItems(parseHtml(html), {
+          type: 'class',
+          value: 'codes-list',
+        }),
+    },
   ],
 
   endfield: [
     {
-      url: 'https://mobalytics.gg/arknights-endfield/guides/redemption-codes',
+      url: 'https://beebom.com/arknights-endfield-codes/',
       extract: (html) =>
-        extractFromTables(parseHtml(html), { type: 'tag', value: 'table' }),
+        extractFromListItems(parseHtml(html), {
+          type: 'class',
+          value: 'wp-block-list',
+          index: 0,
+        }),
+    },
+    {
+      url: 'https://levelgeeks.net/arknights-endfield-codes/',
+      extract: (html) =>
+        extractFromListItems(parseHtml(html), {
+          type: 'class',
+          value: 'codes-list',
+        }),
     },
     {
       url: 'https://www.eurogamer.net/arknights-endfield-codes',

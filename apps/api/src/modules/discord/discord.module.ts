@@ -8,6 +8,7 @@ import { VoiceTagService } from './services/voice-tag.service';
 import { LeetcodeSchedulerService } from './services/leetcode-scheduler.service';
 import { AnimeSchedulerService } from './services/anime-scheduler.service';
 import { ReminderSchedulerService } from './services/reminder-scheduler.service';
+import { RedisCacheService } from './services/redis-cache.service';
 import { MusicController } from './controllers/music.controller';
 import { MusicGateway } from './gateways/music.gateway';
 
@@ -28,6 +29,7 @@ import { GiftcodeCrawlerModule } from '../giftcode-crawler/giftcode-crawler.modu
     AnimeSchedulerService,
     ReminderSchedulerService,
     MusicGateway,
+    RedisCacheService,
   ],
   exports: [
     DiscordService,
@@ -35,6 +37,7 @@ import { GiftcodeCrawlerModule } from '../giftcode-crawler/giftcode-crawler.modu
     CooldownService,
     PermissionService,
     VoiceTagService,
+    RedisCacheService,
   ],
 })
 export class DiscordModule {}

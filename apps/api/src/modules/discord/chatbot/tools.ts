@@ -12,6 +12,12 @@ import {
   resumeMusicAction,
   stopMusicAction,
   nowPlayingAction,
+  getChatHistoryAction,
+  searchMemoryAction,
+  getVoiceMembersAction,
+  moveVoiceMembersAction,
+  changeNicknameAction,
+  getUserActivityAction,
   giftcodeToolSchema,
   crawlGiftcodeToolSchema,
   guildInfoToolSchema,
@@ -25,6 +31,12 @@ import {
   resumeMusicToolSchema,
   stopMusicToolSchema,
   nowPlayingToolSchema,
+  getChatHistoryToolSchema,
+  searchMemoryToolSchema,
+  getVoiceMembersToolSchema,
+  moveVoiceMembersToolSchema,
+  changeNicknameToolSchema,
+  getUserActivityToolSchema,
 } from '../actions';
 import { guildTool, plainTool, type ChatTool } from './tool-helpers';
 
@@ -46,6 +58,53 @@ export const CHAT_TOOLS: Record<string, ChatTool> = {
     crawlGiftcodeToolSchema,
     crawlGiftcodeAction,
     (a) => ({ game: str(a.game) }),
+  ),
+
+  get_chat_history: guildTool(
+    getChatHistoryToolSchema,
+    getChatHistoryAction,
+    (a) => ({
+      limit: a.limit != null ? Number(a.limit) : undefined,
+      channel_id: a.channel_id != null ? str(a.channel_id) : undefined,
+    }),
+  ),
+
+  search_memory: guildTool(
+    searchMemoryToolSchema,
+    searchMemoryAction,
+    (a) => ({ query: str(a.query) }),
+  ),
+
+  get_voice_members: guildTool(
+    getVoiceMembersToolSchema,
+    getVoiceMembersAction,
+    (a) => ({
+      channel_id: a.channel_id != null ? str(a.channel_id) : undefined,
+    }),
+  ),
+
+  move_voice_members: guildTool(
+    moveVoiceMembersToolSchema,
+    moveVoiceMembersAction,
+    (a) => ({
+      target_channel_id: str(a.target_channel_id),
+      member_ids: a.member_ids != null ? str(a.member_ids) : undefined,
+    }),
+  ),
+
+  change_nickname: guildTool(
+    changeNicknameToolSchema,
+    changeNicknameAction,
+    (a) => ({
+      user_id: str(a.user_id),
+      nickname: a.nickname != null ? str(a.nickname) : undefined,
+    }),
+  ),
+
+  get_user_activity: guildTool(
+    getUserActivityToolSchema,
+    getUserActivityAction,
+    (a) => ({ user_id: str(a.user_id) }),
   ),
 
   guild_info: guildTool(guildInfoToolSchema, guildInfoAction, () => undefined),

@@ -5,6 +5,12 @@ import { PermissionService } from '../discord/services/permission.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { OnlinePresenceService } from './online-presence.service';
 import { MusicStatsService, MusicStats } from './music-stats.service';
+import { getGuildMemoryService } from '../discord/chatbot/memory.service';
+import {
+  parseAgentRouterModels,
+  llmChat,
+  fetchProviderModels,
+} from '../discord/chatbot/llm-client';
 import type { GuildSettings } from 'shared/src/types/settings.types';
 
 interface MemberCacheEntry {
@@ -136,6 +142,151 @@ export class GuildsService {
       throw new NotFoundException(`Guild ${guildId} not found`);
     }
     return this.guildSettings.update(guildId, partial);
+  }
+
+  /** Get chatbot providers, models, and ENV defaults for the guild UI */
+  async getChatbotConfig(guildId: string) {
+    if (!this.discordService.client.guilds.cache.has(guildId)) {
+      throw new NotFoundException(`Guild ${guildId} not found`);
+    }
+    const current = this.guildSettings.get(guildId).chatbot;
+    const [agentRouterLiveModels, geminiLiveModels] = await Promise.all([
+      fetchProviderModels('agentrouter', {
+        apiKey: current.apiKey,
+        baseUrl: current.baseUrl,
+      }),
+      fetchProviderModels('gemini'),
+    ]);
+
+    const envModels = parseAgentRouterModels();
+    const agentRouterModels = Array.from(
+      new Set([
+        ...agentRouterLiveModels,
+        'deepseek-v4-flash',
+        'gpt-5.6-sol',
+        'glm-5.3',
+        'claude-opus-4-8',
+        'claude-opus-5',
+        ...envModels,
+      ]),
+    );
+
+    return {
+      providers: [
+        {
+          id: 'agentrouter',
+          name: 'AgentRouter (OpenAI Compatible)',
+          desc: 'Cổng đa mô hình: GPT-5.6, GLM-5.3, Claude Opus, DeepSeek v4...',
+          hasSystemKey: Boolean(
+            process.env.OPENROUTER_API_KEY || process.env.AGENTROUTER_API_KEY,
+          ),
+          defaultBaseUrl:
+            process.env.OPENROUTER_BASE_URL || 'https://agentrouter.org',
+          models: agentRouterModels,
+        },
+        {
+          id: 'gemini',
+          name: 'Google Gemini',
+          desc: 'Nhanh, thông minh, hỗ trợ function calling tốt.',
+          hasSystemKey: Boolean(process.env.GEMINI_API_KEY),
+          defaultBaseUrl: '',
+          models: geminiLiveModels,
+        },
+        {
+          id: 'deepseek',
+          name: 'DeepSeek',
+          desc: 'Suy luận mạnh mẽ, tương thích OpenAI chat completions.',
+          hasSystemKey: Boolean(process.env.DEEPSEEK_API_KEY),
+          defaultBaseUrl: 'https://api.deepseek.com',
+          models: [
+            process.env.DEEPSEEK_MODEL || 'deepseek-chat',
+            'deepseek-reasoner',
+          ],
+        },
+      ],
+      systemDefaults: {
+        provider:
+          process.env.OPENROUTER_API_KEY || process.env.AGENTROUTER_API_KEY
+            ? 'agentrouter'
+            : 'gemini',
+        agentrouterModel: agentRouterModels[0] || 'deepseek-v4-flash',
+        agentrouterBaseUrl:
+          process.env.OPENROUTER_BASE_URL || 'https://agentrouter.org',
+      },
+    };
+  }
+
+  /** Live fetch models for a specific provider & credentials */
+  async fetchLiveModels(
+    guildId: string,
+    provider: 'gemini' | 'deepseek' | 'agentrouter',
+    apiKey?: string,
+    baseUrl?: string,
+  ) {
+    if (!this.discordService.client.guilds.cache.has(guildId)) {
+      throw new NotFoundException(`Guild ${guildId} not found`);
+    }
+    const models = await fetchProviderModels(provider, { apiKey, baseUrl });
+    return { provider, models };
+  }
+
+  /** Test AI completion / connection with current or preview configuration */
+  async testChatbot(
+    guildId: string,
+    override?: {
+      provider?: 'gemini' | 'deepseek' | 'agentrouter';
+      model?: string;
+      apiKey?: string;
+      baseUrl?: string;
+    },
+  ) {
+    if (!this.discordService.client.guilds.cache.has(guildId)) {
+      throw new NotFoundException(`Guild ${guildId} not found`);
+    }
+    const current = this.guildSettings.get(guildId).chatbot;
+    const provider = override?.provider || current.provider || 'gemini';
+    const model = override?.model || current.model;
+    const apiKey =
+      override?.apiKey !== undefined ? override.apiKey : current.apiKey;
+    const baseUrl =
+      override?.baseUrl !== undefined ? override.baseUrl : current.baseUrl;
+
+    const start = Date.now();
+    try {
+      const testContent =
+        provider === 'agentrouter'
+          ? 'Ping test. Please reply in one short sentence: "Connection successful! AI Chatbot is ready."'
+          : 'Chào bạn! Hãy trả lời thật ngắn gọn (dưới 15 từ): "Kết nối thành công! FoxyBot đã sẵn sàng."';
+
+      const result = await llmChat(
+        provider,
+        [
+          {
+            role: 'user',
+            content: testContent,
+          },
+        ],
+        [],
+        { model, apiKey, baseUrl },
+      );
+      const latencyMs = Date.now() - start;
+      return {
+        success: true,
+        reply: result.text || 'Kết nối thành công!',
+        latencyMs,
+        provider,
+        model: model || '(mặc định)',
+      };
+    } catch (err: any) {
+      const latencyMs = Date.now() - start;
+      return {
+        success: false,
+        error: err.message || 'Lỗi khi gọi API nhà cung cấp',
+        latencyMs,
+        provider,
+        model: model || '(mặc định)',
+      };
+    }
   }
 
   /** Check if a user can manage a specific guild */
@@ -490,5 +641,49 @@ export class GuildsService {
   /** Get music statistics for a guild */
   getMusicStats(guildId: string): Promise<MusicStats> {
     return this.musicStats.getStats(guildId);
+  }
+
+  /** Get paginated memories for a guild */
+  async getMemories(
+    guildId: string,
+    page = 1,
+    pageSize = 20,
+    search?: string,
+    source?: 'all' | 'ai' | 'manual',
+  ) {
+    const memoryService = getGuildMemoryService(this.prisma);
+    return memoryService.list(guildId, page, pageSize, search, source);
+  }
+
+  /** Get memory stats for a guild */
+  async getMemoryStats(guildId: string) {
+    const memoryService = getGuildMemoryService(this.prisma);
+    return memoryService.getStats(guildId);
+  }
+
+  /** Add or update memory for a guild */
+  async saveMemory(
+    guildId: string,
+    key: string,
+    value: string,
+    metadata?: any,
+  ) {
+    const memoryService = getGuildMemoryService(this.prisma);
+    await memoryService.remember(guildId, key, value, metadata);
+    return { success: true, key, value };
+  }
+
+  /** Delete a memory key for a guild */
+  async deleteMemory(guildId: string, key: string) {
+    const memoryService = getGuildMemoryService(this.prisma);
+    const result = await memoryService.forget(guildId, key);
+    return { success: result };
+  }
+
+  /** Test memory retrieval / simulator */
+  async testMemoryLookup(guildId: string, text: string) {
+    const memoryService = getGuildMemoryService(this.prisma);
+    const memories = await memoryService.findRelevantMemories(guildId, text, [], 8);
+    return { query: text, matched: memories };
   }
 }

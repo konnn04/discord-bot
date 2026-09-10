@@ -1,4 +1,7 @@
 import { createCanvas, loadImage, type SKRSContext2D } from '@napi-rs/canvas';
+import { initCanvasFonts } from './canvas-fonts';
+
+initCanvasFonts();
 
 export interface WelcomeCardOptions {
   avatarUrl: string;
@@ -116,7 +119,7 @@ export async function renderWelcomeCard(
   const textMaxWidth = WIDTH - textX - 50;
 
   // "WELCOME" pill
-  ctx.font = 'bold 26px sans-serif';
+  ctx.font = 'bold 26px Roboto, sans-serif';
   const pillText = 'WELCOME';
   const pillPadX = 20;
   const pillW = ctx.measureText(pillText).width + pillPadX * 2;
@@ -129,13 +132,13 @@ export async function renderWelcomeCard(
 
   // Title
   ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 52px sans-serif';
+  ctx.font = 'bold 52px Roboto, sans-serif';
   ctx.textBaseline = 'alphabetic';
   ctx.fillText(fitText(ctx, opts.title, textMaxWidth), textX, 190);
 
   // Subtitle
   ctx.fillStyle = 'rgba(255,255,255,0.75)';
-  ctx.font = '32px sans-serif';
+  ctx.font = '32px Roboto, sans-serif';
   ctx.fillText(fitText(ctx, opts.subtitle, textMaxWidth), textX, 240);
 
   return canvas.toBuffer('image/png');

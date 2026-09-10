@@ -4,9 +4,11 @@ export type LeaderboardType = 'all' | 'month' | 'year';
 
 export interface LeaderboardEntry {
   position: number;
+  userId?: string;
   username: string;
   xp: number;
   level: number | null;
+  avatarUrl?: string;
 }
 
 export async function getLeaderboardAction(
@@ -34,6 +36,7 @@ export async function getLeaderboardAction(
     });
     entries = logs.map((log: any, i: number) => ({
       position: i + 1,
+      userId: log.user.id,
       username: log.user.username,
       xp: log.xp,
       level: null,
@@ -47,6 +50,7 @@ export async function getLeaderboardAction(
     });
     entries = top.map((m: any, i: number) => ({
       position: i + 1,
+      userId: m.user.id,
       username: m.user.username,
       xp: m.xp,
       level: m.level,

@@ -23,6 +23,9 @@ export const API_ROUTES = {
   GUILD: (id: string) => `/guilds/${id}`,
   GUILD_STATS: (id: string) => `/guilds/${id}/stats`,
   GUILD_SETTINGS: (id: string) => `/guilds/${id}/settings`,
+  GUILD_CHATBOT_CONFIG: (id: string) => `/guilds/${id}/chatbot-config`,
+  GUILD_CHATBOT_MODELS: (id: string) => `/guilds/${id}/chatbot-models`,
+  GUILD_CHATBOT_TEST: (id: string) => `/guilds/${id}/chatbot-test`,
   GUILD_CHANNELS: (id: string) => `/guilds/${id}/channels`,
   GUILD_ROLES: (id: string) => `/guilds/${id}/roles`,
   MEETING_REPORT: (id: string) => `/meetings/${id}`,
@@ -39,6 +42,22 @@ export const API_ROUTES = {
   GUILD_CHARTS_ONLINE: (id: string, range?: string) =>
     `/guilds/${id}/charts/online${range ? `?range=${range}` : ''}`,
   GUILD_MUSIC_STATS: (id: string) => `/guilds/${id}/music/stats`,
+  GUILD_MEMORIES: (
+    id: string,
+    params?: { search?: string; page?: number; pageSize?: number; source?: string },
+  ) => {
+    const q = new URLSearchParams();
+    if (params?.search) q.set('search', params.search);
+    if (params?.page) q.set('page', String(params.page));
+    if (params?.pageSize) q.set('pageSize', String(params.pageSize));
+    if (params?.source && params.source !== 'all') q.set('source', params.source);
+    const qs = q.toString();
+    return `/guilds/${id}/memories${qs ? `?${qs}` : ''}`;
+  },
+  GUILD_MEMORY_STATS: (id: string) => `/guilds/${id}/memories/stats`,
+  GUILD_MEMORY: (id: string, key: string) =>
+    `/guilds/${id}/memories/${encodeURIComponent(key)}`,
+  GUILD_MEMORY_TEST: (id: string) => `/guilds/${id}/memories/test-lookup`,
 
   MUSIC_STATE: (guildId: string) =>
     `/v1/discord/music/guilds/${guildId}/state`,

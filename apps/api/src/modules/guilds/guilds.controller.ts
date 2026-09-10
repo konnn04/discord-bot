@@ -3,6 +3,7 @@ import {
   Get,
   Put,
   Post,
+  Delete,
   Param,
   Body,
   Query,
@@ -66,6 +67,68 @@ export class GuildsController {
 
     const settings = this.guildsService.getGuildSettings(id);
     return { success: true, data: settings };
+  }
+
+  @Get(':id/chatbot-config')
+  async getChatbotConfig(@Param('id') id: string, @Req() req: Request) {
+    const user = (req as any).user;
+    if (!this.guildsService.canManageGuild(user.sub, id)) {
+      throw new ForbiddenException(
+        'You do not have permission to manage this guild',
+      );
+    }
+    const data = await this.guildsService.getChatbotConfig(id);
+    return {
+      success: true,
+      data,
+    };
+  }
+
+  @Post(':id/chatbot-models')
+  async fetchChatbotModels(
+    @Param('id') id: string,
+    @Body()
+    body: {
+      provider: 'gemini' | 'deepseek' | 'agentrouter';
+      apiKey?: string;
+      baseUrl?: string;
+    },
+    @Req() req: Request,
+  ) {
+    const user = (req as any).user;
+    if (!this.guildsService.canManageGuild(user.sub, id)) {
+      throw new ForbiddenException(
+        'You do not have permission to manage this guild',
+      );
+    }
+    const data = await this.guildsService.fetchLiveModels(
+      id,
+      body.provider,
+      body.apiKey,
+      body.baseUrl,
+    );
+    return { success: true, data };
+  }
+
+  @Post(':id/chatbot-test')
+  async testChatbot(
+    @Param('id') id: string,
+    @Body()
+    body: {
+      provider?: 'gemini' | 'deepseek' | 'agentrouter';
+      model?: string;
+      apiKey?: string;
+      baseUrl?: string;
+    },
+    @Req() req: Request,
+  ) {
+    const user = (req as any).user;
+    if (!this.guildsService.canManageGuild(user.sub, id)) {
+      throw new ForbiddenException(
+        'You do not have permission to manage this guild',
+      );
+    }
+    return this.guildsService.testChatbot(id, body);
   }
 
   @Get(':id/channels')
@@ -250,6 +313,127 @@ export class GuildsController {
       throw new ForbiddenException('You do not have permission');
     }
     const data = await this.guildsService.getMusicStats(id);
+    return { success: true, data };
+  }
+
+  /** Get memories for a guild */
+  @Get(':id/memories')
+  async getMemories(
+    @Param('id') id: string,
+    @Query('page') page = '1',
+    @Query('pageSize') pageSize = '20',
+    @Query('search') search?: string,
+    @Query('source') source?: 'all' | 'ai' | 'manual',
+    @Req() req?: Request,
+  ) {
+    const user = (req as any).user;
+    if (!this.guildsService.canManageGuild(user.sub, id)) {
+      throw new ForbiddenException('You do not have permission');
+    }
+    const data = await this.guildsService.getMemories(
+      id,
+      parseInt(page, 10) || 1,
+      parseInt(pageSize, 10) || 20,
+      search,
+      source,
+    );
+    return { success: true, data };
+  }
+
+  /** Get memory stats for a guild */
+  @Get(':id/memories/stats')
+  async getMemoryStats(@Param('id') id: string, @Req() req: Request) {
+    const user = (req as any).user;
+    if (!this.guildsService.canManageGuild(user.sub, id)) {
+      throw new ForbiddenException('You do not have permission');
+    }
+    const data = await this.guildsService.getMemoryStats(id);
+    return { success: true, data };
+  }
+
+  /** Create a new memory entry manually */
+  @Post(':id/memories')
+  async createMemory(
+    @Param('id') id: string,
+    @Body() body: { key: string; value: string; metadata?: any },
+    @Req() req: Request,
+  ) {
+    const user = (req as any).user;
+    if (!this.guildsService.canManageGuild(user.sub, id)) {
+      throw new ForbiddenException('You do not have permission');
+    }
+    if (!body.key || !body.value) {
+      throw new HttpException(
+        { success: false, error: 'Key and value are required' },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    const metadata = {
+      ...(body.metadata || {}),
+      source: 'manual',
+      author: user.username || user.displayName || user.sub,
+    };
+    const data = await this.guildsService.saveMemory(id, body.key, body.value, metadata);
+    return { success: true, data };
+  }
+
+  /** Update an existing memory entry */
+  @Put(':id/memories/:key')
+  async updateMemory(
+    @Param('id') id: string,
+    @Param('key') key: string,
+    @Body() body: { value: string; metadata?: any },
+    @Req() req: Request,
+  ) {
+    const user = (req as any).user;
+    if (!this.guildsService.canManageGuild(user.sub, id)) {
+      throw new ForbiddenException('You do not have permission');
+    }
+    if (!body.value) {
+      throw new HttpException(
+        { success: false, error: 'Value is required' },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    const metadata = {
+      ...(body.metadata || {}),
+      source: 'manual',
+      updatedBy: user.username || user.displayName || user.sub,
+    };
+    const data = await this.guildsService.saveMemory(id, key, body.value, metadata);
+    return { success: true, data };
+  }
+
+  /** Delete a memory key */
+  @Delete(':id/memories/:key')
+  async deleteMemory(
+    @Param('id') id: string,
+    @Param('key') key: string,
+    @Req() req: Request,
+  ) {
+    const user = (req as any).user;
+    if (!this.guildsService.canManageGuild(user.sub, id)) {
+      throw new ForbiddenException('You do not have permission');
+    }
+    const result = await this.guildsService.deleteMemory(id, key);
+    return { success: true, data: result };
+  }
+
+  /** Test memory lookup algorithm / simulator */
+  @Post(':id/memories/test-lookup')
+  async testMemoryLookup(
+    @Param('id') id: string,
+    @Body() body: { query: string },
+    @Req() req: Request,
+  ) {
+    const user = (req as any).user;
+    if (!this.guildsService.canManageGuild(user.sub, id)) {
+      throw new ForbiddenException('You do not have permission');
+    }
+    if (!body.query) {
+      return { success: true, data: { query: '', matched: [] } };
+    }
+    const data = await this.guildsService.testMemoryLookup(id, body.query);
     return { success: true, data };
   }
 }

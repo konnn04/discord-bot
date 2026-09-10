@@ -101,15 +101,53 @@ export function parseHtml(html: string): HTMLElement {
   return parse(html);
 }
 
-/** One entry per matched "card" element — code + the rest of its text as the reward. */
+/** Check if an HTML element indicates an expired or invalid gift code card/row */
+function isExpiredElement(el: HTMLElement): boolean {
+  if (el.classList?.contains('expired')) return true;
+  const expiredBadge = el.querySelector('.expired, .status-badge.expired, .badge-expired');
+  if (expiredBadge) return true;
+  return false;
+}
+
+/** One entry per matched "card" element — code + reward text, skipping expired codes. */
 export function extractFromCards(
   root: HTMLElement,
   spec: SelectorSpec,
 ): GiftcodeEntry[] {
   const entries: GiftcodeEntry[] = [];
   for (const el of select(root, spec)) {
-    const code = firstCodeToken(el.text);
-    if (code) entries.push({ code, rewards: extractRewardNear(el.text, code) });
+    if (isExpiredElement(el)) continue;
+
+    // Check dedicated code element first (e.g. .code-text, code, strong)
+    const codeEl = el.querySelector('.code-text, code, .code, strong, h3');
+    let code: string | null = null;
+    if (codeEl) {
+      code = firstCodeToken(codeEl.text.trim()) || firstCodeToken(codeEl.structuredText?.trim() || '');
+    }
+    if (!code) {
+      code = firstCodeToken(el.structuredText || el.text);
+    }
+    if (!code) continue;
+
+    // Try dedicated reward container first
+    const rewardEl = el.querySelector('.reward-details, .rewards-list, .rewards-section, .reward, p');
+    let rewards: string | undefined = undefined;
+    if (rewardEl) {
+      const cleanReward = (rewardEl.structuredText || rewardEl.text)
+        .replace(/\s+/g, ' ')
+        .replace(/^rewards?\s*[:\-]?\s*/i, '')
+        .trim();
+      if (cleanReward.length >= 3) {
+        rewards = cleanReward.length > REWARD_MAX_LENGTH
+          ? `${cleanReward.slice(0, REWARD_MAX_LENGTH - 1)}…`
+          : cleanReward;
+      }
+    }
+    if (!rewards) {
+      rewards = extractRewardNear(el.structuredText || el.text, code);
+    }
+
+    entries.push({ code, rewards });
   }
   return dedupeByCode(entries);
 }
@@ -124,9 +162,11 @@ export function extractFromListItems(
     const items = container.querySelectorAll('li');
     const targets = items.length > 0 ? items : [container];
     for (const item of targets) {
-      const code = firstCodeToken(item.text);
+      if (isExpiredElement(item)) continue;
+      const text = item.structuredText || item.text;
+      const code = firstCodeToken(text);
       if (code) {
-        entries.push({ code, rewards: extractRewardNear(item.text, code) });
+        entries.push({ code, rewards: extractRewardNear(text, code) });
       }
     }
   }
@@ -144,14 +184,16 @@ export function extractFromTables(
       container.tagName === 'TABLE' ? container : container.querySelector('table');
     if (!table) continue;
     for (const row of table.querySelectorAll('tr')) {
+      if (isExpiredElement(row)) continue;
       const cells = row.querySelectorAll('td');
       if (cells.length === 0) continue; // header row (th only)
-      const code = firstCodeToken(cells[0].text);
+      const cell0Text = cells[0].structuredText || cells[0].text;
+      const code = firstCodeToken(cell0Text) || firstCodeToken(cells[0].querySelector('code, strong')?.text || '');
       if (!code) continue;
       const rewards =
         cells.length > 1
-          ? extractRewardNear(cells[1].text, '') || undefined
-          : extractRewardNear(row.text, code);
+          ? extractRewardNear(cells[1].structuredText || cells[1].text, '') || undefined
+          : extractRewardNear(row.structuredText || row.text, code);
       entries.push({ code, rewards });
     }
   }
@@ -160,9 +202,6 @@ export function extractFromTables(
 
 /**
  * Each matched element IS (or directly contains) a code — use its own text.
- * These elements are usually just a bare `<code>`/span with no surrounding
- * reward context, so rewards are left undefined here (best to avoid
- * capturing a whole unrelated paragraph as "reward" text).
  */
 export function extractSelfText(
   root: HTMLElement,
@@ -170,10 +209,13 @@ export function extractSelfText(
 ): GiftcodeEntry[] {
   const entries: GiftcodeEntry[] = [];
   for (const el of select(root, spec)) {
-    const trimmed = el.text.trim().toUpperCase();
+    if (isExpiredElement(el)) continue;
+    const raw = (el.structuredText || el.text).trim();
+    const trimmed = raw.toUpperCase();
     const code =
-      /^[A-Z0-9]{4,24}$/.test(trimmed) ? trimmed : firstCodeToken(el.text);
+      /^[A-Z0-9]{4,24}$/.test(trimmed) ? trimmed : firstCodeToken(raw);
     if (code) entries.push({ code });
   }
   return dedupeByCode(entries);
 }
+

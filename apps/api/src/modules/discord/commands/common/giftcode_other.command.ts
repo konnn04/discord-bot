@@ -2,6 +2,7 @@ import type { ActionCommand } from 'shared/src/types/discord.types';
 import { ContextAdapter } from '../../contexts/context-adapter';
 import { contextFromCommand, crawlGiftcodeAction } from '../../actions';
 import {
+  buildGiftcodeEmbeds,
   buildGiftcodeEmbed,
   giftcodeGameLabel,
 } from '../../../giftcode/giftcode-notify';
@@ -44,8 +45,13 @@ const giftcodeOtherCommand: ActionCommand = {
       return;
     }
 
-    const embed = buildGiftcodeEmbed(giftcodeGameLabel(game), result.data.entries);
-    await ctx.editReply({ embeds: [embed] });
+    const embeds = buildGiftcodeEmbeds(giftcodeGameLabel(game), result.data.entries);
+    await ctx.editReply({ embeds: embeds.slice(0, 10) });
+    for (let i = 10; i < embeds.length; i += 10) {
+      if (ctx.channel) {
+        await ctx.channel.send({ embeds: embeds.slice(i, i + 10) });
+      }
+    }
   },
 };
 

@@ -25,11 +25,6 @@ interface HoyoApiResponse {
   game: string;
 }
 
-/**
- * Polls the HoYoverse codes API (hoyo-codes.seria.moe) for the 5 HoYoverse
- * games. Sending is unified with the web-scraped games via giftcode-notify.ts
- * — see GuildSettings.giftcode for the shared per-guild configuration.
- */
 @Injectable()
 export class MichosgcService implements OnModuleInit {
   private readonly logger = new Logger(MichosgcService.name);
@@ -40,7 +35,7 @@ export class MichosgcService implements OnModuleInit {
     private globalSettings: GlobalSettingsService,
     private guildSettings: GuildSettingsService,
     private prisma: PrismaService,
-  ) {}
+  ) { }
 
   onModuleInit() {
     setTimeout(() => void this.handleCron(true), 5000);
@@ -48,6 +43,7 @@ export class MichosgcService implements OnModuleInit {
 
   setClient(client: Client) {
     this.discordClient = client;
+    setTimeout(() => void this.handleCron(true), 2000);
   }
 
   @Cron(CronExpression.EVERY_MINUTE)
@@ -60,7 +56,7 @@ export class MichosgcService implements OnModuleInit {
 
     const now = Date.now();
     if (!force && now - this.lastRun < minutes * 60 * 1000) {
-      return; // Skip if interval hasn't passed
+      return;
     }
 
     this.lastRun = now;
@@ -70,8 +66,6 @@ export class MichosgcService implements OnModuleInit {
   async checkCodes() {
     if (!this.discordClient) return;
 
-    // Shared across guilds — only poll a game if at least one guild wants it,
-    // and one fetch feeds every guild that opted in (see notifyGuildsForGiftcode).
     const activeGameIds = getActiveGiftcodeGameIds(this.guildSettings);
     const games = HOYOVERSE_GAME_IDS.filter((id) => activeGameIds.has(id));
 
@@ -83,7 +77,7 @@ export class MichosgcService implements OnModuleInit {
         if (!response.ok) continue;
 
         const data = (await response.json()) as HoyoApiResponse;
-        if (!data || !data.codes) continue;
+        if (!data || !data.codes || data.codes.length === 0) continue;
 
         const fetchedCodes = data.codes.map((c) => c.code);
         const payload = fetchedCodes.slice().sort().join(',');
@@ -94,40 +88,40 @@ export class MichosgcService implements OnModuleInit {
         });
 
         if (dbCache && dbCache.hash === currentHash) {
-          continue; // No changes
+          continue;
         }
 
         const known = dbCache ? (dbCache.codes as string[]) : [];
         const newCodes = data.codes.filter((c) => !known.includes(c.code));
 
-        if (newCodes.length > 0) {
-          this.logger.log(`Found ${newCodes.length} new codes for ${game}`);
-          const entries: GiftcodeEntry[] = newCodes.map((c) => ({
+        if (this.discordClient && dbCache && newCodes.length > 0) {
+          this.logger.log(`Found ${newCodes.length} new code(s) for ${game}`);
+          const newEntries: GiftcodeEntry[] = newCodes.map((c) => ({
             code: c.code,
             rewards: c.rewards || undefined,
             link: HOYOVERSE_REDEEM_LINKS[game]?.(c.code),
           }));
+
           await notifyGuildsForGiftcode(
             this.discordClient,
             this.guildSettings,
             game,
             giftcodeGameLabel(game),
-            entries,
+            newEntries,
           );
         }
 
-        const updatedKnown = [...new Set([...known, ...fetchedCodes])];
         await this.prisma.giftcodeCache.upsert({
           where: { game },
-          update: { hash: currentHash, codes: updatedKnown },
-          create: { game, hash: currentHash, codes: updatedKnown },
+          update: { hash: currentHash, codes: fetchedCodes },
+          create: { game, hash: currentHash, codes: fetchedCodes },
         });
       } catch (err) {
         this.logger.error(`Error fetching codes for ${game}:`, err);
       }
 
       // Delay between requests to avoid rate limits.
-      await new Promise((resolve) => setTimeout(resolve, 10000));
+      await new Promise((resolve) => setTimeout(resolve, 5000));
     }
   }
 }

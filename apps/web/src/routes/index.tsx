@@ -21,6 +21,7 @@ const GeneralSettings = lazy(() => import("@/pages/admin/settings/general").then
 const GiftcodeSettings = lazy(() => import("@/pages/admin/settings/giftcode").then(m => ({ default: m.GiftcodeSettings })));
 const RoleRankSettings = lazy(() => import("@/pages/admin/settings/rolerank").then(m => ({ default: m.RoleRankSettings })));
 const ChatbotSettings = lazy(() => import("@/pages/admin/settings/chatbot").then(m => ({ default: m.ChatbotSettings })));
+const MemorySettings = lazy(() => import("@/pages/admin/settings/memory").then(m => ({ default: m.MemorySettings })));
 const MusicLayout = lazy(() => import("@/components/layout/music-layout").then(m => ({ default: m.MusicLayout })));
 const MusicSelectPage = lazy(() => import("@/pages/music-select").then(m => ({ default: m.MusicSelectPage })));
 const MusicPage = lazy(() => import("@/pages/music").then(m => ({ default: m.MusicPage })));
@@ -83,6 +84,7 @@ export const router = createBrowserRouter([
           { path: "giftcode", element: <Lazy><GiftcodeSettings /></Lazy> },
           { path: "rolerank", element: <Lazy><RoleRankSettings /></Lazy> },
           { path: "chatbot", element: <Lazy><ChatbotSettings /></Lazy> },
+          { path: "memory", element: <Lazy><MemorySettings /></Lazy> },
         ],
       },
     ],

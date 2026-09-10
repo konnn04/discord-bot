@@ -73,4 +73,7 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   get onlinePresenceLog() {
     return this.client?.onlinePresenceLog;
   }
+  get guildMemory() {
+    return this.client?.guildMemory;
+  }
 }
