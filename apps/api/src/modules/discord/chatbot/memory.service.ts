@@ -137,7 +137,11 @@ export class GuildMemoryService {
     const guildMap = this.memCache.get(guildId);
     if (guildMap) {
       for (const [k, entry] of guildMap.entries()) {
-        if (!normQuery || k.includes(normQuery) || entry.value.toLowerCase().includes(normQuery)) {
+        if (
+          !normQuery ||
+          k.includes(normQuery) ||
+          entry.value.toLowerCase().includes(normQuery)
+        ) {
           results.push(entry);
           seenKeys.add(k);
           if (results.length >= limit) return results;
@@ -260,7 +264,12 @@ export class GuildMemoryService {
     pageSize = 20,
     search?: string,
     sourceFilter?: 'all' | 'ai' | 'manual',
-  ): Promise<{ items: MemoryEntry[]; total: number; page: number; pageSize: number }> {
+  ): Promise<{
+    items: MemoryEntry[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }> {
     if (!guildId) return { items: [], total: 0, page, pageSize };
     const normSearch = search ? search.trim().toLowerCase() : undefined;
 
@@ -310,7 +319,9 @@ export class GuildMemoryService {
 
         return { items, total, page, pageSize };
       } catch (err) {
-        this.logger.warn(`[Memory] DB list failed, falling back to cache: ${String(err)}`);
+        this.logger.warn(
+          `[Memory] DB list failed, falling back to cache: ${String(err)}`,
+        );
       }
     }
 
@@ -319,18 +330,22 @@ export class GuildMemoryService {
     let allEntries = guildMap ? Array.from(guildMap.values()) : [];
     if (normSearch) {
       allEntries = allEntries.filter(
-        (e) => e.key.includes(normSearch) || e.value.toLowerCase().includes(normSearch),
+        (e) =>
+          e.key.includes(normSearch) ||
+          e.value.toLowerCase().includes(normSearch),
       );
     }
     if (sourceFilter && sourceFilter !== 'all') {
       allEntries = allEntries.filter((item) => {
-        const src = (item.metadata as any)?.source;
+        const src = item.metadata?.source;
         if (sourceFilter === 'ai') return src === 'ai';
         if (sourceFilter === 'manual') return src === 'manual' || !src;
         return true;
       });
     }
-    allEntries.sort((a, b) => (b.updatedAt?.getTime() ?? 0) - (a.updatedAt?.getTime() ?? 0));
+    allEntries.sort(
+      (a, b) => (b.updatedAt?.getTime() ?? 0) - (a.updatedAt?.getTime() ?? 0),
+    );
 
     const total = allEntries.length;
     const startIndex = Math.max(0, (page - 1) * pageSize);
@@ -342,7 +357,9 @@ export class GuildMemoryService {
   /**
    * Get memory summary stats for a guild.
    */
-  async getStats(guildId: string): Promise<{ total: number; aiCount: number; manualCount: number }> {
+  async getStats(
+    guildId: string,
+  ): Promise<{ total: number; aiCount: number; manualCount: number }> {
     if (!guildId) return { total: 0, aiCount: 0, manualCount: 0 };
 
     if (this.prisma?.isConnected && this.prisma.guildMemory) {
@@ -369,13 +386,13 @@ export class GuildMemoryService {
     let manualCount = 0;
     if (guildMap) {
       for (const item of guildMap.values()) {
-        const src = (item.metadata as any)?.source;
+        const src = item.metadata?.source;
         if (src === 'ai') aiCount++;
         else manualCount++;
       }
     }
     return {
-      total: (guildMap?.size ?? 0),
+      total: guildMap?.size ?? 0,
       aiCount,
       manualCount,
     };
@@ -384,7 +401,9 @@ export class GuildMemoryService {
 
 // Singleton instance
 let _memoryInstance: GuildMemoryService | null = null;
-export function getGuildMemoryService(prisma?: PrismaService): GuildMemoryService {
+export function getGuildMemoryService(
+  prisma?: PrismaService,
+): GuildMemoryService {
   if (!_memoryInstance) {
     _memoryInstance = new GuildMemoryService(prisma);
   } else if (prisma) {

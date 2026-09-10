@@ -13,14 +13,64 @@ const CODE_TOKEN_REGEX = /\b[A-Z0-9]{4,24}\b/g;
 
 /** Common words that otherwise match the token pattern but aren't codes. */
 const NOISE_WORDS = new Set([
-  'CODE', 'CODES', 'GIFT', 'GIFTS', 'REDEEM', 'REDEMPTION', 'ACTIVE',
-  'EXPIRED', 'EXPIRE', 'NEW', 'LIST', 'UPDATE', 'UPDATED', 'LATEST',
-  'WORKING', 'VALID', 'INVALID', 'FREE', 'REWARD', 'REWARDS', 'HOW', 'USE',
-  'HERE', 'CLICK', 'COPY', 'COPIED', 'LINK', 'MORE', 'READ', 'ALL', 'NONE',
-  'NULL', 'HTML', 'JAVASCRIPT', 'NOTE', 'GAME', 'GUIDE', 'GUIDES', 'PATCH',
-  'VERSION', 'SERVER', 'GLOBAL', 'ANDROID', 'IOS', 'STEAM', 'PLAYSTATION',
-  'JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE', 'JULY', 'AUGUST',
-  'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER',
+  'CODE',
+  'CODES',
+  'GIFT',
+  'GIFTS',
+  'REDEEM',
+  'REDEMPTION',
+  'ACTIVE',
+  'EXPIRED',
+  'EXPIRE',
+  'NEW',
+  'LIST',
+  'UPDATE',
+  'UPDATED',
+  'LATEST',
+  'WORKING',
+  'VALID',
+  'INVALID',
+  'FREE',
+  'REWARD',
+  'REWARDS',
+  'HOW',
+  'USE',
+  'HERE',
+  'CLICK',
+  'COPY',
+  'COPIED',
+  'LINK',
+  'MORE',
+  'READ',
+  'ALL',
+  'NONE',
+  'NULL',
+  'HTML',
+  'JAVASCRIPT',
+  'NOTE',
+  'GAME',
+  'GUIDE',
+  'GUIDES',
+  'PATCH',
+  'VERSION',
+  'SERVER',
+  'GLOBAL',
+  'ANDROID',
+  'IOS',
+  'STEAM',
+  'PLAYSTATION',
+  'JANUARY',
+  'FEBRUARY',
+  'MARCH',
+  'APRIL',
+  'MAY',
+  'JUNE',
+  'JULY',
+  'AUGUST',
+  'SEPTEMBER',
+  'OCTOBER',
+  'NOVEMBER',
+  'DECEMBER',
 ]);
 
 function isPlausibleCode(token: string): boolean {
@@ -55,7 +105,10 @@ const REWARD_MAX_LENGTH = 140;
  * common leftover separators like "-", ":", "|") stripped out. Returns
  * undefined when what's left is too short to be meaningful.
  */
-export function extractRewardNear(text: string, code: string): string | undefined {
+export function extractRewardNear(
+  text: string,
+  code: string,
+): string | undefined {
   const withoutCode = text.replace(code, ' ').replace(/\s+/g, ' ').trim();
   const cleaned = withoutCode.replace(/^[-:|–—•\s]+|[-:|–—•\s]+$/g, '').trim();
   if (cleaned.length < 3) return undefined;
@@ -104,7 +157,9 @@ export function parseHtml(html: string): HTMLElement {
 /** Check if an HTML element indicates an expired or invalid gift code card/row */
 function isExpiredElement(el: HTMLElement): boolean {
   if (el.classList?.contains('expired')) return true;
-  const expiredBadge = el.querySelector('.expired, .status-badge.expired, .badge-expired');
+  const expiredBadge = el.querySelector(
+    '.expired, .status-badge.expired, .badge-expired',
+  );
   if (expiredBadge) return true;
   return false;
 }
@@ -122,7 +177,9 @@ export function extractFromCards(
     const codeEl = el.querySelector('.code-text, code, .code, strong, h3');
     let code: string | null = null;
     if (codeEl) {
-      code = firstCodeToken(codeEl.text.trim()) || firstCodeToken(codeEl.structuredText?.trim() || '');
+      code =
+        firstCodeToken(codeEl.text.trim()) ||
+        firstCodeToken(codeEl.structuredText?.trim() || '');
     }
     if (!code) {
       code = firstCodeToken(el.structuredText || el.text);
@@ -130,17 +187,20 @@ export function extractFromCards(
     if (!code) continue;
 
     // Try dedicated reward container first
-    const rewardEl = el.querySelector('.reward-details, .rewards-list, .rewards-section, .reward, p');
+    const rewardEl = el.querySelector(
+      '.reward-details, .rewards-list, .rewards-section, .reward, p',
+    );
     let rewards: string | undefined = undefined;
     if (rewardEl) {
       const cleanReward = (rewardEl.structuredText || rewardEl.text)
         .replace(/\s+/g, ' ')
-        .replace(/^rewards?\s*[:\-]?\s*/i, '')
+        .replace(/^rewards?\s*[:-]?\s*/i, '')
         .trim();
       if (cleanReward.length >= 3) {
-        rewards = cleanReward.length > REWARD_MAX_LENGTH
-          ? `${cleanReward.slice(0, REWARD_MAX_LENGTH - 1)}…`
-          : cleanReward;
+        rewards =
+          cleanReward.length > REWARD_MAX_LENGTH
+            ? `${cleanReward.slice(0, REWARD_MAX_LENGTH - 1)}…`
+            : cleanReward;
       }
     }
     if (!rewards) {
@@ -181,18 +241,23 @@ export function extractFromTables(
   const entries: GiftcodeEntry[] = [];
   for (const container of select(root, spec)) {
     const table =
-      container.tagName === 'TABLE' ? container : container.querySelector('table');
+      container.tagName === 'TABLE'
+        ? container
+        : container.querySelector('table');
     if (!table) continue;
     for (const row of table.querySelectorAll('tr')) {
       if (isExpiredElement(row)) continue;
       const cells = row.querySelectorAll('td');
       if (cells.length === 0) continue; // header row (th only)
       const cell0Text = cells[0].structuredText || cells[0].text;
-      const code = firstCodeToken(cell0Text) || firstCodeToken(cells[0].querySelector('code, strong')?.text || '');
+      const code =
+        firstCodeToken(cell0Text) ||
+        firstCodeToken(cells[0].querySelector('code, strong')?.text || '');
       if (!code) continue;
       const rewards =
         cells.length > 1
-          ? extractRewardNear(cells[1].structuredText || cells[1].text, '') || undefined
+          ? extractRewardNear(cells[1].structuredText || cells[1].text, '') ||
+            undefined
           : extractRewardNear(row.structuredText || row.text, code);
       entries.push({ code, rewards });
     }
@@ -212,10 +277,10 @@ export function extractSelfText(
     if (isExpiredElement(el)) continue;
     const raw = (el.structuredText || el.text).trim();
     const trimmed = raw.toUpperCase();
-    const code =
-      /^[A-Z0-9]{4,24}$/.test(trimmed) ? trimmed : firstCodeToken(raw);
+    const code = /^[A-Z0-9]{4,24}$/.test(trimmed)
+      ? trimmed
+      : firstCodeToken(raw);
     if (code) entries.push({ code });
   }
   return dedupeByCode(entries);
 }
-

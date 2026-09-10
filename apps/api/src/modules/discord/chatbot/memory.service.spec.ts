@@ -41,7 +41,11 @@ describe('GuildMemoryService', () => {
   it('should extract relevant memories by keyword matching', async () => {
     const guildId = 'guild-444';
     await service.remember(guildId, 'konnn', 'Konnn là chủ server');
-    await service.remember(guildId, 'genshin', 'Server thường xuyên chơi Genshin lúc 8h tối');
+    await service.remember(
+      guildId,
+      'genshin',
+      'Server thường xuyên chơi Genshin lúc 8h tối',
+    );
 
     const relevant = await service.findRelevantMemories(
       guildId,

@@ -13,7 +13,18 @@ export function initCanvasFonts(): void {
     join(__dirname, '..', '..', '..', '..', 'assets', 'fonts'),
     join(__dirname, '..', '..', '..', '..', '..', 'assets', 'fonts'),
     join(__dirname, '..', '..', '..', '..', '..', '..', 'assets', 'fonts'),
-    join(__dirname, '..', '..', '..', '..', '..', '..', '..', 'assets', 'fonts'),
+    join(
+      __dirname,
+      '..',
+      '..',
+      '..',
+      '..',
+      '..',
+      '..',
+      '..',
+      'assets',
+      'fonts',
+    ),
   ];
 
   for (const dir of candidates) {
@@ -30,7 +41,9 @@ export function initCanvasFonts(): void {
 
   try {
     (GlobalFonts as any).loadSystemFonts?.();
-  } catch {}
+  } catch {
+    // Ignore system font loading failures
+  }
 
   fontsLoaded = true;
 }

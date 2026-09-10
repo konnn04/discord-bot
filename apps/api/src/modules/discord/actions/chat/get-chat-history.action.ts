@@ -18,7 +18,8 @@ export const getChatHistoryToolSchema: ToolSchema = {
       },
       channel_id: {
         type: 'string',
-        description: 'ID kênh chat cần lấy lịch sử (bỏ trống nếu lấy kênh hiện tại)',
+        description:
+          'ID kênh chat cần lấy lịch sử (bỏ trống nếu lấy kênh hiện tại)',
       },
     },
   },
@@ -41,7 +42,9 @@ export async function getChatHistoryAction(
     return fail('Không xác định được kênh chat để lấy lịch sử.');
   }
 
-  const channel = (await ctx.guild.channels.fetch(targetChannelId).catch(() => null)) as TextChannel | null;
+  const channel = (await ctx.guild.channels
+    .fetch(targetChannelId)
+    .catch(() => null)) as TextChannel | null;
   if (!channel || !channel.isTextBased()) {
     return fail(`Không tìm thấy kênh chat có ID ${targetChannelId}.`);
   }
@@ -52,7 +55,10 @@ export async function getChatHistoryAction(
 
   try {
     while (fetchedMessages.length < requestedLimit) {
-      const fetchBatchSize = Math.min(100, requestedLimit - fetchedMessages.length);
+      const fetchBatchSize = Math.min(
+        100,
+        requestedLimit - fetchedMessages.length,
+      );
       const batch = await channel.messages.fetch({
         limit: fetchBatchSize,
         before: lastId,

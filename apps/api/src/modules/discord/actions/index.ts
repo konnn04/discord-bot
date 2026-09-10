@@ -16,3 +16,4 @@ export * from './chat/get-chat-history.action';
 export * from './chat/memory.action';
 export * from './guild/voice-management.action';
 export * from './guild/member-management.action';
+export * from './web/read-webpage.action';

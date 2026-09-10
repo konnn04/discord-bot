@@ -1,9 +1,4 @@
-import type {
-  LlmMessage,
-  LlmResult,
-  LlmTool,
-  LlmToolCall,
-} from '../llm.types';
+import type { LlmMessage, LlmResult, LlmTool, LlmToolCall } from '../llm.types';
 
 // Docs: https://ai.google.dev/api/rest/v1beta/models/generateContent
 const DEFAULT_MODEL = process.env.GEMINI_MODEL || 'gemini-flash-lite-latest';

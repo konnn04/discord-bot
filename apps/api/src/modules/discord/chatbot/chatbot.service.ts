@@ -1,5 +1,6 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { Logger } from '@nestjs/common';
 import { AttachmentBuilder, type Message } from 'discord.js';
 import type { GuildSettings } from 'shared/src/types/settings.types';
 import sharp from 'sharp';
@@ -25,6 +26,7 @@ const MEMORY_LIMIT = 10;
 const MAX_TOOL_ROUNDS = 4;
 
 export class ChatbotService {
+  private readonly logger = new Logger(ChatbotService.name);
   private systemPrompt: string;
   private memory = new Map<string, LlmMessage[]>();
 
@@ -219,8 +221,16 @@ export class ChatbotService {
       userMessage,
     ];
 
+    // Discord's typing indicator only lasts ~10s — keep it alive for as long as
+    // we're still reasoning/calling tools, so it doesn't flicker off mid-thought.
+    let typingInterval: ReturnType<typeof setInterval> | null = null;
     if ('sendTyping' in message.channel) {
       await message.channel.sendTyping().catch(() => {});
+      typingInterval = setInterval(() => {
+        if ('sendTyping' in message.channel) {
+          message.channel.sendTyping().catch(() => {});
+        }
+      }, 8000);
     }
 
     let finalText: string | null = null;
@@ -231,6 +241,11 @@ export class ChatbotService {
           apiKey: chatbot.apiKey,
           baseUrl: chatbot.baseUrl,
         });
+
+        this.logger.debug(
+          `[${message.guildId}/${message.channelId}] round=${round} provider=${provider} model=${chatbot.model ?? '(default)'} ` +
+            `textLen=${result.text?.length ?? 'null'} toolCalls=${result.toolCalls.map((c) => c.name).join(',') || 'none'}`,
+        );
 
         if (!result.toolCalls.length) {
           finalText = result.text;
@@ -243,16 +258,27 @@ export class ChatbotService {
           toolCalls: result.toolCalls,
         });
 
-        for (const call of result.toolCalls) {
-          const tool = CHAT_TOOLS[call.name];
-          let output: string;
-          if (!tool || !allowed.has(call.name)) {
-            output = 'Công cụ này không được phép dùng.';
-          } else {
-            output = await Promise.resolve(
-              tool.handler(call.args, { message, deps }),
-            ).catch((e) => `Lỗi khi chạy công cụ: ${String(e)}`);
-          }
+        // Run every tool call requested in this round concurrently — independent
+        // lookups (giftcode, member info, etc.) shouldn't wait on each other.
+        const toolResults = await Promise.all(
+          result.toolCalls.map(async (call) => {
+            const tool = CHAT_TOOLS[call.name];
+            let output: string;
+            if (!tool || !allowed.has(call.name)) {
+              output = 'Công cụ này không được phép dùng.';
+            } else {
+              output = await Promise.resolve(
+                tool.handler(call.args, { message, deps }),
+              ).catch((e) => `Lỗi khi chạy công cụ: ${String(e)}`);
+            }
+            this.logger.debug(
+              `[${message.guildId}/${message.channelId}] tool=${call.name} args=${JSON.stringify(call.args)} output=${output.slice(0, 300)}`,
+            );
+            return { call, output };
+          }),
+        );
+
+        for (const { call, output } of toolResults) {
           messages.push({
             role: 'tool',
             toolCallId: call.id,
@@ -260,40 +286,59 @@ export class ChatbotService {
             content: output,
           });
         }
+
+        if (round === MAX_TOOL_ROUNDS - 1) {
+          this.logger.warn(
+            `[${message.guildId}/${message.channelId}] hit MAX_TOOL_ROUNDS (${MAX_TOOL_ROUNDS}) without a final answer`,
+          );
+        }
       }
     } catch (err) {
       const msg = String(err);
+      this.logger.error(
+        `[${message.guildId}/${message.channelId}] llmChat failed provider=${provider} model=${chatbot.model ?? '(default)'}: ${msg}`,
+      );
       let userMsg: string;
       if (msg.includes('content-blocked')) {
-        userMsg = '⚠️ Yêu cầu bị từ chối bởi nhà cung cấp AI (nội dung bị chặn). Thử diễn đạt lại hoặc đổi sang provider khác.';
+        userMsg =
+          '⚠️ Yêu cầu bị từ chối bởi nhà cung cấp AI (nội dung bị chặn). Thử diễn đạt lại hoặc đổi sang provider khác.';
       } else if (msg.includes('rate') || msg.includes('429')) {
-        userMsg = '⚠️ Đang bị giới hạn tốc độ gọi AI. Hãy thử lại sau vài giây.';
+        userMsg =
+          '⚠️ Đang bị giới hạn tốc độ gọi AI. Hãy thử lại sau vài giây.';
       } else if (msg.includes('401') || msg.includes('403')) {
-        userMsg = '⚠️ API key không hợp lệ hoặc không có quyền truy cập. Kiểm tra lại cấu hình chatbot.';
+        userMsg =
+          '⚠️ API key không hợp lệ hoặc không có quyền truy cập. Kiểm tra lại cấu hình chatbot.';
       } else {
         userMsg = `❌ Lỗi khi gọi AI: ${msg}`;
       }
       await message.reply(userMsg).catch(() => {});
       return;
+    } finally {
+      if (typingInterval) clearInterval(typingInterval);
     }
 
     const structured = parseLlmStructuredOutput(finalText);
-    const replyAnswer = structured.answer || 'Mình chưa có câu trả lời phù hợp.';
+    const replyAnswer =
+      structured.answer || 'Mình chưa có câu trả lời phù hợp.';
+
+    this.logger.debug(
+      `[${message.guildId}/${message.channelId}] finalText=${JSON.stringify(finalText)} parsedAnswer=${JSON.stringify(structured.answer)}`,
+    );
+    if (!finalText || !structured.answer) {
+      this.logger.warn(
+        `[${message.guildId}/${message.channelId}] no usable answer from AI — finalText was ${finalText === null ? 'null' : 'empty/unparseable'}`,
+      );
+    }
 
     if (structured.remember && structured.remember.length > 0) {
       for (const item of structured.remember) {
         if (item.key && item.value) {
-          void memoryService.remember(
-            message.guildId,
-            item.key,
-            item.value,
-            {
-              source: 'ai',
-              authorId: message.author.id,
-              authorName: message.author.displayName || message.author.username,
-              channelId: message.channelId,
-            },
-          );
+          void memoryService.remember(message.guildId, item.key, item.value, {
+            source: 'ai',
+            authorId: message.author.id,
+            authorName: message.author.displayName || message.author.username,
+            channelId: message.channelId,
+          });
         }
       }
     }
@@ -364,14 +409,20 @@ export interface StructuredChatbotResponse {
   sources?: string[];
 }
 
-export function parseLlmStructuredOutput(text: string | null): StructuredChatbotResponse {
+export function parseLlmStructuredOutput(
+  text: string | null,
+): StructuredChatbotResponse {
   if (!text) return { answer: 'Mình chưa có câu trả lời phù hợp.' };
 
   const trimmed = text.trim();
 
   try {
     const data = JSON.parse(trimmed);
-    if (typeof data === 'object' && data !== null && typeof data.answer === 'string') {
+    if (
+      typeof data === 'object' &&
+      data !== null &&
+      typeof data.answer === 'string'
+    ) {
       return {
         answer: data.answer,
         remember: Array.isArray(data.remember) ? data.remember : undefined,
@@ -386,7 +437,11 @@ export function parseLlmStructuredOutput(text: string | null): StructuredChatbot
   if (jsonMatch) {
     try {
       const data = JSON.parse(jsonMatch[1]);
-      if (typeof data === 'object' && data !== null && typeof data.answer === 'string') {
+      if (
+        typeof data === 'object' &&
+        data !== null &&
+        typeof data.answer === 'string'
+      ) {
         return {
           answer: data.answer,
           remember: Array.isArray(data.remember) ? data.remember : undefined,
@@ -404,7 +459,11 @@ export function parseLlmStructuredOutput(text: string | null): StructuredChatbot
     try {
       const sub = trimmed.slice(firstBrace, lastBrace + 1);
       const data = JSON.parse(sub);
-      if (typeof data === 'object' && data !== null && typeof data.answer === 'string') {
+      if (
+        typeof data === 'object' &&
+        data !== null &&
+        typeof data.answer === 'string'
+      ) {
         return {
           answer: data.answer,
           remember: Array.isArray(data.remember) ? data.remember : undefined,
@@ -418,4 +477,3 @@ export function parseLlmStructuredOutput(text: string | null): StructuredChatbot
 
   return { answer: trimmed };
 }
-

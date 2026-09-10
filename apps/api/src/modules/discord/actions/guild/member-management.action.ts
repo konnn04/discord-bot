@@ -16,7 +16,8 @@ export const changeNicknameToolSchema: ToolSchema = {
       },
       nickname: {
         type: 'string',
-        description: 'Biệt danh mới muốn đặt (để trống hoặc rỗng để xoá biệt danh về tên gốc)',
+        description:
+          'Biệt danh mới muốn đặt (để trống hoặc rỗng để xoá biệt danh về tên gốc)',
       },
     },
     required: ['user_id'],
@@ -27,13 +28,16 @@ export async function changeNicknameAction(
   ctx: ActionContext,
   args: { user_id: string; nickname?: string },
 ): Promise<ActionResult<{ userId: string; oldName: string; newName: string }>> {
-  const query = String(args.user_id || '').replace(/[<@!>]/g, '').trim();
+  const query = String(args.user_id || '')
+    .replace(/[<@!>]/g, '')
+    .trim();
   if (!query) return fail('Vui lòng cung cấp ID hoặc username của thành viên.');
 
   // Find member
   let targetMember = ctx.guild.members.cache.get(query);
   if (!targetMember) {
-    targetMember = (await ctx.guild.members.fetch(query).catch(() => null)) ?? undefined;
+    targetMember =
+      (await ctx.guild.members.fetch(query).catch(() => null)) ?? undefined;
   }
   if (!targetMember) {
     targetMember = ctx.guild.members.cache.find(
@@ -57,7 +61,9 @@ export async function changeNicknameAction(
       { userId: targetMember.id, oldName, newName },
     );
   } catch (err) {
-    return fail(`Không thể đổi biệt danh: ${String(err)} (có thể do bot không đủ quyền hoặc vị trí role thấp hơn người này).`);
+    return fail(
+      `Không thể đổi biệt danh: ${String(err)} (có thể do bot không đủ quyền hoặc vị trí role thấp hơn người này).`,
+    );
   }
 }
 
@@ -96,12 +102,15 @@ export async function getUserActivityAction(
   ctx: ActionContext,
   args: { user_id: string },
 ): Promise<ActionResult<UserActivityData>> {
-  const query = String(args.user_id || '').replace(/[<@!>]/g, '').trim();
+  const query = String(args.user_id || '')
+    .replace(/[<@!>]/g, '')
+    .trim();
   if (!query) return fail('Vui lòng cung cấp ID hoặc username của thành viên.');
 
   let member = ctx.guild.members.cache.get(query);
   if (!member) {
-    member = (await ctx.guild.members.fetch(query).catch(() => null)) ?? undefined;
+    member =
+      (await ctx.guild.members.fetch(query).catch(() => null)) ?? undefined;
   }
   if (!member) {
     member = ctx.guild.members.cache.find(

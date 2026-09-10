@@ -199,7 +199,7 @@ docker-compose up -d --build
 ## 📜 Nguồn & Thư Viện Tham Khảo
 
 - [discord.js](https://discord.js.org/) & [@discordjs/voice](https://github.com/discordjs/voice) — Kết nối Discord Gateway & Voice streaming
-- [Google Gemini](https://ai.google.dev/) / [DeepSeek](https://deepseek.com/) / [AgentRouter](https://agentrouter.org/) — Các mô hình AI LLM
+- [Google Gemini](https://ai.google.dev/) / [DeepSeek](https://deepseek.com/) / [OpenRouter](https://openrouter.ai/) — Các mô hình AI LLM
 - [nekos.best](https://nekos.best/) — API hình ảnh & GIF anime
 - [hoyo-codes](https://docs.hb.seria.moe/) bởi Seria — API giftcode game HoYoverse
 - [LRCLIB](https://lrclib.net/) — Dữ liệu lời bài hát đồng bộ

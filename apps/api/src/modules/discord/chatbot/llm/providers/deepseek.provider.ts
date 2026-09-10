@@ -1,9 +1,4 @@
-import type {
-  LlmMessage,
-  LlmResult,
-  LlmTool,
-  LlmToolCall,
-} from '../llm.types';
+import type { LlmMessage, LlmResult, LlmTool, LlmToolCall } from '../llm.types';
 
 // Docs: https://api-docs.deepseek.com/
 const DEFAULT_MODEL = process.env.DEEPSEEK_MODEL || 'deepseek-chat';

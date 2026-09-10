@@ -12,7 +12,8 @@ export const searchMemoryToolSchema: ToolSchema = {
     properties: {
       query: {
         type: 'string',
-        description: 'Từ khoá hoặc tên người, chủ đề cần tra cứu trong ký ức server',
+        description:
+          'Từ khoá hoặc tên người, chủ đề cần tra cứu trong ký ức server',
       },
     },
     required: ['query'],
@@ -30,7 +31,10 @@ export async function searchMemoryAction(
   const found = await memoryService.search(ctx.guild.id, query, 5);
 
   if (found.length === 0) {
-    return ok(`Chưa có thông tin ghi nhớ nào phù hợp với từ khoá "${query}" trong server này.`, []);
+    return ok(
+      `Chưa có thông tin ghi nhớ nào phù hợp với từ khoá "${query}" trong server này.`,
+      [],
+    );
   }
 
   const lines = found.map((m) => `- [**${m.key}**]: ${m.value}`);

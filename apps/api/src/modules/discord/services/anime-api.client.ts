@@ -132,7 +132,9 @@ class AnimeApiClient {
           }
         }
       }`;
-    const data = await this.query<{ Page: { media: AnimeInfo[] } }>(gql, { ids });
+    const data = await this.query<{ Page: { media: AnimeInfo[] } }>(gql, {
+      ids,
+    });
     for (const a of data.Page.media) {
       result.set(a.id, a);
     }

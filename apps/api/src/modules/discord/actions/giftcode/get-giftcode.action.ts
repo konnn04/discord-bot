@@ -51,8 +51,11 @@ export async function getGiftcodeAction(args: {
   // 1. HoYoverse games via API
   if (HOYOVERSE_GAME_IDS.includes(game)) {
     try {
-      const res = await fetch(`https://hoyo-codes.seria.moe/codes?game=${game}`);
-      if (!res.ok) return fail(`API trả về lỗi ${res.status} khi lấy giftcode ${label}.`);
+      const res = await fetch(
+        `https://hoyo-codes.seria.moe/codes?game=${game}`,
+      );
+      if (!res.ok)
+        return fail(`API trả về lỗi ${res.status} khi lấy giftcode ${label}.`);
       const data: any = await res.json();
       const entries: GiftcodeEntry[] = (data?.codes ?? []).map((c: any) => ({
         code: c.code,

@@ -18,11 +18,12 @@ export function giftcodeGameLabel(gameId: string): string {
  * Games without an entry here (e.g. Honkai Impact 3rd, Tears of Themis) have
  * no official code-in-URL redemption page — codes are shown without a link.
  */
-export const HOYOVERSE_REDEEM_LINKS: Record<string, (code: string) => string> = {
-  genshin: (code) => `https://genshin.hoyoverse.com/vi/gift?code=${code}`,
-  hkrpg: (code) => `https://hsr.hoyoverse.com/gift?code=${code}`,
-  nap: (code) => `https://zenless.hoyoverse.com/redemption?code=${code}`,
-};
+export const HOYOVERSE_REDEEM_LINKS: Record<string, (code: string) => string> =
+  {
+    genshin: (code) => `https://genshin.hoyoverse.com/vi/gift?code=${code}`,
+    hkrpg: (code) => `https://hsr.hoyoverse.com/gift?code=${code}`,
+    nap: (code) => `https://zenless.hoyoverse.com/redemption?code=${code}`,
+  };
 
 /**
  * One consistent embed format for every game's giftcode notification,

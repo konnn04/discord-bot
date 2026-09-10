@@ -157,9 +157,9 @@ export const LLM_PROVIDERS = [
   },
   {
     id: 'agentrouter',
-    label: 'AgentRouter (OpenAI Compatible)',
-    desc: 'Cổng đa mô hình: GPT-5.6, GLM-5.3, Claude, DeepSeek v4...',
-    defaultModel: 'gpt-5.6-sol',
+    label: 'OpenRouter (OpenAI Compatible)',
+    desc: 'Cổng đa mô hình qua OpenRouter: DeepSeek, GPT, Claude, Llama...',
+    defaultModel: 'deepseek/deepseek-v4-flash:free',
   },
 ] as const;
 
@@ -312,6 +312,13 @@ export const CHATBOT_TOOLS: ChatbotToolMeta[] = [
     description: 'Thay đổi băng thông/region của kênh thoại đang phát.',
     risky: true,
   },
+  {
+    id: 'read_web_page',
+    label: 'Đọc trang web',
+    description:
+      'Đọc và tóm tắt nội dung một trang web khi người dùng gửi kèm link cụ thể.',
+    risky: false,
+  },
 ];
 
 /** Metadata for a game the giftcode system supports (rendered in the UI). */
@@ -386,7 +393,8 @@ export function createDefaultGuildSettings(guildId: string): GuildSettings {
   );
 
   let defaultModel = 'gemini-flash-lite-latest';
-  const defaultBaseUrl = procEnv?.OPENROUTER_BASE_URL || 'https://agentrouter.org';
+  const defaultBaseUrl =
+    procEnv?.OPENROUTER_BASE_URL || 'https://openrouter.ai/api';
 
   if (procEnv?.OPENROUTER_MODEL) {
     let rawList: string[] = [];
@@ -403,17 +411,11 @@ export function createDefaultGuildSettings(guildId: string): GuildSettings {
         .map((s: string) => s.trim())
         .filter(Boolean);
     }
-    const foundDeepseek = rawList.find((m: string) =>
-      m.toLowerCase().includes('deepseek'),
-    );
-    if (foundDeepseek) {
-      defaultModel = 'deepseek-v4-flash';
-    } else if (rawList.length > 0) {
-      const first = rawList[0].toLowerCase();
-      defaultModel = first.includes('5.6') ? 'gpt-5.6-sol' : rawList[0];
+    if (rawList.length > 0) {
+      defaultModel = rawList[0];
     }
   } else if (envHasAgentRouter) {
-    defaultModel = 'deepseek-v4-flash';
+    defaultModel = 'deepseek/deepseek-v4-flash:free';
   } else if (procEnv?.GEMINI_MODEL) {
     defaultModel = procEnv.GEMINI_MODEL;
   }

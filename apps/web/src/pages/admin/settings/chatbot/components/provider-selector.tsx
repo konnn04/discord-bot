@@ -41,7 +41,7 @@ export function ProviderSelector({
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-500">
                   <Cpu className="h-4 w-4" />
                 </div>
-                <span className="font-semibold text-sm">AgentRouter</span>
+                <span className="font-semibold text-sm">OpenRouter</span>
               </div>
               {currentProvider === "agentrouter" && (
                 <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs">
@@ -50,7 +50,7 @@ export function ProviderSelector({
               )}
             </div>
             <p className="text-xs text-muted-foreground line-clamp-2">
-              OpenAI Compatible. Hỗ trợ GPT-5.6, GLM-5.3, Claude Opus, DeepSeek v4.
+              OpenAI Compatible. Cổng đa mô hình (DeepSeek, GPT, Claude, Llama...).
             </p>
           </div>
           <div className="mt-3 pt-2 border-t border-border/50 flex items-center justify-between">
@@ -67,7 +67,7 @@ export function ProviderSelector({
                 : "Chưa có ENV"}
             </Badge>
             <span className="text-[11px] text-muted-foreground">
-              agentrouter.org
+              openrouter.ai
             </span>
           </div>
         </div>

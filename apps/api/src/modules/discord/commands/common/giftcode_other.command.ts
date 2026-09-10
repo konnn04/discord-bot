@@ -3,7 +3,6 @@ import { ContextAdapter } from '../../contexts/context-adapter';
 import { contextFromCommand, crawlGiftcodeAction } from '../../actions';
 import {
   buildGiftcodeEmbeds,
-  buildGiftcodeEmbed,
   giftcodeGameLabel,
 } from '../../../giftcode/giftcode-notify';
 import { GIFTCODE_CRAWL_SOURCES } from '../../../giftcode-crawler/sources';
@@ -45,7 +44,10 @@ const giftcodeOtherCommand: ActionCommand = {
       return;
     }
 
-    const embeds = buildGiftcodeEmbeds(giftcodeGameLabel(game), result.data.entries);
+    const embeds = buildGiftcodeEmbeds(
+      giftcodeGameLabel(game),
+      result.data.entries,
+    );
     await ctx.editReply({ embeds: embeds.slice(0, 10) });
     for (let i = 10; i < embeds.length; i += 10) {
       if (ctx.channel) {

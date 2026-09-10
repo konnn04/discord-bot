@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- file exports hooks/constants alongside components by design */
 import * as React from "react"
 import useEmblaCarousel, {
   type UseEmblaCarouselType,
@@ -56,14 +57,27 @@ function Carousel({
     },
     plugins
   )
-  const [canScrollPrev, setCanScrollPrev] = React.useState(false)
-  const [canScrollNext, setCanScrollNext] = React.useState(false)
+  const subscribeToApi = React.useCallback(
+    (callback: () => void) => {
+      if (!api) return () => {}
+      api.on("reInit", callback)
+      api.on("select", callback)
+      return () => {
+        api.off("select", callback)
+        api.off("reInit", callback)
+      }
+    },
+    [api]
+  )
 
-  const onSelect = React.useCallback((api: CarouselApi) => {
-    if (!api) return
-    setCanScrollPrev(api.canScrollPrev())
-    setCanScrollNext(api.canScrollNext())
-  }, [])
+  const canScrollPrev = React.useSyncExternalStore(
+    subscribeToApi,
+    () => api?.canScrollPrev() ?? false
+  )
+  const canScrollNext = React.useSyncExternalStore(
+    subscribeToApi,
+    () => api?.canScrollNext() ?? false
+  )
 
   const scrollPrev = React.useCallback(() => {
     api?.scrollPrev()
@@ -90,17 +104,6 @@ function Carousel({
     if (!api || !setApi) return
     setApi(api)
   }, [api, setApi])
-
-  React.useEffect(() => {
-    if (!api) return
-    onSelect(api)
-    api.on("reInit", onSelect)
-    api.on("select", onSelect)
-
-    return () => {
-      api?.off("select", onSelect)
-    }
-  }, [api, onSelect])
 
   return (
     <CarouselContext.Provider

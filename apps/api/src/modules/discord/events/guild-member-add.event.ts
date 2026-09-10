@@ -128,7 +128,9 @@ const guildMemberAddEvent: EventHandler = {
           iconURL: embedCfg.footerIconUrl || undefined,
         });
       } else {
-        embed.setFooter({ text: `Thành viên thứ #${member.guild.memberCount}` });
+        embed.setFooter({
+          text: `Thành viên thứ #${member.guild.memberCount}`,
+        });
       }
 
       // Timestamp

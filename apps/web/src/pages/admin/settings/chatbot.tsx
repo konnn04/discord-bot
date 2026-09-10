@@ -68,26 +68,28 @@ export function ChatbotSettings() {
   const [isRefreshingModels, setIsRefreshingModels] = useState(false);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
 
-  useEffect(() => {
+  const [prevInitialFormState, setPrevInitialFormState] = useState(initialFormState);
+  if (prevInitialFormState !== initialFormState) {
+    setPrevInitialFormState(initialFormState);
     setFormState(initialFormState);
-  }, [initialFormState]);
+  }
 
   useEffect(() => {
     let mounted = true;
-    setLoadingConfig(true);
-    api
-      .get<{ success: boolean; data: ChatbotConfigData }>(
-        API_ROUTES.GUILD_CHATBOT_CONFIG(guildId),
-      )
-      .then((res) => {
-        if (mounted && res?.data) setConfig(res.data);
-      })
-      .catch((err) => {
+    async function loadConfig() {
+      setLoadingConfig(true);
+      try {
+        const res = await api.get<ChatbotConfigData>(
+          API_ROUTES.GUILD_CHATBOT_CONFIG(guildId),
+        );
+        if (mounted && res) setConfig(res);
+      } catch (err) {
         console.error("Failed to load chatbot config:", err);
-      })
-      .finally(() => {
+      } finally {
         if (mounted) setLoadingConfig(false);
-      });
+      }
+    }
+    loadConfig();
     return () => {
       mounted = false;
     };
@@ -134,26 +136,37 @@ export function ChatbotSettings() {
         ? "gemini-2.5-flash"
         : provider === "deepseek"
           ? "deepseek-chat"
-          : "deepseek-v4-flash");
+          : "deepseek/deepseek-v4-flash:free");
 
-    setFormState((prev) => ({ ...prev, provider, model: defaultModel }));
+    setFormState((prev) => ({
+      ...prev,
+      provider,
+      model: defaultModel,
+      apiKey: "",
+      baseUrl: "",
+    }));
     setTestResult(null);
+  };
+
+  const handleClearCredentials = () => {
+    setFormState((prev) => ({ ...prev, apiKey: "", baseUrl: "" }));
+    toast.info("Đã xóa API Key & Base URL — sẽ dùng mặc định từ ENV sau khi lưu.");
   };
 
   const handleFetchModels = async () => {
     setIsRefreshingModels(true);
     try {
-      const res = await api.post<{
-        success: boolean;
-        data: { provider: string; models: string[] };
-      }>(API_ROUTES.GUILD_CHATBOT_MODELS(guildId), {
-        provider: formState.provider,
-        apiKey: formState.apiKey.trim() || undefined,
-        baseUrl: formState.baseUrl.trim() || undefined,
-      });
+      const res = await api.post<{ provider: string; models: string[] }>(
+        API_ROUTES.GUILD_CHATBOT_MODELS(guildId),
+        {
+          provider: formState.provider,
+          apiKey: formState.apiKey.trim() || undefined,
+          baseUrl: formState.baseUrl.trim() || undefined,
+        },
+      );
 
-      if (res?.data?.models?.length) {
-        const fetched = res.data.models;
+      if (res?.models?.length) {
+        const fetched = res.models;
         setFetchedModelsMap((prev) => ({
           ...prev,
           [formState.provider]: fetched,
@@ -165,8 +178,10 @@ export function ChatbotSettings() {
       } else {
         toast.info("API không trả về model khả dụng");
       }
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || "Không thể lấy model từ API");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Không thể lấy model từ API",
+      );
     } finally {
       setIsRefreshingModels(false);
     }
@@ -192,8 +207,8 @@ export function ChatbotSettings() {
       } else {
         toast.error(res.error || "Kết nối thất bại");
       }
-    } catch (err: any) {
-      const msg = err.response?.data?.error || "Lỗi khi kiểm tra kết nối";
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Lỗi khi kiểm tra kết nối";
       setTestResult({ success: false, error: msg });
       toast.error(msg);
     } finally {
@@ -219,8 +234,8 @@ export function ChatbotSettings() {
       setData({ ...data, chatbot: payload });
       toast.success("Đã lưu cấu hình Chatbot thành công!");
       setTestResult(null);
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || "Lưu cài đặt thất bại");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Lưu cài đặt thất bại");
     } finally {
       setIsSaving(false);
     }
@@ -331,6 +346,7 @@ export function ChatbotSettings() {
                 onChangeBaseUrl={(baseUrl) =>
                   setFormState((prev) => ({ ...prev, baseUrl }))
                 }
+                onClear={handleClearCredentials}
               />
 
               <ModelSelector

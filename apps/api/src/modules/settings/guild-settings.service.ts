@@ -42,7 +42,10 @@ export class GuildSettingsService implements OnModuleInit {
               merged.chatbot.model = defaults.chatbot.model;
               shouldSyncDb = true;
             }
-            if (merged.chatbot.provider === 'agentrouter' && !merged.chatbot.baseUrl) {
+            if (
+              merged.chatbot.provider === 'agentrouter' &&
+              !merged.chatbot.baseUrl
+            ) {
               merged.chatbot.baseUrl = defaults.chatbot.baseUrl;
               shouldSyncDb = true;
             }
@@ -51,7 +54,10 @@ export class GuildSettingsService implements OnModuleInit {
           this.cache.set(guild.id, merged);
           if (shouldSyncDb) {
             this.save(guild.id, merged).catch((err) =>
-              this.logger.error(`Failed to sync env defaults to db for ${guild.id}`, err),
+              this.logger.error(
+                `Failed to sync env defaults to db for ${guild.id}`,
+                err,
+              ),
             );
           }
         }

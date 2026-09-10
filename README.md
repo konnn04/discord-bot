@@ -199,7 +199,7 @@ docker-compose up -d --build
 ## 📜 Credits & Third-Party APIs
 
 - [discord.js](https://discord.js.org/) & [@discordjs/voice](https://github.com/discordjs/voice) — Discord API & voice streaming
-- [Google Gemini API](https://ai.google.dev/) / [DeepSeek](https://deepseek.com/) / [AgentRouter](https://agentrouter.org/) — AI Chatbot LLMs
+- [Google Gemini API](https://ai.google.dev/) / [DeepSeek](https://deepseek.com/) / [OpenRouter](https://openrouter.ai/) — AI Chatbot LLMs
 - [nekos.best](https://nekos.best/) — Anime-style reaction media
 - [hoyo-codes](https://docs.hb.seria.moe/) by Seria — HoYoverse giftcode API
 - [LRCLIB](https://lrclib.net/) — Synchronized lyrics database

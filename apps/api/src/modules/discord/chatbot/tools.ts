@@ -37,6 +37,8 @@ import {
   moveVoiceMembersToolSchema,
   changeNicknameToolSchema,
   getUserActivityToolSchema,
+  readWebpageAction,
+  readWebpageToolSchema,
 } from '../actions';
 import { guildTool, plainTool, type ChatTool } from './tool-helpers';
 
@@ -69,11 +71,13 @@ export const CHAT_TOOLS: Record<string, ChatTool> = {
     }),
   ),
 
-  search_memory: guildTool(
-    searchMemoryToolSchema,
-    searchMemoryAction,
-    (a) => ({ query: str(a.query) }),
-  ),
+  search_memory: guildTool(searchMemoryToolSchema, searchMemoryAction, (a) => ({
+    query: str(a.query),
+  })),
+
+  read_web_page: plainTool(readWebpageToolSchema, readWebpageAction, (a) => ({
+    url: str(a.url),
+  })),
 
   get_voice_members: guildTool(
     getVoiceMembersToolSchema,
@@ -132,7 +136,7 @@ export const CHAT_TOOLS: Record<string, ChatTool> = {
     setVoiceBitrateAction,
     (a) => ({
       bitrate: a.bitrate != null ? Number(a.bitrate) : undefined,
-      region: a.region != null ? String(a.region) : undefined,
+      region: typeof a.region === 'string' ? a.region : undefined,
     }),
   ),
 
@@ -140,7 +144,11 @@ export const CHAT_TOOLS: Record<string, ChatTool> = {
     count: a.count != null ? Number(a.count) : undefined,
   })),
 
-  pause_music: guildTool(pauseMusicToolSchema, pauseMusicAction, () => undefined),
+  pause_music: guildTool(
+    pauseMusicToolSchema,
+    pauseMusicAction,
+    () => undefined,
+  ),
 
   resume_music: guildTool(
     resumeMusicToolSchema,
@@ -150,5 +158,9 @@ export const CHAT_TOOLS: Record<string, ChatTool> = {
 
   stop_music: guildTool(stopMusicToolSchema, stopMusicAction, () => undefined),
 
-  now_playing: guildTool(nowPlayingToolSchema, nowPlayingAction, () => undefined),
+  now_playing: guildTool(
+    nowPlayingToolSchema,
+    nowPlayingAction,
+    () => undefined,
+  ),
 };

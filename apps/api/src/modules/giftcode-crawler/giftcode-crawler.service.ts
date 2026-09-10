@@ -23,7 +23,8 @@ const FETCH_HEADERS: Record<string, string> = {
   Accept:
     'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
   'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8',
-  'Sec-Ch-Ua': '"Not/A)Brand";v="8", "Chromium";v="126", "Google Chrome";v="126"',
+  'Sec-Ch-Ua':
+    '"Not/A)Brand";v="8", "Chromium";v="126", "Google Chrome";v="126"',
   'Sec-Ch-Ua-Mobile': '?0',
   'Sec-Ch-Ua-Platform': '"Windows"',
   'Sec-Fetch-Dest': 'document',

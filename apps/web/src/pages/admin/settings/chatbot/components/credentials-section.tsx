@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Key, Globe, Eye, EyeOff } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Key, Globe, Eye, EyeOff, RotateCcw } from "lucide-react";
 
 interface Props {
   provider: "agentrouter" | "gemini" | "deepseek";
@@ -10,6 +11,7 @@ interface Props {
   hasSystemKey?: boolean;
   onChangeApiKey: (val: string) => void;
   onChangeBaseUrl: (val: string) => void;
+  onClear: () => void;
 }
 
 export function CredentialsSection({
@@ -19,28 +21,44 @@ export function CredentialsSection({
   hasSystemKey,
   onChangeApiKey,
   onChangeBaseUrl,
+  onClear,
 }: Props) {
   const [showApiKey, setShowApiKey] = useState(false);
 
   const getBaseUrlPlaceholder = () => {
-    if (provider === "agentrouter") return "https://agentrouter.org";
+    if (provider === "agentrouter") return "https://openrouter.ai/api";
     if (provider === "deepseek") return "https://api.deepseek.com";
     return "Mặc định Google Gemini Endpoint";
   };
 
   return (
     <div className="space-y-4 rounded-xl border p-4 bg-card/60">
-      <div className="space-y-1">
-        <Label className="text-sm font-semibold flex items-center gap-2">
-          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">
-            2
-          </span>
-          Cấu hình API Key & Base URL (Endpoint)
-        </Label>
-        <p className="text-xs text-muted-foreground">
-          Truyền API Key của bạn trước để có thể tải các mô hình khả dụng từ tài
-          khoản. Để trống nếu muốn dùng key mặc định từ .env của máy chủ.
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="space-y-1">
+          <Label className="text-sm font-semibold flex items-center gap-2">
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">
+              2
+            </span>
+            Cấu hình API Key & Base URL (Endpoint)
+          </Label>
+          <p className="text-xs text-muted-foreground">
+            Truyền API Key của bạn trước để có thể tải các mô hình khả dụng từ tài
+            khoản. Để trống nếu muốn dùng key mặc định từ .env của máy chủ.
+          </p>
+        </div>
+        {(apiKey || baseUrl) && (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={onClear}
+            className="h-7 gap-1.5 text-xs text-muted-foreground hover:text-destructive shrink-0"
+            title="Xóa API Key & Base URL đã nhập, dùng lại mặc định từ ENV"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Xóa cài đặt
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">

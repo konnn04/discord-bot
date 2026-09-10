@@ -109,7 +109,9 @@ export async function renderLeaderboardCard(
         ctx.drawImage(img, cx - radius, cy - radius, radius * 2, radius * 2);
         ctx.restore();
         avatarLoaded = true;
-      } catch {}
+      } catch {
+        // Ignore avatar load failures, fall back to placeholder
+      }
     }
 
     if (!avatarLoaded) {

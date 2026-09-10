@@ -40,12 +40,7 @@ export const POPULAR_MODELS: Record<
   'agentrouter' | 'gemini' | 'deepseek',
   { name: string; tag?: string }[]
 > = {
-  agentrouter: [
-    { name: 'deepseek-v4-flash', tag: 'Free Quota' },
-    { name: 'gpt-5.6-sol', tag: 'Pool Quota' },
-    { name: 'glm-5.3', tag: 'GLM' },
-    { name: 'claude-opus-4-8', tag: 'Anthropic' },
-  ],
+  agentrouter: [{ name: 'deepseek/deepseek-v4-flash:free', tag: 'Free' }],
   gemini: [
     { name: 'gemini-2.5-flash', tag: 'Nhanh' },
     { name: 'gemini-2.5-pro', tag: 'Thông minh' },

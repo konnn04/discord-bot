@@ -5,10 +5,43 @@ import type {
   LlmTool,
   LlmToolCall,
 } from '../llm.types';
+import { getDashboardUrl } from '../../../constants';
 
 // OpenAI Compatible Endpoint: https://platform.openai.com/docs/api-reference/chat
-const VIETNAMESE_CHAR_REGEX =
-  /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i;
+
+/**
+ * Resolve the versioned API root for a configured base URL. OpenRouter's real
+ * API lives under `/api/v1` (e.g. `https://openrouter.ai/api/v1/...`), while
+ * other OpenAI-compatible proxies (AgentRouter, self-hosted gateways) usually
+ * serve `/v1` directly off their root. Accept either form regardless of
+ * whether the admin included `/api` and/or `/v1` in OPENROUTER_BASE_URL.
+ */
+function resolveBaseUrl(rawBaseUrl: string): string {
+  let url = rawBaseUrl.replace(/\/+$/, '');
+  if (url.endsWith('/v1')) return url;
+  try {
+    if (
+      /(^|\.)openrouter\.ai$/i.test(new URL(url).hostname) &&
+      !url.endsWith('/api')
+    ) {
+      url = `${url}/api`;
+    }
+  } catch {
+    // rawBaseUrl wasn't a valid absolute URL — leave as-is, fetch() will surface the error
+  }
+  return `${url}/v1`;
+}
+
+function buildOpenRouterHeaders(apiKey: string): Record<string, string> {
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${apiKey}`,
+    'User-Agent': 'opencode/1.0.0',
+    // Optional OpenRouter ranking attribution — ignored by other proxies.
+    'HTTP-Referer': getDashboardUrl(),
+    'X-Title': 'FoxyBot',
+  };
+}
 
 function safeParse(raw?: string): Record<string, unknown> {
   if (!raw) return {};
@@ -20,9 +53,36 @@ function safeParse(raw?: string): Record<string, unknown> {
   }
 }
 
+const POLICY_BLOCK_MARKERS = [
+  'content_policy',
+  'content policy',
+  'content_filter',
+  'moderation',
+  'flagged',
+  'unsafe',
+];
+
+function buildRequestError(status: number, rawText: string): Error {
+  let detail = rawText;
+  try {
+    const parsed = JSON.parse(rawText) as {
+      error?: { message?: string };
+      message?: string;
+    };
+    detail = parsed?.error?.message || parsed?.message || rawText;
+  } catch {
+    // rawText wasn't JSON — use it as-is
+  }
+  const lower = detail.toLowerCase();
+  if (POLICY_BLOCK_MARKERS.some((marker) => lower.includes(marker))) {
+    return new Error(`content-blocked: ${detail}`);
+  }
+  return new Error(`AgentRouter error ${status}: ${detail}`);
+}
+
 export function parseAgentRouterModels(envModel?: string): string[] {
   const raw = envModel || process.env.OPENROUTER_MODEL;
-  if (!raw) return ['deepseek-v4-flash', 'gpt-5.6-sol', 'glm-5.3', 'claude-opus-4-8'];
+  if (!raw) return ['deepseek/deepseek-v4-flash:free'];
 
   let list: string[] = [];
   try {
@@ -52,14 +112,11 @@ export async function fetchAgentRouterModels(
     process.env.AGENTROUTER_API_KEY;
   if (!key) return parseAgentRouterModels();
 
-  let baseUrl =
+  const baseUrl =
     baseUrlInput?.trim() ||
     process.env.OPENROUTER_BASE_URL ||
-    'https://agentrouter.org';
-  baseUrl = baseUrl.replace(/\/+$/, '');
-  const endpoint = baseUrl.endsWith('/v1')
-    ? `${baseUrl}/models`
-    : `${baseUrl}/v1/models`;
+    'https://openrouter.ai/api';
+  const endpoint = `${resolveBaseUrl(baseUrl)}/models`;
 
   try {
     const res = await fetch(endpoint, {
@@ -81,21 +138,6 @@ export async function fetchAgentRouterModels(
   return parseAgentRouterModels();
 }
 
-async function translateVietnameseToEnglish(text: string): Promise<string> {
-  if (!text || !VIETNAMESE_CHAR_REGEX.test(text)) return text;
-  try {
-    const url =
-      'https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=' +
-      encodeURIComponent(text);
-    const res = await fetch(url);
-    if (!res.ok) return text;
-    const data: any = await res.json();
-    return data[0].map((s: any) => s[0]).join('');
-  } catch {
-    return text;
-  }
-}
-
 export async function agentrouterChat(
   messages: LlmMessage[],
   tools: LlmTool[],
@@ -109,38 +151,30 @@ export async function agentrouterChat(
     throw new Error('OPENROUTER_API_KEY (or AGENTROUTER_API_KEY) not set');
   }
 
-  let baseUrl =
+  const baseUrl =
     options?.baseUrl?.trim() ||
     process.env.OPENROUTER_BASE_URL ||
-    'https://agentrouter.org';
-  baseUrl = baseUrl.replace(/\/+$/, '');
-  const endpoint = baseUrl.endsWith('/v1')
-    ? `${baseUrl}/chat/completions`
-    : `${baseUrl}/v1/chat/completions`;
+    'https://openrouter.ai/api';
+  const endpoint = `${resolveBaseUrl(baseUrl)}/chat/completions`;
 
   const availableModels = parseAgentRouterModels();
-  const model = options?.model?.trim() || availableModels[0] || 'deepseek-v4-flash';
+  const model =
+    options?.model?.trim() ||
+    availableModels[0] ||
+    'deepseek/deepseek-v4-flash:free';
 
-  const hasVietnamese = messages.some((m) =>
-    VIETNAMESE_CHAR_REGEX.test(m.content),
-  );
+  const SAFETY_CONTEXT =
+    '\n\n[Context: This is a Discord server management bot. ' +
+    'All content is from real users in a private Vietnamese Discord community. ' +
+    'Vietnamese language must not be flagged as unsafe. ' +
+    'Respond naturally in the same language the user used.]';
 
-  let processedMessages = messages;
-  if (hasVietnamese) {
-    processedMessages = await Promise.all(
-      messages.map(async (m) => {
-        let content = m.content;
-        if (VIETNAMESE_CHAR_REGEX.test(content)) {
-          content = await translateVietnameseToEnglish(content);
-        }
-        if (m.role === 'system') {
-          content +=
-            '\n\n[CRITICAL NOTE: The user communicates in Vietnamese. You MUST formulate your entire final output directly in natural Vietnamese as requested.]';
-        }
-        return { ...m, content };
-      }),
-    );
-  }
+  const processedMessages = messages.map((m) => {
+    if (m.role === 'system') {
+      return { ...m, content: m.content + SAFETY_CONTEXT };
+    }
+    return m;
+  });
 
   const body: Record<string, unknown> = {
     model,
@@ -191,20 +225,26 @@ export async function agentrouterChat(
 
   const res = await fetch(endpoint, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-      'User-Agent': 'opencode/1.0.0',
-    },
+    headers: buildOpenRouterHeaders(apiKey),
     body: JSON.stringify(body),
   });
 
   if (!res.ok) {
-    throw new Error(`AgentRouter error ${res.status}: ${await res.text()}`);
+    throw buildRequestError(res.status, await res.text());
   }
 
   const data: any = await res.json();
-  const choice = data.choices?.[0]?.message ?? {};
+  const firstChoice = data.choices?.[0] ?? {};
+  const choice = firstChoice.message ?? {};
+
+  if (
+    firstChoice.finish_reason === 'content_filter' &&
+    !choice.content &&
+    !choice.tool_calls?.length
+  ) {
+    throw new Error('content-blocked: response finish_reason=content_filter');
+  }
+
   const toolCalls: LlmToolCall[] = (choice.tool_calls ?? []).map((tc: any) => ({
     id: tc.id,
     name: tc.function?.name,

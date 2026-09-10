@@ -23,7 +23,10 @@ export const GIFTCODE_CRAWL_SOURCES: Record<string, GiftcodeCrawlSource[]> = {
     {
       url: 'https://www.ntegame.com/codes/',
       extract: (html) =>
-        extractFromCards(parseHtml(html), { type: 'class', value: 'code-card' }),
+        extractFromCards(parseHtml(html), {
+          type: 'class',
+          value: 'code-card',
+        }),
     },
     {
       url: 'https://nevernessnte.org/codes/',

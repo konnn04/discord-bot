@@ -162,11 +162,7 @@ export class GuildsService {
     const agentRouterModels = Array.from(
       new Set([
         ...agentRouterLiveModels,
-        'deepseek-v4-flash',
-        'gpt-5.6-sol',
-        'glm-5.3',
-        'claude-opus-4-8',
-        'claude-opus-5',
+        'deepseek/deepseek-v4-flash:free',
         ...envModels,
       ]),
     );
@@ -175,13 +171,13 @@ export class GuildsService {
       providers: [
         {
           id: 'agentrouter',
-          name: 'AgentRouter (OpenAI Compatible)',
-          desc: 'Cổng đa mô hình: GPT-5.6, GLM-5.3, Claude Opus, DeepSeek v4...',
+          name: 'OpenRouter (OpenAI Compatible)',
+          desc: 'Cổng đa mô hình qua OpenRouter: DeepSeek, GPT, Claude, Llama...',
           hasSystemKey: Boolean(
             process.env.OPENROUTER_API_KEY || process.env.AGENTROUTER_API_KEY,
           ),
           defaultBaseUrl:
-            process.env.OPENROUTER_BASE_URL || 'https://agentrouter.org',
+            process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api',
           models: agentRouterModels,
         },
         {
@@ -209,9 +205,10 @@ export class GuildsService {
           process.env.OPENROUTER_API_KEY || process.env.AGENTROUTER_API_KEY
             ? 'agentrouter'
             : 'gemini',
-        agentrouterModel: agentRouterModels[0] || 'deepseek-v4-flash',
+        agentrouterModel:
+          agentRouterModels[0] || 'deepseek/deepseek-v4-flash:free',
         agentrouterBaseUrl:
-          process.env.OPENROUTER_BASE_URL || 'https://agentrouter.org',
+          process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api',
       },
     };
   }
@@ -683,7 +680,12 @@ export class GuildsService {
   /** Test memory retrieval / simulator */
   async testMemoryLookup(guildId: string, text: string) {
     const memoryService = getGuildMemoryService(this.prisma);
-    const memories = await memoryService.findRelevantMemories(guildId, text, [], 8);
+    const memories = await memoryService.findRelevantMemories(
+      guildId,
+      text,
+      [],
+      8,
+    );
     return { query: text, matched: memories };
   }
 }

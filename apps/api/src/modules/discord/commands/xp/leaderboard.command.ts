@@ -59,9 +59,13 @@ const leaderboard: ActionCommand = {
         let avatarUrl: string | undefined;
         if (e.userId) {
           try {
-            const u = await ctx.client?.users?.fetch(e.userId).catch(() => null);
+            const u = await ctx.client?.users
+              ?.fetch(e.userId)
+              .catch(() => null);
             avatarUrl = u?.displayAvatarURL({ extension: 'png', size: 128 });
-          } catch {}
+          } catch {
+            // Ignore avatar fetch failures
+          }
         }
         return {
           ...e,

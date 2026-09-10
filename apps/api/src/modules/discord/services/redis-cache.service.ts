@@ -73,7 +73,9 @@ export class RedisCacheService implements OnModuleDestroy {
     if (this.client) {
       try {
         await this.client.quit();
-      } catch {}
+      } catch {
+        // Ignore disconnect failures on shutdown
+      }
     }
   }
 }

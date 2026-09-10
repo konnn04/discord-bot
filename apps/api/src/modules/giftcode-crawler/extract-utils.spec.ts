@@ -22,7 +22,10 @@ describe('extractFromCards', () => {
     `;
 
     const root = parseHtml(html);
-    const result = extractFromCards(root, { type: 'class', value: 'code-card' });
+    const result = extractFromCards(root, {
+      type: 'class',
+      value: 'code-card',
+    });
 
     expect(result.length).toBe(1);
     expect(result[0].code).toBe('ACTIVE999');
@@ -36,7 +39,10 @@ describe('extractFromCards', () => {
       </div>
     `;
     const root = parseHtml(html);
-    const result = extractFromCards(root, { type: 'class', value: 'code-card' });
+    const result = extractFromCards(root, {
+      type: 'class',
+      value: 'code-card',
+    });
 
     expect(result.length).toBe(1);
     expect(result[0].code).toBe('NTEGIFT');

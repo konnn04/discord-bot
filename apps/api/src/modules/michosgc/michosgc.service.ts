@@ -35,7 +35,7 @@ export class MichosgcService implements OnModuleInit {
     private globalSettings: GlobalSettingsService,
     private guildSettings: GuildSettingsService,
     private prisma: PrismaService,
-  ) { }
+  ) {}
 
   onModuleInit() {
     setTimeout(() => void this.handleCron(true), 5000);

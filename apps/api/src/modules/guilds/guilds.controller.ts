@@ -373,7 +373,12 @@ export class GuildsController {
       source: 'manual',
       author: user.username || user.displayName || user.sub,
     };
-    const data = await this.guildsService.saveMemory(id, body.key, body.value, metadata);
+    const data = await this.guildsService.saveMemory(
+      id,
+      body.key,
+      body.value,
+      metadata,
+    );
     return { success: true, data };
   }
 
@@ -400,7 +405,12 @@ export class GuildsController {
       source: 'manual',
       updatedBy: user.username || user.displayName || user.sub,
     };
-    const data = await this.guildsService.saveMemory(id, key, body.value, metadata);
+    const data = await this.guildsService.saveMemory(
+      id,
+      key,
+      body.value,
+      metadata,
+    );
     return { success: true, data };
   }
 

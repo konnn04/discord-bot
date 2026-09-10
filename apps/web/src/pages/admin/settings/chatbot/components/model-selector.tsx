@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,11 +31,14 @@ export function ModelSelector({
 }: Props) {
   const [modelMode, setModelMode] = useState<"select" | "custom">("select");
 
-  useEffect(() => {
+  const depsKey = `${model}|${availableModels.join(",")}`;
+  const [prevDepsKey, setPrevDepsKey] = useState(depsKey);
+  if (prevDepsKey !== depsKey) {
+    setPrevDepsKey(depsKey);
     if (model && availableModels.length > 0 && !availableModels.includes(model)) {
       setModelMode("custom");
     }
-  }, [model, availableModels]);
+  }
 
   return (
     <div className="space-y-4 rounded-xl border p-4 bg-card/60">
@@ -112,7 +115,7 @@ export function ModelSelector({
       ) : (
         <div className="space-y-3">
           <Input
-            placeholder="Nhập mã model (ví dụ: deepseek-v4-flash, gpt-5.6-sol)..."
+            placeholder="Nhập mã model (ví dụ: deepseek/deepseek-v4-flash:free)..."
             value={model}
             onChange={(e) => onChangeModel(e.target.value)}
             className="font-mono text-xs"
@@ -166,19 +169,18 @@ export function ModelSelector({
         <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-3 text-xs space-y-1 text-blue-950 dark:text-blue-200">
           <div className="font-semibold flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
             <Cpu className="h-3.5 w-3.5" />
-            Lưu ý model AgentRouter:
+            Lưu ý model OpenRouter:
           </div>
           <p className="text-[11px] opacity-90">
-            Tên model định dạng có dấu gạch ngang (ví dụ:{" "}
+            Tên model theo định dạng{" "}
             <code className="font-mono bg-blue-500/10 px-1 rounded">
-              deepseek-v4-flash
-            </code>
-            ,{" "}
+              nhà-cung-cấp/tên-model
+            </code>{" "}
+            (ví dụ:{" "}
             <code className="font-mono bg-blue-500/10 px-1 rounded">
-              gpt-5.6-sol
+              deepseek/deepseek-v4-flash:free
             </code>
-            ). Model <span className="font-semibold">deepseek-v4-flash</span> có quota
-            free sẵn sàng dùng ngay.
+            ). Model này có quota free sẵn sàng dùng ngay.
           </p>
         </div>
       )}

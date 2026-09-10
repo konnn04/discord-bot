@@ -60,7 +60,7 @@ export interface MemoryEntry {
     authorName?: string;
     channelId?: string;
     updatedBy?: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
   updatedAt?: string;
 }
@@ -140,7 +140,7 @@ export function MemorySettings() {
         setItems([]);
         setTotal(0);
       }
-    } catch (err) {
+    } catch {
       toast.error("Không thể tải danh sách bộ nhớ");
     } finally {
       setLoading(false);
@@ -149,9 +149,11 @@ export function MemorySettings() {
   }, [guildId, search, sourceFilter]);
 
   useEffect(() => {
-    setLoading(true);
-    fetchMemories();
-    fetchStats();
+    async function load() {
+      setLoading(true);
+      await Promise.all([fetchMemories(), fetchStats()]);
+    }
+    load();
   }, [fetchMemories, fetchStats]);
 
   const handleRefresh = () => {
@@ -204,8 +206,8 @@ export function MemorySettings() {
       setIsDialogOpen(false);
       fetchMemories();
       fetchStats();
-    } catch (err: any) {
-      toast.error(err?.message || "Lưu thất bại");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Lưu thất bại");
     } finally {
       setSaving(false);
     }

@@ -76,7 +76,12 @@ async function resolveKeyword(
     const spotifyResults = await api.search(query, 'spotify', 1);
     const track = spotifyResults[0];
     if (track) {
-      const item: QueueTrack = { track, youtubeId: undefined, requestedBy, requestedById };
+      const item: QueueTrack = {
+        track,
+        youtubeId: undefined,
+        requestedBy,
+        requestedById,
+      };
       // Resolve a playable YouTube id in the background, same as the URL/playlist path.
       api
         .resolve(track.sourceId)

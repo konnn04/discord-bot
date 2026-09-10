@@ -65,5 +65,5 @@ export async function llmChat(
   if (provider === 'agentrouter' || provider === 'openrouter') {
     return agentrouterChat(messages, tools, options);
   }
-  throw new Error(`Unsupported LLM provider: ${provider}`);
+  throw new Error(`Unsupported LLM provider: ${provider as string}`);
 }

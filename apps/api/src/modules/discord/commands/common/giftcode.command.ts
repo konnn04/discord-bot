@@ -3,14 +3,14 @@ import { ContextAdapter } from '../../contexts/context-adapter';
 import { getGiftcodeAction } from '../../actions';
 import {
   buildGiftcodeEmbeds,
-  buildGiftcodeEmbed,
   giftcodeGameLabel,
 } from '../../../giftcode/giftcode-notify';
 import { GIFTCODE_GAMES } from 'shared/src/types/settings.types';
 
 const giftcodeCommand: ActionCommand = {
   name: 'giftcode',
-  description: 'Lấy danh sách giftcode mới nhất của các game (HoYoverse, WuWa, NTE, Arknights, WWM...)',
+  description:
+    'Lấy danh sách giftcode mới nhất của các game (HoYoverse, WuWa, NTE, Arknights, WWM...)',
   category: 'common',
   optionalArgs: [
     {

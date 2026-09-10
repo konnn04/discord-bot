@@ -1,13 +1,9 @@
 import { PermissionLevel } from 'shared/src/types/discord.types';
 import type { ActionCommand } from 'shared/src/types/discord.types';
 import { ContextAdapter } from '../../contexts/context-adapter';
-import {
-  getMusicApi,
-} from '../../services/music/music-api.client';
+import { getMusicApi } from '../../services/music/music-api.client';
 import type { MusicTrack, QueueTrack } from 'shared/src/types/music.types';
-import {
-  getQueueManager,
-} from '../../services/music/queue-manager';
+import { getQueueManager } from '../../services/music/queue-manager';
 import { getPlayerManager } from '../../services/music/player-manager';
 import { formatDuration } from '../../services/music/utils';
 import { PAGE_SIZE } from '../../constants';
