@@ -49,6 +49,8 @@ import {
   Check,
   Calendar,
   Layers,
+  Wand2,
+  Loader2,
 } from "lucide-react";
 
 export interface MemoryEntry {
@@ -109,6 +111,14 @@ export function MemorySettings() {
   const [simQuery, setSimQuery] = useState("");
   const [simResults, setSimResults] = useState<MemoryEntry[] | null>(null);
   const [simulating, setSimulating] = useState(false);
+
+  // AI prompt-to-memory chat state
+  const [showPromptPanel, setShowPromptPanel] = useState(false);
+  const [promptInput, setPromptInput] = useState("");
+  const [promptSending, setPromptSending] = useState(false);
+  const [chatLog, setChatLog] = useState<
+    { role: "user" | "assistant"; text: string }[]
+  >([]);
 
   // Fetch stats
   const fetchStats = useCallback(async () => {
@@ -255,6 +265,37 @@ export function MemorySettings() {
     }
   };
 
+  // Send a free-text prompt — AI extracts facts and saves them as memories
+  const handleSendPrompt = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const text = promptInput.trim();
+    if (!text || promptSending) return;
+
+    setChatLog((prev) => [...prev, { role: "user", text }]);
+    setPromptInput("");
+    setPromptSending(true);
+    try {
+      const res = await api.post<{
+        reply: string;
+        created: { key: string; value: string }[];
+      }>(API_ROUTES.GUILD_MEMORY_FROM_PROMPT(guildId), { prompt: text });
+      setChatLog((prev) => [
+        ...prev,
+        { role: "assistant", text: res?.reply || "Đã xử lý." },
+      ]);
+      if (res?.created?.length) {
+        fetchMemories();
+        fetchStats();
+      }
+    } catch (err) {
+      const msg =
+        err instanceof Error ? err.message : "Có lỗi xảy ra khi xử lý prompt.";
+      setChatLog((prev) => [...prev, { role: "assistant", text: `❌ ${msg}` }]);
+    } finally {
+      setPromptSending(false);
+    }
+  };
+
   // Format Date helper
   const formatDate = (isoStr?: string) => {
     if (!isoStr) return null;
@@ -287,6 +328,15 @@ export function MemorySettings() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowPromptPanel(!showPromptPanel)}
+            className="gap-1.5"
+          >
+            <Wand2 className="h-4 w-4 text-primary" />
+            {showPromptPanel ? "Đóng Chat AI" : "Thêm bằng AI"}
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -355,6 +405,65 @@ export function MemorySettings() {
           </CardContent>
         </Card>
       </div>
+
+      {/* ── AI Prompt-to-Memory Chat ── */}
+      {showPromptPanel && (
+        <Card className="border-primary/40 bg-primary/5">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base font-semibold">
+              <Wand2 className="h-4 w-4 text-primary" />
+              Thêm Ký ức bằng AI (Prompt)
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Mô tả sự thật cần ghi nhớ bằng ngôn ngữ tự nhiên — AI sẽ tự trích xuất key/value
+              và lưu lại, không cần điền tay. Cần Chatbot AI đã được bật và cấu hình cho server này.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {chatLog.length > 0 && (
+              <div className="max-h-72 space-y-2 overflow-y-auto rounded-lg border border-border/60 bg-card/80 p-3">
+                {chatLog.map((msg, i) => (
+                  <div
+                    key={i}
+                    className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                  >
+                    <div
+                      className={`max-w-[85%] whitespace-pre-wrap rounded-lg px-3 py-1.5 text-xs leading-relaxed ${
+                        msg.role === "user"
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-foreground"
+                      }`}
+                    >
+                      {msg.text}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <form onSubmit={handleSendPrompt} className="flex gap-2">
+              <Input
+                placeholder='Ví dụ: "Nhớ rằng konnn là admin, thích lập trình và cà phê"...'
+                value={promptInput}
+                onChange={(e) => setPromptInput(e.target.value)}
+                disabled={promptSending}
+                className="bg-background/80"
+              />
+              <Button
+                type="submit"
+                disabled={promptSending || !promptInput.trim()}
+                className="gap-1.5 shrink-0"
+              >
+                {promptSending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+                {promptSending ? "Đang xử lý..." : "Gửi"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      )}
 
       {/* ── Simulator / Context Lookup Tester ── */}
       {showSimulator && (

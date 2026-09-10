@@ -5,10 +5,15 @@ import { PermissionService } from '../discord/services/permission.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { OnlinePresenceService } from './online-presence.service';
 import { MusicStatsService, MusicStats } from './music-stats.service';
-import { getGuildMemoryService } from '../discord/chatbot/memory.service';
+import {
+  getGuildMemoryService,
+  MEMORY_PROMPT_EXTRACTION_SYSTEM,
+  parseMemoryPromptEntries,
+} from '../discord/chatbot/memory.service';
 import {
   parseAgentRouterModels,
   llmChat,
+  isProviderConfigured,
   fetchProviderModels,
 } from '../discord/chatbot/llm-client';
 import type { GuildSettings } from 'shared/src/types/settings.types';
@@ -687,5 +692,79 @@ export class GuildsService {
       8,
     );
     return { query: text, matched: memories };
+  }
+
+  /**
+   * Extract memory facts from a free-text admin prompt via the guild's configured
+   * chatbot LLM, then save each one — so admins can dictate memories instead of
+   * filling the key/value form by hand.
+   */
+  async createMemoriesFromPrompt(
+    guildId: string,
+    prompt: string,
+    author: string,
+  ) {
+    if (!this.discordService.client.guilds.cache.has(guildId)) {
+      throw new NotFoundException(`Guild ${guildId} not found`);
+    }
+
+    const chatbot = this.guildSettings.get(guildId).chatbot;
+    const provider = chatbot?.provider ?? 'gemini';
+    if (!chatbot?.enabled || !isProviderConfigured(provider, chatbot.apiKey)) {
+      return {
+        reply:
+          'Chatbot AI chưa được bật hoặc chưa cấu hình API key cho server này. ' +
+          'Vào mục "Chatbot AI" để thiết lập trước khi dùng tính năng này.',
+        created: [],
+      };
+    }
+
+    try {
+      const result = await llmChat(
+        provider,
+        [
+          { role: 'system', content: MEMORY_PROMPT_EXTRACTION_SYSTEM },
+          { role: 'user', content: prompt },
+        ],
+        [],
+        {
+          model: chatbot.model,
+          apiKey: chatbot.apiKey,
+          baseUrl: chatbot.baseUrl,
+        },
+      );
+
+      const entries = parseMemoryPromptEntries(result.text);
+      if (!entries.length) {
+        return {
+          reply:
+            'Không trích xuất được sự thật cụ thể nào cần ghi nhớ từ nội dung này. ' +
+            'Hãy thử diễn đạt rõ ràng hơn, ví dụ: "Nhớ rằng konnn là admin, thích lập trình".',
+          created: [],
+        };
+      }
+
+      const memoryService = getGuildMemoryService(this.prisma);
+      for (const entry of entries) {
+        await memoryService.remember(guildId, entry.key, entry.value, {
+          source: 'manual',
+          author,
+          viaPrompt: true,
+        });
+      }
+
+      const summary = entries
+        .map((e) => `• **${e.key}**: ${e.value}`)
+        .join('\n');
+      return {
+        reply: `Đã ghi nhớ ${entries.length} mục:\n${summary}`,
+        created: entries,
+      };
+    } catch (err) {
+      return {
+        reply: `Lỗi khi xử lý qua AI: ${err instanceof Error ? err.message : String(err)}`,
+        created: [],
+      };
+    }
   }
 }

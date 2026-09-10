@@ -429,6 +429,31 @@ export class GuildsController {
     return { success: true, data: result };
   }
 
+  /** Extract & save memory entries from a free-text admin prompt via AI */
+  @Post(':id/memories/from-prompt')
+  async createMemoriesFromPrompt(
+    @Param('id') id: string,
+    @Body() body: { prompt: string },
+    @Req() req: Request,
+  ) {
+    const user = (req as any).user;
+    if (!this.guildsService.canManageGuild(user.sub, id)) {
+      throw new ForbiddenException('You do not have permission');
+    }
+    if (!body.prompt || !body.prompt.trim()) {
+      throw new HttpException(
+        { success: false, error: 'Prompt is required' },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    const data = await this.guildsService.createMemoriesFromPrompt(
+      id,
+      body.prompt.trim(),
+      user.username || user.displayName || user.sub,
+    );
+    return { success: true, data };
+  }
+
   /** Test memory lookup algorithm / simulator */
   @Post(':id/memories/test-lookup')
   async testMemoryLookup(

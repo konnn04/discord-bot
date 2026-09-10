@@ -411,3 +411,62 @@ export function getGuildMemoryService(
   }
   return _memoryInstance;
 }
+
+/** System prompt for extracting structured memory facts from an admin's free-text instruction. */
+export const MEMORY_PROMPT_EXTRACTION_SYSTEM =
+  'Bạn là công cụ trích xuất ký ức (memory) cho một Discord bot quản lý server. ' +
+  'Admin sẽ nhập một đoạn văn bản mô tả một hoặc nhiều sự thật cần ghi nhớ về thành viên, ' +
+  'sự kiện hoặc quy tắc của server. Nhiệm vụ của bạn là trích xuất TỪNG sự thật riêng biệt ' +
+  'thành một object gồm:\n' +
+  '- "key": từ khóa định danh ngắn gọn để tra cứu (tên/nickname không dấu, ID Discord nếu có, hoặc chủ đề ngắn).\n' +
+  '- "value": nội dung đầy đủ, rõ ràng, viết ở ngôi thứ ba, súc tích (dưới 300 ký tự).\n\n' +
+  'Nếu admin đề cập nhiều sự thật về nhiều đối tượng khác nhau, tách thành nhiều entries riêng biệt. ' +
+  'Nếu nội dung không chứa sự thật cụ thể nào đáng ghi nhớ, trả về mảng entries rỗng.\n\n' +
+  'CHỈ trả về một khối JSON hợp lệ duy nhất theo đúng cấu trúc sau, không kèm bất kỳ văn bản nào khác:\n' +
+  '{"entries": [{"key": "...", "value": "..."}]}';
+
+/** Parse the LLM's `{"entries": [...]}` response from the memory-extraction prompt. */
+export function parseMemoryPromptEntries(
+  text: string | null,
+): { key: string; value: string }[] {
+  if (!text) return [];
+  const trimmed = text.trim();
+
+  const tryParse = (raw: string): { key: string; value: string }[] | null => {
+    try {
+      const data = JSON.parse(raw);
+      const entries = Array.isArray(data?.entries) ? data.entries : null;
+      if (!entries) return null;
+      return entries
+        .filter(
+          (e: unknown): e is { key: unknown; value: unknown } =>
+            typeof e === 'object' && e !== null,
+        )
+        .map((e) => ({
+          key: String(e.key ?? '').trim(),
+          value: String(e.value ?? '').trim(),
+        }))
+        .filter((e) => e.key && e.value);
+    } catch {
+      return null;
+    }
+  };
+
+  const direct = tryParse(trimmed);
+  if (direct) return direct;
+
+  const jsonMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  if (jsonMatch) {
+    const fenced = tryParse(jsonMatch[1]);
+    if (fenced) return fenced;
+  }
+
+  const firstBrace = trimmed.indexOf('{');
+  const lastBrace = trimmed.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    const braced = tryParse(trimmed.slice(firstBrace, lastBrace + 1));
+    if (braced) return braced;
+  }
+
+  return [];
+}

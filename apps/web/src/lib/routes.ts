@@ -58,6 +58,7 @@ export const API_ROUTES = {
   GUILD_MEMORY: (id: string, key: string) =>
     `/guilds/${id}/memories/${encodeURIComponent(key)}`,
   GUILD_MEMORY_TEST: (id: string) => `/guilds/${id}/memories/test-lookup`,
+  GUILD_MEMORY_FROM_PROMPT: (id: string) => `/guilds/${id}/memories/from-prompt`,
 
   MUSIC_STATE: (guildId: string) =>
     `/v1/discord/music/guilds/${guildId}/state`,
