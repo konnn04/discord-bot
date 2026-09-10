@@ -262,7 +262,18 @@ export class ChatbotService {
         }
       }
     } catch (err) {
-      await message.reply(`❌ Lỗi khi gọi AI: ${String(err)}`).catch(() => {});
+      const msg = String(err);
+      let userMsg: string;
+      if (msg.includes('content-blocked')) {
+        userMsg = '⚠️ Yêu cầu bị từ chối bởi nhà cung cấp AI (nội dung bị chặn). Thử diễn đạt lại hoặc đổi sang provider khác.';
+      } else if (msg.includes('rate') || msg.includes('429')) {
+        userMsg = '⚠️ Đang bị giới hạn tốc độ gọi AI. Hãy thử lại sau vài giây.';
+      } else if (msg.includes('401') || msg.includes('403')) {
+        userMsg = '⚠️ API key không hợp lệ hoặc không có quyền truy cập. Kiểm tra lại cấu hình chatbot.';
+      } else {
+        userMsg = `❌ Lỗi khi gọi AI: ${msg}`;
+      }
+      await message.reply(userMsg).catch(() => {});
       return;
     }
 

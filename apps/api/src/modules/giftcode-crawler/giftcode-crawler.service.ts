@@ -59,8 +59,8 @@ export class GiftcodeCrawlerService implements OnModuleInit {
   ) {}
 
   onModuleInit() {
-    // Give the bot a moment to finish logging in before the first crawl.
-    setTimeout(() => void this.crawlAll(), 10_000);
+    // Initial crawl is triggered by setClient() after Discord is ready.
+    // No crawl here to avoid running before the client is logged in.
   }
 
   setClient(client: Client) {
