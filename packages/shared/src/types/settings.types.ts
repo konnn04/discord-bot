@@ -59,6 +59,13 @@ export interface GuildSettings {
     embed?: WelcomeEmbedConfig;
     leaveChannelId: string | null;
     leaveMessage: string | null;
+    // Private DM sent to the new member on join — off by default.
+    dm: {
+      enabled: boolean;
+      type: 'text' | 'embed';
+      message: string | null;
+      embed?: WelcomeEmbedConfig;
+    };
   };
 
   // XP / Leveling (per-guild overrides)
@@ -460,6 +467,28 @@ export function createDefaultGuildSettings(guildId: string): GuildSettings {
       },
       leaveChannelId: null,
       leaveMessage: null,
+      dm: {
+        enabled: false,
+        type: 'text',
+        message: 'Cảm ơn bạn đã tham gia **{server}**! Chúc bạn có trải nghiệm vui vẻ.',
+        embed: {
+          title: '🎉 Chào mừng bạn!',
+          titleUrl: null,
+          description:
+            'Cảm ơn bạn đã tham gia **{server}**! Chúc bạn có trải nghiệm vui vẻ.',
+          color: '#5865F2',
+          authorName: '{server}',
+          authorIconUrl: null,
+          authorUrl: null,
+          thumbnailUrl: null,
+          useMemberAvatarAsThumbnail: false,
+          imageUrl: null,
+          footerText: null,
+          footerIconUrl: null,
+          timestamp: false,
+          fields: [],
+        },
+      },
     },
     xp: {
       xpPerMessage: 15,

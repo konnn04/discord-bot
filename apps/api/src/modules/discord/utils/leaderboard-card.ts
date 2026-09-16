@@ -51,12 +51,12 @@ export async function renderLeaderboardCard(
 
   // Header Title
   ctx.fillStyle = '#ff5c26';
-  ctx.font = 'bold 13px Roboto, sans-serif';
+  ctx.font = 'bold 13px Roboto, Twemoji, sans-serif';
   ctx.textAlign = 'left';
   ctx.fillText(opts.serverName.toUpperCase().slice(0, 32), 40, 48);
 
   ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 26px Roboto, sans-serif';
+  ctx.font = 'bold 26px Roboto, Twemoji, sans-serif';
   ctx.fillText(opts.title, 40, 80);
 
   const top1 = opts.entries.find((e) => e.position === 1);
@@ -88,7 +88,7 @@ export async function renderLeaderboardCard(
     ctx.roundRect(x + w / 2 - 24, y - 14, 48, 26, 13);
     ctx.fill();
     ctx.fillStyle = '#12100f';
-    ctx.font = 'bold 14px Roboto, sans-serif';
+    ctx.font = 'bold 14px Roboto, Twemoji, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('#' + pos, x + w / 2, y + 4);
 
@@ -120,7 +120,7 @@ export async function renderLeaderboardCard(
       ctx.fillStyle = color;
       ctx.fill();
       ctx.fillStyle = '#12100f';
-      ctx.font = 'bold 22px Roboto, sans-serif';
+      ctx.font = 'bold 22px Roboto, Twemoji, sans-serif';
       ctx.fillText(entry.username[0]?.toUpperCase() || '?', cx, cy + 8);
     }
 
@@ -133,7 +133,7 @@ export async function renderLeaderboardCard(
 
     // Username
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 16px Roboto, sans-serif';
+    ctx.font = 'bold 16px Roboto, Twemoji, sans-serif';
     ctx.textAlign = 'center';
     const name =
       entry.username.length > 18
@@ -143,13 +143,13 @@ export async function renderLeaderboardCard(
 
     // XP
     ctx.fillStyle = color;
-    ctx.font = 'bold 14px Roboto, sans-serif';
+    ctx.font = 'bold 14px Roboto, Twemoji, sans-serif';
     ctx.fillText(formatXp(entry.xp) + ' XP', cx, y + 155);
 
     // Level
     if (entry.level != null) {
       ctx.fillStyle = '#8d8279';
-      ctx.font = '12px Roboto, sans-serif';
+      ctx.font = '12px Roboto, Twemoji, sans-serif';
       ctx.fillText(`Cấp ${entry.level}`, cx, y + 175);
     }
   }
@@ -169,23 +169,23 @@ export async function renderLeaderboardCard(
     ctx.fill();
 
     ctx.fillStyle = '#8d8279';
-    ctx.font = 'bold 14px Roboto, sans-serif';
+    ctx.font = 'bold 14px Roboto, Twemoji, sans-serif';
     ctx.fillText('#' + r.position, 70, ry + 23);
 
     ctx.fillStyle = '#ded4cd';
-    ctx.font = 'bold 14px Roboto, sans-serif';
+    ctx.font = 'bold 14px Roboto, Twemoji, sans-serif';
     const rowName =
       r.username.length > 28 ? r.username.slice(0, 26) + '…' : r.username;
     ctx.fillText(rowName, 120, ry + 23);
 
     if (r.level != null) {
       ctx.fillStyle = '#e94560';
-      ctx.font = '13px Roboto, sans-serif';
+      ctx.font = '13px Roboto, Twemoji, sans-serif';
       ctx.fillText(`Cấp ${r.level}`, 560, ry + 23);
     }
 
     ctx.fillStyle = '#a79c95';
-    ctx.font = 'bold 13px Roboto, sans-serif';
+    ctx.font = 'bold 13px Roboto, Twemoji, sans-serif';
     ctx.textAlign = 'right';
     ctx.fillText(formatXp(r.xp) + ' XP', W - 75, ry + 23);
     ctx.textAlign = 'left';

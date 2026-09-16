@@ -30,10 +30,14 @@ export function initCanvasFonts(): void {
   for (const dir of candidates) {
     const regular = join(dir, 'Roboto-Regular.ttf');
     const bold = join(dir, 'Roboto-Bold.ttf');
+    const emoji = join(dir, 'Twemoji-Mozilla.ttf');
     if (existsSync(regular)) {
       GlobalFonts.registerFromPath(regular, 'Roboto');
       if (existsSync(bold)) {
         GlobalFonts.registerFromPath(bold, 'Roboto');
+      }
+      if (existsSync(emoji)) {
+        GlobalFonts.registerFromPath(emoji, 'Twemoji');
       }
       break;
     }

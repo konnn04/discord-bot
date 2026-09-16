@@ -11,9 +11,13 @@ import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { GuildRoleSelect } from "@/components/shared/guild-selects";
+import { FloatingSaveBar } from "@/components/shared/floating-save-bar";
+import { UnsavedChangesDialog } from "@/components/shared/unsaved-changes-dialog";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { API_ROUTES } from "@/lib/routes";
+import { useSettingsDraft } from "@/hooks/use-settings-draft";
+import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
 import type { GuildSettings } from "shared/src/types/settings.types";
 import { Trophy, Plus, Trash2 } from "lucide-react";
 
@@ -23,17 +27,45 @@ type Ctx = {
   guildId: string;
 };
 
+const DEFAULT_ROLE_RANK: GuildSettings["roleRank"] = {
+  enabled: false,
+  rules: [],
+};
+
 export function RoleRankSettings() {
   const { data, setData, guildId } = useOutletContext<Ctx>();
-  const roleRank = data.roleRank ?? { enabled: false, rules: [] };
 
-  const save = (next: GuildSettings["roleRank"]) => {
-    const patch = { roleRank: next };
-    setData({ ...data, ...patch });
-    api.put(API_ROUTES.GUILD_SETTINGS(guildId), patch).catch(() => {
-      toast.error("Lưu thất bại");
-    });
+  const {
+    draft: roleRank,
+    setDraft,
+    isDirty,
+    isSaving,
+    save,
+    discard,
+  } = useSettingsDraft<GuildSettings["roleRank"]>({
+    value: data.roleRank ?? DEFAULT_ROLE_RANK,
+    onSave: async (next) => {
+      await api.put(API_ROUTES.GUILD_SETTINGS(guildId), { roleRank: next });
+      setData({ ...data, roleRank: next });
+      toast.success("Đã lưu cài đặt Role theo Level!");
+    },
+  });
+
+  const update = (patch: Partial<GuildSettings["roleRank"]>) =>
+    setDraft((prev) => ({ ...prev, ...patch }));
+
+  const handleSave = async () => {
+    try {
+      await save();
+    } catch {
+      toast.error("Lưu cài đặt thất bại!");
+    }
   };
+  const handleDiscard = () => {
+    discard();
+    toast.info("Đã khôi phục cài đặt trước đó");
+  };
+  const blocker = useUnsavedChangesGuard(isDirty);
 
   const rules = [...roleRank.rules].sort((a, b) => a.level - b.level);
 
@@ -41,23 +73,20 @@ export function RoleRankSettings() {
     const nextRules = rules.map((r, i) =>
       i === index ? { level, roleId: roleId ?? "" } : r,
     );
-    save({ ...roleRank, rules: nextRules });
+    update({ rules: nextRules });
   };
 
   const addRule = () => {
     const maxLevel = rules.reduce((m, r) => Math.max(m, r.level), 0);
-    save({
-      ...roleRank,
-      rules: [...rules, { level: maxLevel + 5, roleId: "" }],
-    });
+    update({ rules: [...rules, { level: maxLevel + 5, roleId: "" }] });
   };
 
   const removeRule = (index: number) => {
-    save({ ...roleRank, rules: rules.filter((_, i) => i !== index) });
+    update({ rules: rules.filter((_, i) => i !== index) });
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-32">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -79,7 +108,7 @@ export function RoleRankSettings() {
             </div>
             <Switch
               checked={roleRank.enabled}
-              onCheckedChange={(enabled) => save({ ...roleRank, enabled })}
+              onCheckedChange={(enabled) => update({ enabled })}
             />
           </div>
 
@@ -140,6 +169,18 @@ export function RoleRankSettings() {
           )}
         </CardContent>
       </Card>
+
+      <FloatingSaveBar
+        isDirty={isDirty}
+        isSaving={isSaving}
+        onDiscard={handleDiscard}
+        onSave={handleSave}
+      />
+      <UnsavedChangesDialog
+        blocker={blocker}
+        onSave={handleSave}
+        isSaving={isSaving}
+      />
     </div>
   );
 }

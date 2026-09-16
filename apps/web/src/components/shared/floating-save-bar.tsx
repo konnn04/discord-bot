@@ -8,6 +8,7 @@ interface Props {
   onSave: () => void;
 }
 
+/** Floating bar shown at the bottom of a settings page while it has unsaved changes. */
 export function FloatingSaveBar({
   isDirty,
   isSaving,

@@ -17,6 +17,7 @@ import {
   fetchProviderModels,
 } from '../discord/chatbot/llm-client';
 import type { GuildSettings } from 'shared/src/types/settings.types';
+import { renderWelcomeCard } from '../discord/utils/welcome-card';
 
 interface MemberCacheEntry {
   fetchedAt: number;
@@ -289,6 +290,20 @@ export class GuildsService {
         model: model || '(mặc định)',
       };
     }
+  }
+
+  /** Render a welcome card preview PNG for the settings UI (not persisted). */
+  async renderWelcomeCardPreview(
+    title: string,
+    subtitle: string,
+    avatarUrl?: string,
+  ): Promise<string> {
+    const png = await renderWelcomeCard({
+      avatarUrl: avatarUrl || 'https://cdn.discordapp.com/embed/avatars/0.png',
+      title,
+      subtitle,
+    });
+    return `data:image/png;base64,${png.toString('base64')}`;
   }
 
   /** Check if a user can manage a specific guild */

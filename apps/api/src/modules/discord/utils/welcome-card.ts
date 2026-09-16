@@ -1,7 +1,10 @@
 import { createCanvas, loadImage, type SKRSContext2D } from '@napi-rs/canvas';
 import { initCanvasFonts } from './canvas-fonts';
+import { resolveAssetPath } from './asset-path';
 
 initCanvasFonts();
+
+const MASCOT_PATH = resolveAssetPath('images', 'hi_discord.webp');
 
 export interface WelcomeCardOptions {
   avatarUrl: string;
@@ -49,11 +52,11 @@ export async function renderWelcomeCard(
   const canvas = createCanvas(WIDTH, HEIGHT);
   const ctx = canvas.getContext('2d');
 
-  // Background gradient
+  // Background gradient — black to orange
   const bg = ctx.createLinearGradient(0, 0, WIDTH, HEIGHT);
-  bg.addColorStop(0, '#1e1b4b');
-  bg.addColorStop(0.5, '#312e81');
-  bg.addColorStop(1, '#4c1d95');
+  bg.addColorStop(0, '#0a0a0a');
+  bg.addColorStop(0.55, '#3a1a05');
+  bg.addColorStop(1, '#ea580c');
   ctx.fillStyle = bg;
   roundRect(ctx, 0, 0, WIDTH, HEIGHT, 32);
   ctx.fill();
@@ -62,8 +65,8 @@ export async function renderWelcomeCard(
   ctx.save();
   roundRect(ctx, 0, 0, WIDTH, HEIGHT, 32);
   ctx.clip();
-  ctx.globalAlpha = 0.12;
-  ctx.fillStyle = '#a78bfa';
+  ctx.globalAlpha = 0.14;
+  ctx.fillStyle = '#fb923c';
   ctx.beginPath();
   ctx.arc(880, 60, 160, 0, Math.PI * 2);
   ctx.fill();
@@ -71,6 +74,26 @@ export async function renderWelcomeCard(
   ctx.arc(120, 300, 120, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
+
+  // Mascot — anchored bottom-right, ~60% of the card height, aspect preserved
+  let mascotWidth = 0;
+  if (MASCOT_PATH) {
+    try {
+      const mascot = await loadImage(MASCOT_PATH);
+      const mascotHeight = HEIGHT * 0.6;
+      mascotWidth = mascotHeight * (mascot.width / mascot.height);
+      const mascotX = WIDTH - mascotWidth - 24;
+      const mascotY = HEIGHT - mascotHeight - 8;
+      ctx.save();
+      roundRect(ctx, 0, 0, WIDTH, HEIGHT, 32);
+      ctx.clip();
+      ctx.drawImage(mascot, mascotX, mascotY, mascotWidth, mascotHeight);
+      ctx.restore();
+      mascotWidth = WIDTH - mascotX;
+    } catch {
+      mascotWidth = 0;
+    }
+  }
 
   // Avatar
   const avatarSize = 180;
@@ -90,8 +113,8 @@ export async function renderWelcomeCard(
     avatarX + avatarSize,
     avatarY + avatarSize,
   );
-  ring.addColorStop(0, '#c4b5fd');
-  ring.addColorStop(1, '#f0abfc');
+  ring.addColorStop(0, '#fdba74');
+  ring.addColorStop(1, '#f97316');
   ctx.strokeStyle = ring;
   ctx.stroke();
   ctx.restore();
@@ -110,36 +133,37 @@ export async function renderWelcomeCard(
     ctx.save();
     ctx.beginPath();
     ctx.arc(cx, cy, avatarSize / 2, 0, Math.PI * 2);
-    ctx.fillStyle = '#6d28d9';
+    ctx.fillStyle = '#c2410c';
     ctx.fill();
     ctx.restore();
   }
 
   const textX = avatarX + avatarSize + 50;
-  const textMaxWidth = WIDTH - textX - 50;
+  const rightReserve = Math.max(50, mascotWidth + 20);
+  const textMaxWidth = WIDTH - textX - rightReserve;
 
   // "WELCOME" pill
-  ctx.font = 'bold 26px Roboto, sans-serif';
+  ctx.font = 'bold 26px Roboto, Twemoji, sans-serif';
   const pillText = 'WELCOME';
   const pillPadX = 20;
   const pillW = ctx.measureText(pillText).width + pillPadX * 2;
   ctx.fillStyle = 'rgba(255,255,255,0.15)';
   roundRect(ctx, textX, 60, pillW, 44, 22);
   ctx.fill();
-  ctx.fillStyle = '#e9d5ff';
+  ctx.fillStyle = '#fed7aa';
   ctx.textBaseline = 'middle';
   ctx.fillText(pillText, textX + pillPadX, 83);
 
   // Title
   ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 52px Roboto, sans-serif';
+  ctx.font = 'bold 52px Roboto, Twemoji, sans-serif';
   ctx.textBaseline = 'alphabetic';
   ctx.fillText(fitText(ctx, opts.title, textMaxWidth), textX, 190);
 
   // Subtitle
   ctx.fillStyle = 'rgba(255,255,255,0.75)';
-  ctx.font = '32px Roboto, sans-serif';
-  ctx.fillText(fitText(ctx, opts.subtitle, textMaxWidth), textX, 240);
+  ctx.font = '28px Roboto, Twemoji, sans-serif';
+  ctx.fillText(fitText(ctx, opts.subtitle, textMaxWidth), textX, 236);
 
   return canvas.toBuffer('image/png');
 }

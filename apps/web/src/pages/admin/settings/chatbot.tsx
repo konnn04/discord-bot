@@ -28,7 +28,9 @@ import { ModelSelector } from "./chatbot/components/model-selector";
 import { ConnectionTester } from "./chatbot/components/connection-tester";
 import { VisionSection } from "./chatbot/components/vision-section";
 import { ToolsSelector } from "./chatbot/components/tools-selector";
-import { FloatingSaveBar } from "./chatbot/components/floating-save-bar";
+import { FloatingSaveBar } from "@/components/shared/floating-save-bar";
+import { UnsavedChangesDialog } from "@/components/shared/unsaved-changes-dialog";
+import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
 
 type Ctx = {
   data: GuildSettings;
@@ -56,7 +58,8 @@ export function ChatbotSettings() {
     [savedChatbot],
   );
 
-  const [formState, setFormState] = useState<ChatbotFormState>(initialFormState);
+  const [formState, setFormState] =
+    useState<ChatbotFormState>(initialFormState);
   const [config, setConfig] = useState<ChatbotConfigData | null>(null);
   const [loadingConfig, setLoadingConfig] = useState(false);
   const [fetchedModelsMap, setFetchedModelsMap] = useState<
@@ -68,7 +71,8 @@ export function ChatbotSettings() {
   const [isRefreshingModels, setIsRefreshingModels] = useState(false);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
 
-  const [prevInitialFormState, setPrevInitialFormState] = useState(initialFormState);
+  const [prevInitialFormState, setPrevInitialFormState] =
+    useState(initialFormState);
   if (prevInitialFormState !== initialFormState) {
     setPrevInitialFormState(initialFormState);
     setFormState(initialFormState);
@@ -112,9 +116,11 @@ export function ChatbotSettings() {
     if (formState.provider !== initialFormState.provider) return true;
     if (formState.model.trim() !== initialFormState.model.trim()) return true;
     if (formState.apiKey.trim() !== initialFormState.apiKey.trim()) return true;
-    if (formState.baseUrl.trim() !== initialFormState.baseUrl.trim()) return true;
+    if (formState.baseUrl.trim() !== initialFormState.baseUrl.trim())
+      return true;
     if (formState.readImages !== initialFormState.readImages) return true;
-    if (formState.compressImages !== initialFormState.compressImages) return true;
+    if (formState.compressImages !== initialFormState.compressImages)
+      return true;
 
     const toolsA = [...formState.allowedTools].sort();
     const toolsB = [...initialFormState.allowedTools].sort();
@@ -150,7 +156,9 @@ export function ChatbotSettings() {
 
   const handleClearCredentials = () => {
     setFormState((prev) => ({ ...prev, apiKey: "", baseUrl: "" }));
-    toast.info("Đã xóa API Key & Base URL — sẽ dùng mặc định từ ENV sau khi lưu.");
+    toast.info(
+      "Đã xóa API Key & Base URL — sẽ dùng mặc định từ ENV sau khi lưu.",
+    );
   };
 
   const handleFetchModels = async () => {
@@ -208,7 +216,8 @@ export function ChatbotSettings() {
         toast.error(res.error || "Kết nối thất bại");
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Lỗi khi kiểm tra kết nối";
+      const msg =
+        err instanceof Error ? err.message : "Lỗi khi kiểm tra kết nối";
       setTestResult({ success: false, error: msg });
       toast.error(msg);
     } finally {
@@ -254,6 +263,8 @@ export function ChatbotSettings() {
     setFormState((prev) => ({ ...prev, allowedTools: [...set] }));
   };
 
+  const blocker = useUnsavedChangesGuard(isDirty);
+
   return (
     <div className="space-y-6 pb-32">
       {/* Link to Memory */}
@@ -267,12 +278,17 @@ export function ChatbotSettings() {
               Bộ nhớ & Ký ức AI (Guild Memory)
             </h4>
             <p className="text-xs text-muted-foreground">
-              Xem các thông tin AI tự động ghi nhớ từ ngữ cảnh trò chuyện hoặc tự
-              thêm các sự thật về server.
+              Xem các thông tin AI tự động ghi nhớ từ ngữ cảnh trò chuyện hoặc
+              tự thêm các sự thật về server.
             </p>
           </div>
         </div>
-        <Button asChild size="sm" variant="outline" className="gap-1.5 shrink-0">
+        <Button
+          asChild
+          size="sm"
+          variant="outline"
+          className="gap-1.5 shrink-0"
+        >
           <Link to={`/admin/${guildId}/settings/memory`}>
             Quản lý Ký ức
             <ArrowRight className="h-3.5 w-3.5" />
@@ -306,7 +322,9 @@ export function ChatbotSettings() {
           <div className="flex items-center justify-between rounded-xl border p-4 bg-muted/20">
             <div className="space-y-0.5">
               <div className="flex items-center gap-2">
-                <Label className="text-base font-semibold">Bật Chatbot AI</Label>
+                <Label className="text-base font-semibold">
+                  Bật Chatbot AI
+                </Label>
                 <Badge
                   variant={formState.enabled ? "default" : "secondary"}
                   className="text-xs"
@@ -391,6 +409,11 @@ export function ChatbotSettings() {
         isSaving={isSaving}
         onDiscard={handleDiscard}
         onSave={handleSave}
+      />
+      <UnsavedChangesDialog
+        blocker={blocker}
+        onSave={handleSave}
+        isSaving={isSaving}
       />
     </div>
   );

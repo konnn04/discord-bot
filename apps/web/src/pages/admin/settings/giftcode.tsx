@@ -14,9 +14,13 @@ import {
   GuildChannelSelect,
   GuildRoleSelect,
 } from "@/components/shared/guild-selects";
+import { FloatingSaveBar } from "@/components/shared/floating-save-bar";
+import { UnsavedChangesDialog } from "@/components/shared/unsaved-changes-dialog";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { API_ROUTES } from "@/lib/routes";
+import { useSettingsDraft } from "@/hooks/use-settings-draft";
+import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
 import {
   GIFTCODE_GAMES,
   HOYOVERSE_GAME_IDS,
@@ -37,30 +41,55 @@ const CRAWL_GAMES = GIFTCODE_GAMES.filter(
   (g) => !HOYOVERSE_GAME_IDS.includes(g.id),
 );
 
+const DEFAULT_GIFTCODE: GuildSettings["giftcode"] = {
+  enabled: false,
+  channelId: null,
+  mode: "common",
+  roleCommon: null,
+  roles: {},
+  games: [],
+};
+
 export function GiftcodeSettings() {
   const { data, setData, guildId } = useOutletContext<Ctx>();
-  const giftcode = data.giftcode ?? {
-    enabled: false,
-    channelId: null,
-    mode: "common" as const,
-    roleCommon: null,
-    roles: {},
-    games: [],
-  };
 
-  const save = (next: GuildSettings["giftcode"]) => {
-    const patch = { giftcode: next };
-    setData({ ...data, ...patch });
-    api.put(API_ROUTES.GUILD_SETTINGS(guildId), patch).catch(() => {
-      toast.error("Lưu thất bại");
-    });
+  const {
+    draft: giftcode,
+    setDraft,
+    isDirty,
+    isSaving,
+    save,
+    discard,
+  } = useSettingsDraft<GuildSettings["giftcode"]>({
+    value: data.giftcode ?? DEFAULT_GIFTCODE,
+    onSave: async (next) => {
+      await api.put(API_ROUTES.GUILD_SETTINGS(guildId), { giftcode: next });
+      setData({ ...data, giftcode: next });
+      toast.success("Đã lưu cài đặt Giftcode!");
+    },
+  });
+
+  const update = (patch: Partial<GuildSettings["giftcode"]>) =>
+    setDraft((prev) => ({ ...prev, ...patch }));
+
+  const handleSave = async () => {
+    try {
+      await save();
+    } catch {
+      toast.error("Lưu cài đặt thất bại!");
+    }
   };
+  const handleDiscard = () => {
+    discard();
+    toast.info("Đã khôi phục cài đặt trước đó");
+  };
+  const blocker = useUnsavedChangesGuard(isDirty);
 
   const toggleGame = (id: string, on: boolean) => {
     const set = new Set(giftcode.games);
     if (on) set.add(id);
     else set.delete(id);
-    save({ ...giftcode, games: [...set] });
+    update({ games: [...set] });
   };
 
   const gameRow = (game: { id: string; label: string }) => {
@@ -80,10 +109,7 @@ export function GiftcodeSettings() {
               value={giftcode.roles[game.id] ?? null}
               placeholder="Role riêng..."
               onChange={(roleId) =>
-                save({
-                  ...giftcode,
-                  roles: { ...giftcode.roles, [game.id]: roleId },
-                })
+                update({ roles: { ...giftcode.roles, [game.id]: roleId } })
               }
             />
           </div>
@@ -94,7 +120,7 @@ export function GiftcodeSettings() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-32">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -102,10 +128,9 @@ export function GiftcodeSettings() {
             Giftcode
           </CardTitle>
           <CardDescription>
-            Tự động thông báo giftcode mới cho các game bạn chọn. Game
-            HoYoverse (Genshin, HSR, ZZZ...) dùng API chính thức; các game
-            khác được cào tự động từ web mỗi 30 phút. Cách gửi và tag role thì
-            giống nhau.
+            Tự động thông báo giftcode mới cho các game bạn chọn. Game HoYoverse
+            (Genshin, HSR, ZZZ...) dùng API chính thức; các game khác được cào
+            tự động từ web mỗi 30 phút. Cách gửi và tag role thì giống nhau.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -118,7 +143,7 @@ export function GiftcodeSettings() {
             </div>
             <Switch
               checked={giftcode.enabled}
-              onCheckedChange={(enabled) => save({ ...giftcode, enabled })}
+              onCheckedChange={(enabled) => update({ enabled })}
             />
           </div>
 
@@ -129,7 +154,7 @@ export function GiftcodeSettings() {
                 <GuildChannelSelect
                   guildId={guildId}
                   value={giftcode.channelId}
-                  onChange={(channelId) => save({ ...giftcode, channelId })}
+                  onChange={(channelId) => update({ channelId })}
                 />
               </div>
 
@@ -138,7 +163,7 @@ export function GiftcodeSettings() {
                 <Tabs
                   value={giftcode.mode}
                   onValueChange={(v) =>
-                    save({ ...giftcode, mode: v as "common" | "perGame" })
+                    update({ mode: v as "common" | "perGame" })
                   }
                 >
                   <TabsList>
@@ -161,7 +186,7 @@ export function GiftcodeSettings() {
                   <GuildRoleSelect
                     guildId={guildId}
                     value={giftcode.roleCommon}
-                    onChange={(roleCommon) => save({ ...giftcode, roleCommon })}
+                    onChange={(roleCommon) => update({ roleCommon })}
                   />
                 </div>
               )}
@@ -170,9 +195,7 @@ export function GiftcodeSettings() {
 
               <div className="space-y-3">
                 <Label>HoYoverse</Label>
-                <div className="space-y-2">
-                  {HOYOVERSE_GAMES.map(gameRow)}
-                </div>
+                <div className="space-y-2">{HOYOVERSE_GAMES.map(gameRow)}</div>
               </div>
 
               <div className="space-y-3">
@@ -183,6 +206,18 @@ export function GiftcodeSettings() {
           )}
         </CardContent>
       </Card>
+
+      <FloatingSaveBar
+        isDirty={isDirty}
+        isSaving={isSaving}
+        onDiscard={handleDiscard}
+        onSave={handleSave}
+      />
+      <UnsavedChangesDialog
+        blocker={blocker}
+        onSave={handleSave}
+        isSaving={isSaving}
+      />
     </div>
   );
 }

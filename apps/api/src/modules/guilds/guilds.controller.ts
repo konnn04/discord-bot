@@ -166,6 +166,25 @@ export class GuildsController {
     return { success: true, data: settings };
   }
 
+  /** Render a welcome card preview PNG (data URL) — not persisted. */
+  @Post(':id/welcome-card-preview')
+  async previewWelcomeCard(
+    @Param('id') id: string,
+    @Body() body: { title?: string; subtitle?: string; avatarUrl?: string },
+    @Req() req: Request,
+  ) {
+    const user = (req as any).user;
+    if (!this.guildsService.canManageGuild(user.sub, id)) {
+      throw new ForbiddenException('You do not have permission');
+    }
+    const dataUrl = await this.guildsService.renderWelcomeCardPreview(
+      body.title || 'Chào mừng bạn!',
+      body.subtitle || '',
+      body.avatarUrl,
+    );
+    return { success: true, data: { dataUrl } };
+  }
+
   @Get(':id/members')
   async getMembers(
     @Param('id') id: string,
