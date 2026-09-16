@@ -42,6 +42,37 @@ function fitText(ctx: SKRSContext2D, text: string, maxWidth: number): string {
   return t + '…';
 }
 
+/** Greedy word-wrap into at most maxLines, ellipsizing the last line if text overflows. */
+function wrapText(
+  ctx: SKRSContext2D,
+  text: string,
+  maxWidth: number,
+  maxLines: number,
+): string[] {
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let current = '';
+  let i = 0;
+  while (i < words.length && lines.length < maxLines) {
+    const word = words[i];
+    const test = current ? `${current} ${word}` : word;
+    if (!current || ctx.measureText(test).width <= maxWidth) {
+      current = test;
+      i++;
+    } else {
+      lines.push(current);
+      current = '';
+    }
+  }
+  if (current) lines.push(current);
+  if (i < words.length) {
+    const remaining = words.slice(i).join(' ');
+    const lastIdx = lines.length - 1;
+    lines[lastIdx] = fitText(ctx, `${lines[lastIdx]} ${remaining}`, maxWidth);
+  }
+  return lines;
+}
+
 /**
  * Render a welcome card as a PNG buffer: gradient background, circular avatar
  * with a glowing ring, a "WELCOME" pill, plus title and subtitle text.
@@ -75,12 +106,12 @@ export async function renderWelcomeCard(
   ctx.fill();
   ctx.restore();
 
-  // Mascot — anchored bottom-right, ~60% of the card height, aspect preserved
+  // Mascot — anchored bottom-right, ~78% of the card height, aspect preserved
   let mascotWidth = 0;
   if (MASCOT_PATH) {
     try {
       const mascot = await loadImage(MASCOT_PATH);
-      const mascotHeight = HEIGHT * 0.6;
+      const mascotHeight = HEIGHT * 0.78;
       mascotWidth = mascotHeight * (mascot.width / mascot.height);
       const mascotX = WIDTH - mascotWidth - 24;
       const mascotY = HEIGHT - mascotHeight - 8;
@@ -154,16 +185,20 @@ export async function renderWelcomeCard(
   ctx.textBaseline = 'middle';
   ctx.fillText(pillText, textX + pillPadX, 83);
 
-  // Title
+  // Title — always a single line, ellipsized if too long
   ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 52px Roboto, Twemoji, sans-serif';
+  ctx.font = 'bold 44px Roboto, Twemoji, sans-serif';
   ctx.textBaseline = 'alphabetic';
-  ctx.fillText(fitText(ctx, opts.title, textMaxWidth), textX, 190);
+  ctx.fillText(fitText(ctx, opts.title, textMaxWidth), textX, 180);
 
-  // Subtitle
+  // Subtitle — wraps onto up to 2 lines instead of truncating
   ctx.fillStyle = 'rgba(255,255,255,0.75)';
-  ctx.font = '28px Roboto, Twemoji, sans-serif';
-  ctx.fillText(fitText(ctx, opts.subtitle, textMaxWidth), textX, 236);
+  ctx.font = '22px Roboto, Twemoji, sans-serif';
+  const subtitleLines = wrapText(ctx, opts.subtitle, textMaxWidth, 2);
+  const subtitleLineHeight = 28;
+  subtitleLines.forEach((line, i) => {
+    ctx.fillText(line, textX, 216 + i * subtitleLineHeight);
+  });
 
   return canvas.toBuffer('image/png');
 }
